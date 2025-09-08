@@ -83,12 +83,20 @@ export const getGmailConnectionStatus = async () => {
   return callFunction('getGmailConnectionStatus', {})
 }
 
-export const connectOffice365Account = async (authCode: string) => {
-  return callFunction('connectOffice365Account', { authCode })
+export const getOffice365AuthUrl = async () => {
+  return callFunction('getOffice365AuthUrl', {})
+}
+
+export const handleOffice365Callback = async (code: string, state: string) => {
+  return callFunction('handleOffice365Callback', { code, state })
 }
 
 export const disconnectOffice365Account = async () => {
-  return callFunction('disconnectOffice365Account', {})
+  return callFunction('disconnectOffice365', {})
+}
+
+export const getOffice365ConnectionStatus = async () => {
+  return callFunction('getOffice365ConnectionStatus', {})
 }
 
 // Utility Functions

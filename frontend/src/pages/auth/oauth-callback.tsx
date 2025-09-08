@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
-import { handleGmailCallback } from '../../services/firebaseFunctions'
+import { handleGmailCallback, handleOffice365Callback } from '../../services/firebaseFunctions'
 import { toast } from 'react-hot-toast'
 
 export default function OAuthCallbackPage() {
@@ -9,18 +9,19 @@ export default function OAuthCallbackPage() {
   const { user, isLoading } = useAuth()
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing')
   const [message, setMessage] = useState('Processing OAuth callback...')
+  const [provider, setProvider] = useState<'gmail' | 'office365' | null>(null)
 
   useEffect(() => {
     const processCallback = async () => {
       if (isLoading || !user) return
 
       try {
-        const { code, state, error } = router.query
+        const { code, state, error, provider: providerParam } = router.query
 
         if (error) {
           setStatus('error')
           setMessage('OAuth authorization was denied or failed')
-          toast.error('Gmail authorization failed')
+          toast.error('Email authorization failed')
           return
         }
 
@@ -31,22 +32,31 @@ export default function OAuthCallbackPage() {
           return
         }
 
-        // Handle the OAuth callback
-        const result = await handleGmailCallback(code as string, state as string)
+        // Determine provider from URL or state
+        const detectedProvider = providerParam as string || 'gmail'
+        setProvider(detectedProvider as 'gmail' | 'office365')
+
+        // Handle the OAuth callback based on provider
+        let result
+        if (detectedProvider === 'office365') {
+          result = await handleOffice365Callback(code as string, state as string)
+        } else {
+          result = await handleGmailCallback(code as string, state as string)
+        }
         
         if (result.success) {
           setStatus('success')
-          setMessage('Gmail account connected successfully!')
-          toast.success('Gmail account connected successfully!')
+          setMessage(`${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account connected successfully!`)
+          toast.success(`${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account connected successfully!`)
           
-          // Redirect to Gmail integration page after 2 seconds
+          // Redirect to appropriate integration page after 2 seconds
           setTimeout(() => {
-            router.push('/email/gmail')
+            router.push(detectedProvider === 'office365' ? '/email/office365' : '/email/gmail')
           }, 2000)
         } else {
           setStatus('error')
-          setMessage('Failed to connect Gmail account')
-          toast.error('Failed to connect Gmail account')
+          setMessage(`Failed to connect ${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account`)
+          toast.error(`Failed to connect ${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account`)
         }
       } catch (err: any) {
         console.error('OAuth callback error:', err)
@@ -110,10 +120,10 @@ export default function OAuthCallbackPage() {
             <p className="mt-2 text-gray-600">{message}</p>
             <div className="mt-6">
               <button
-                onClick={() => router.push('/email/gmail')}
+                onClick={() => router.push(provider === 'office365' ? '/email/office365' : '/email/gmail')}
                 className="w-full bg-brand-primary text-white py-2 px-4 rounded-md hover:bg-brand-primary/90 transition-colors"
               >
-                Return to Gmail Integration
+                Return to {provider === 'office365' ? 'Office365' : 'Gmail'} Integration
               </button>
             </div>
           </>

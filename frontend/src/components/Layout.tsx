@@ -35,6 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: router.pathname === '/dashboard' },
     { name: 'Upload Passport', href: '/upload/passport', icon: PhotoIcon, current: router.pathname === '/upload/passport' },
     { name: 'Gmail Integration', href: '/email/gmail', icon: EnvelopeIcon, current: router.pathname === '/email/gmail' },
+    { name: 'Office365 Integration', href: '/email/office365', icon: EnvelopeIcon, current: router.pathname === '/email/office365' },
     { name: 'Travel History', href: '/travel/history', icon: DocumentTextIcon, current: router.pathname === '/travel/history' },
     { name: 'Reports', href: '/reports/generate', icon: ChartBarIcon, current: router.pathname === '/reports/generate' },
     { name: 'Settings', href: '/settings', icon: CogIcon, current: router.pathname === '/settings' },
