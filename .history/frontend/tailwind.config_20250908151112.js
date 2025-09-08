@@ -107,18 +107,6 @@ module.exports = {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
-      spacing: {
-        '18': '4.5rem',
-        '88': '22rem',
-      },
-      borderRadius: {
-        'xl': '0.75rem',
-        '2xl': '1rem',
-      },
-      boxShadow: {
-        'kaggle': '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
-        'kaggle-lg': '0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06)',
-      },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
