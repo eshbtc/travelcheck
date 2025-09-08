@@ -4,7 +4,8 @@ import { useRouter } from 'next/router'
 import { Layout } from '../../components/Layout'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { parseGmailEmails, getFlightEmails } from '../../services/firebaseFunctions'
+import { parseGmailEmails, getFlightEmails, getGmailAuthUrl, handleGmailCallback, disconnectGmailAccount, getGmailConnectionStatus } from '../../services/firebaseFunctions'
+import { toast } from 'react-hot-toast'
 
 export default function GmailIntegrationPage() {
   const { user, isLoading: authLoading } = useAuth()
@@ -32,9 +33,25 @@ export default function GmailIntegrationPage() {
   }, [user])
 
   const checkConnectionStatus = async () => {
-    // This would check if Gmail is connected
-    // For now, we'll simulate a check
-    setConnectionStatus('disconnected')
+    if (!user) return
+    
+    try {
+      // Check Gmail connection status via Firebase Function
+      const result = await getGmailConnectionStatus()
+      if (result.success) {
+        if (result.connected) {
+          setConnectionStatus('connected')
+          if (result.connectedAt) {
+            setLastSync(result.connectedAt)
+          }
+        } else {
+          setConnectionStatus('disconnected')
+        }
+      }
+    } catch (err) {
+      console.error('Error checking connection status:', err)
+      setConnectionStatus('error')
+    }
   }
 
   const loadFlightEmails = async () => {
@@ -57,18 +74,12 @@ export default function GmailIntegrationPage() {
     setError('')
 
     try {
-      // In a real implementation, this would:
-      // 1. Redirect to Google OAuth
-      // 2. Get authorization code
-      // 3. Exchange for access token
-      // 4. Store token securely
-      
-      // For now, we'll simulate the connection
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      setConnectionStatus('connected')
-      setLastSync(new Date().toISOString())
-      
+      // Get Gmail OAuth URL from Firebase Function
+      const result = await getGmailAuthUrl()
+      if (result.success) {
+        // Redirect to Gmail OAuth
+        window.location.href = result.authUrl
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to connect Gmail account')
       setConnectionStatus('error')
@@ -103,12 +114,17 @@ export default function GmailIntegrationPage() {
     if (!user) return
 
     try {
-      // This would revoke the access token and clear stored credentials
-      setConnectionStatus('disconnected')
-      setFlightEmails([])
-      setLastSync(null)
+      // Disconnect Gmail account via Firebase Function
+      const result = await disconnectGmailAccount()
+      if (result.success) {
+        setConnectionStatus('disconnected')
+        setFlightEmails([])
+        setLastSync(null)
+        toast.success('Gmail account disconnected successfully')
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to disconnect Gmail account')
+      toast.error('Failed to disconnect Gmail account')
     }
   }
 

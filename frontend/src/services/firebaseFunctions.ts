@@ -67,12 +67,20 @@ export const deleteFlightEmail = async (emailId: string) => {
 }
 
 // Email Integration Functions
-export const connectGmailAccount = async (authCode: string) => {
-  return callFunction('connectGmailAccount', { authCode })
+export const getGmailAuthUrl = async () => {
+  return callFunction('getGmailAuthUrl', {})
+}
+
+export const handleGmailCallback = async (code: string, state: string) => {
+  return callFunction('handleGmailCallback', { code, state })
 }
 
 export const disconnectGmailAccount = async () => {
-  return callFunction('disconnectGmailAccount', {})
+  return callFunction('disconnectGmail', {})
+}
+
+export const getGmailConnectionStatus = async () => {
+  return callFunction('getGmailConnectionStatus', {})
 }
 
 export const connectOffice365Account = async (authCode: string) => {
