@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRouter } from 'next/router'
 import Layout from '../../components/Layout'
-import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
-import { getOffice365AuthUrl, handleOffice365Callback, disconnectOffice365Account, getOffice365ConnectionStatus } from '../../services/firebaseFunctions'
+import Card from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import { getOffice365AuthUrl, handleOffice365Callback, disconnectOffice365Account, getOffice365ConnectionStatus, syncOffice365Emails } from '../../services/firebaseFunctions'
 import { toast } from 'react-hot-toast'
 
 export default function Office365IntegrationPage() {
@@ -80,9 +80,7 @@ export default function Office365IntegrationPage() {
     setError('')
 
     try {
-      // This would use the stored access token to sync emails
-      // For now, we'll simulate the sync
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await syncOffice365Emails()
       
       setLastSync(new Date().toISOString())
       toast.success('Emails synced successfully!')

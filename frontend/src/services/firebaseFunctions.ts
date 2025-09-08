@@ -1,4 +1,4 @@
-import { httpsCallable, HttpsError } from 'firebase/functions'
+import { httpsCallable } from 'firebase/functions'
 import { getFunctions } from 'firebase/functions'
 import { handleError, getUserFriendlyMessage } from '../utils/errorHandling'
 
@@ -15,8 +15,8 @@ const callFunction = async (functionName: string, data: any = {}) => {
     console.error(`Error calling function ${functionName}:`, error)
     
     // Handle Firebase Functions errors
-    if (error instanceof HttpsError) {
-      const customError = new Error(getUserFriendlyMessage(error))
+    if (error && typeof error === 'object' && 'code' in error) {
+      const customError = new Error(getUserFriendlyMessage(error as any))
       customError.name = 'FirebaseFunctionError'
       handleError(customError, `Firebase Function: ${functionName}`)
       throw customError
@@ -95,6 +95,10 @@ export const getGmailConnectionStatus = async () => {
   return callFunction('getGmailConnectionStatus', {})
 }
 
+export const syncGmailEmails = async () => {
+  return callFunction('syncGmail', {})
+}
+
 export const getOffice365AuthUrl = async () => {
   return callFunction('getOffice365AuthUrl', {})
 }
@@ -109,6 +113,10 @@ export const disconnectOffice365Account = async () => {
 
 export const getOffice365ConnectionStatus = async () => {
   return callFunction('getOffice365ConnectionStatus', {})
+}
+
+export const syncOffice365Emails = async () => {
+  return callFunction('syncOffice365', {})
 }
 
 // Utility Functions

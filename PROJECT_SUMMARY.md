@@ -7,9 +7,9 @@ We've successfully designed and implemented a comprehensive **Travel History Tra
 ## 🏗️ What We've Built
 
 ### 1. **Complete System Architecture**
-- **Backend**: FastAPI-based REST API with comprehensive authentication, data processing, and reporting capabilities
+- **Backend**: Firebase Functions with comprehensive authentication, data processing, and reporting capabilities
 - **Frontend**: Next.js React application with modern UI/UX design
-- **Database**: PostgreSQL with well-designed schema for users, travel entries, email accounts, and reports
+- **Database**: Firestore with security rules for users, travel entries, email accounts, and reports
 - **Integration**: Gmail API, Office365 API, OCR processing, and flight tracking capabilities
 
 ### 2. **Core Features Implemented**

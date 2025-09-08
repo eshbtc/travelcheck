@@ -10,7 +10,7 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "22"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {
@@ -19,6 +19,7 @@
     "@google-cloud/vision": "^4.0.2",
     "@google-cloud/documentai": "^7.0.0",
     "googleapis": "^144.0.0",
+    "@azure/msal-node": "^2.6.4",
     "sharp": "^0.33.2",
     "pdf-lib": "^1.17.1",
     "jspdf": "^2.5.2",

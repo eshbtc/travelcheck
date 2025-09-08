@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import { useAuth } from '../../contexts/AuthContext'
-import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import Card from '../../components/ui/Card'
 import { Logo } from '../../components/ui/Logo'
 
 export default function LoginPage() {

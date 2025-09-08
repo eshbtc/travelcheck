@@ -19,7 +19,7 @@ USCIS requires applicants to list all international trips lasting 24+ hours over
 1. **Data Collection Layer**
    - Gmail API integration (OAuth2)
    - Microsoft Graph API (Office365)
-   - OCR engine (Tesseract + custom models)
+   - OCR via Google Cloud Vision + Document AI
    - Flight tracking API integration
 
 2. **Processing Engine**
@@ -35,54 +35,55 @@ USCIS requires applicants to list all international trips lasting 24+ hours over
    - Report generation and export
 
 4. **Data Storage**
-   - Encrypted user data storage
+   - Encrypted user data storage (Firestore + Storage)
    - Audit logs for compliance
    - Backup and recovery
 
 ### Technology Stack
 
-- **Backend**: Python (FastAPI)
-- **Frontend**: React/Next.js with Tailwind CSS
-- **Database**: PostgreSQL with encryption
-- **OCR**: Tesseract + custom CNN models
-- **APIs**: Gmail API, Microsoft Graph API
-- **Cloud**: AWS/Azure for deployment
-- **Security**: OAuth2, JWT, end-to-end encryption
+- Backend: Firebase Functions (Node.js callable functions)
+- Frontend: React/Next.js with Tailwind CSS
+- Database: Firestore with security rules; Storage for files
+- OCR: Google Cloud Vision + Document AI
+- APIs: Gmail API, Microsoft Graph API
+- Cloud: Google Cloud Platform (Firebase)
+- Security: Firebase Auth, App Check, OAuth2; tokens encrypted at rest
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.9+
 - Node.js 18+
-- PostgreSQL 14+
+- Firebase CLI
 - Gmail API credentials
 - Microsoft Graph API credentials
+- Document AI processor IDs
 
-### Installation
+### Installation (Firebase-only)
 
 ```bash
 # Clone repository
 git clone <repository-url>
 cd travel-check
 
-# Backend setup
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# Install dependencies
+cd functions && npm install && cd ..
+cd frontend && npm install && cd ..
 
-# Frontend setup
-cd ../frontend
-npm install
+# Configure environment
+cp env.example .env
+cp functions/env.example functions/.env  # optional for local emulators
 
-# Database setup
-createdb travel_history
-python backend/manage.py migrate
+# Run frontend locally
+cd frontend && npm run dev
 
-# Run development servers
-python backend/main.py  # Backend on :8000
-npm run dev            # Frontend on :3000
+# Optionally run Firebase emulators (Auth/Firestore/Storage)
+# firebase emulators:start
+
+# Deploy (requires Firebase project configured)
+# firebase deploy --only functions,hosting,firestore:rules,storage
 ```
+
+Note: The previous FastAPI backend has been removed. Legacy backend steps are no longer required.
 
 ## 📋 Features
 

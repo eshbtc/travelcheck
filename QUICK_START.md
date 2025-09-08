@@ -6,10 +6,11 @@ This guide will help you get the Travel History Tracker up and running locally f
 
 ## Prerequisites
 
-- **Python 3.9+** with pip
-- **Node.js 18+** with npm
-- **PostgreSQL 14+**
-- **Tesseract OCR** (for passport stamp processing)
+- Node.js 18+ with npm
+- Firebase CLI
+- Gmail API credentials
+- Microsoft Graph API credentials
+- Document AI processors (IDs)
 
 ### Install Tesseract OCR
 
@@ -39,33 +40,21 @@ cd travel-check
 cp env.example .env
 ```
 
-### 2. Backend Setup
+### 2. Functions Setup
 
 ```bash
-# Navigate to backend
-cd backend
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On macOS/Linux:
-source venv/bin/activate
-# On Windows:
-venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Navigate to functions and install deps
+cd functions
+npm install
+cd ..
 ```
 
-### 3. Database Setup
+### 3. Environment Configuration
 
 ```bash
-# Create PostgreSQL database
-createdb travel_history
-
-# Update .env with your database credentials
-# DATABASE_URL=postgresql://username:password@localhost:5432/travel_history
+# Copy env examples and fill in values
+cp env.example .env
+cp functions/env.example functions/.env  # optional, for local emulators
 ```
 
 ### 4. Frontend Setup
@@ -104,17 +93,6 @@ npm install
 
 ## 🏃‍♂️ Running the Application
 
-### Start Backend Server
-
-```bash
-cd backend
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-python main.py
-```
-
-Backend will be available at: http://localhost:8000
-API Documentation: http://localhost:8000/docs
-
 ### Start Frontend Server
 
 ```bash
@@ -147,18 +125,20 @@ Frontend will be available at: http://localhost:3000
 - Click "Generate USCIS Report"
 - Download the generated PDF
 
+### Run Firebase Emulators (optional)
+
+```bash
+firebase emulators:start
+```
+
 ## 📁 Project Structure
 
 ```
 travel-check/
-├── backend/                 # FastAPI backend
-│   ├── app/
-│   │   ├── routers/        # API endpoints
-│   │   ├── services/       # Business logic
-│   │   ├── models/         # Data models
-│   │   └── database.py     # Database setup
-│   ├── main.py            # FastAPI app
-│   └── requirements.txt   # Python dependencies
+├── functions/             # Firebase Functions (callable API)
+│   ├── index.js           # Callable functions (OCR, email, reports)
+│   ├── travelHistory.js   # Travel history analysis & reports
+│   └── userManagement.js  # User/profile helpers
 ├── frontend/              # Next.js frontend
 │   ├── src/
 │   │   ├── pages/         # Next.js pages
@@ -171,24 +151,6 @@ travel-check/
 ```
 
 ## 🔧 Development Commands
-
-### Backend Commands
-```bash
-# Run development server
-python main.py
-
-# Run tests
-pytest
-
-# Format code
-black .
-
-# Lint code
-flake8
-
-# Type checking
-mypy .
-```
 
 ### Frontend Commands
 ```bash
@@ -212,30 +174,12 @@ npm run type-check
 
 ### Common Issues
 
-**1. Tesseract not found**
-```bash
-# Check if tesseract is installed
-tesseract --version
-
-# Update TESSERACT_PATH in .env if needed
-TESSERACT_PATH=/usr/local/bin/tesseract
-```
-
-**2. Database connection error**
-```bash
-# Check PostgreSQL is running
-pg_ctl status
-
-# Verify database exists
-psql -l | grep travel_history
-```
-
-**3. Email API errors**
+**1. Email API errors**
 - Verify API credentials in `.env`
 - Check OAuth redirect URIs match exactly
 - Ensure APIs are enabled in cloud consoles
 
-**4. OCR processing fails**
+**2. OCR processing fails**
 - Check image file format (JPEG, PNG, TIFF)
 - Verify file size is under 10MB
 - Ensure image quality is good

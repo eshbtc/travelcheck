@@ -727,8 +727,7 @@ const result = await extractPassport({ imageData })
 **Files to create/update:**
 - `firestore.rules`
 - `storage.rules`
-- `backend/app/middleware/security.py`
-- `backend/app/middleware/cors.py`
+  (Note: FastAPI middleware files removed; CORS is handled by Hosting/Functions configuration.)
 
 **Implementation steps:**
 1. Implement Firestore security rules
@@ -907,27 +906,23 @@ const result = await extractPassport({ imageData })
 - [ ] API optimization
 - [ ] Performance monitoring
 
-#### 4.2.2 Backend Optimization
-**Files to update:**
-- `backend/app/routers/`
-- `backend/app/services/`
-- `backend/app/database.py`
+#### 4.2.2 Functions Optimization
+**Scope:** Firebase Functions (callable) performance tuning
 
 **Implementation steps:**
-1. Optimize database queries
-2. Implement caching
-3. Add API response compression
-4. Optimize file uploads
-5. Implement rate limiting
-6. Add performance monitoring
+1. Reduce cold starts (Node 20, minimal deps)
+2. Batch Firestore writes and reads
+3. Cache Document AI/Gmail metadata where safe
+4. Stream large responses via Storage, not callable payloads
+5. Add rate limiting via App Check and client-side backoff
+6. Add performance logging
 
 **Acceptance criteria:**
-- [ ] Database optimization
-- [ ] Caching implementation
-- [ ] Response compression
-- [ ] Upload optimization
-- [ ] Rate limiting
-- [ ] Performance monitoring
+- [ ] Minimal cold start impact
+- [ ] Efficient Firestore access patterns
+- [ ] No oversized callable responses
+- [ ] App Check enforced (where applicable)
+- [ ] Performance logs available
 
 ---
 
@@ -970,7 +965,7 @@ const result = await extractPassport({ imageData })
 - [ ] Performance optimized
 
 ### Deployment
-- [ ] Backend deployed to Cloud Run
+- [x] Backend deployed to Firebase Functions
 - [ ] Frontend deployed to Firebase Hosting
 - [ ] Database migrations applied
 - [ ] SSL certificates configured

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRouter } from 'next/router'
-import { Layout } from '../../components/Layout'
-import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
+import Layout from '../../components/Layout'
+import Card from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
 import { StatsCard } from '../../components/ui/StatsCard'
 import { FeatureCard } from '../../components/ui/FeatureCard'
 import { Logo } from '../../components/ui/Logo'
@@ -65,7 +65,7 @@ export default function DashboardPage() {
       title: 'Generate Report',
       description: 'Create USCIS-ready travel history report',
       icon: '📊',
-      action: () => router.push('/reports/generate'),
+      action: () => router.push('/reports'),
       color: 'bg-orange-500'
     }
   ]
