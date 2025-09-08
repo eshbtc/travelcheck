@@ -15,6 +15,280 @@ const documentClient = new documentai.DocumentProcessorServiceClient();
 // Note: Express app removed - using callable functions instead
 
 /**
+ * Gmail OAuth Functions
+ */
+exports.getGmailAuthUrl = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      process.env.GMAIL_REDIRECT_URI
+    );
+
+    const scopes = [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.labels"
+    ];
+
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: scopes,
+      state: context.auth.uid // Use user ID as state
+    });
+
+    return {
+      success: true,
+      authUrl
+    };
+  } catch (error) {
+    console.error("Error generating Gmail auth URL:", error);
+    throw new functions.https.HttpsError("internal", "Failed to generate auth URL");
+  }
+});
+
+exports.handleGmailCallback = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const {code, state} = data;
+    const userId = context.auth.uid;
+
+    if (!code || state !== userId) {
+      throw new functions.https.HttpsError("invalid-argument", "Invalid authorization code or state");
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      process.env.GMAIL_REDIRECT_URI
+    );
+
+    // Exchange code for tokens
+    const {tokens} = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    // Store tokens securely in Firestore
+    await admin.firestore().collection("email_accounts").doc(userId).set({
+      userId,
+      provider: "gmail",
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      tokenExpiry: tokens.expiry_date,
+      connectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      isActive: true
+    });
+
+    return {
+      success: true,
+      message: "Gmail account connected successfully"
+    };
+  } catch (error) {
+    console.error("Error handling Gmail callback:", error);
+    throw new functions.https.HttpsError("internal", "Failed to connect Gmail account");
+  }
+});
+
+exports.disconnectGmail = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const userId = context.auth.uid;
+
+    // Remove Gmail account from Firestore
+    await admin.firestore().collection("email_accounts").doc(userId).delete();
+
+    return {
+      success: true,
+      message: "Gmail account disconnected successfully"
+    };
+  } catch (error) {
+    console.error("Error disconnecting Gmail:", error);
+    throw new functions.https.HttpsError("internal", "Failed to disconnect Gmail account");
+  }
+});
+
+exports.getGmailConnectionStatus = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const userId = context.auth.uid;
+
+    // Check if Gmail account is connected
+    const emailAccountDoc = await admin.firestore().collection("email_accounts").doc(userId).get();
+    
+    if (emailAccountDoc.exists) {
+      const accountData = emailAccountDoc.data();
+      return {
+        success: true,
+        connected: true,
+        provider: accountData.provider,
+        connectedAt: accountData.connectedAt,
+        isActive: accountData.isActive
+      };
+    } else {
+      return {
+        success: true,
+        connected: false
+      };
+    }
+  } catch (error) {
+    console.error("Error checking Gmail connection status:", error);
+    throw new functions.https.HttpsError("internal", "Failed to check connection status");
+  }
+});
+
+/**
+ * Office365 OAuth Functions
+ */
+exports.getOffice365AuthUrl = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.OFFICE365_CLIENT_ID,
+      process.env.OFFICE365_CLIENT_SECRET,
+      process.env.OFFICE365_REDIRECT_URI
+    );
+
+    const scopes = [
+      "https://graph.microsoft.com/Mail.Read",
+      "https://graph.microsoft.com/Mail.ReadBasic"
+    ];
+
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: scopes,
+      state: context.auth.uid // Use user ID as state
+    });
+
+    return {
+      success: true,
+      authUrl
+    };
+  } catch (error) {
+    console.error("Error generating Office365 auth URL:", error);
+    throw new functions.https.HttpsError("internal", "Failed to generate auth URL");
+  }
+});
+
+exports.handleOffice365Callback = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const {code, state} = data;
+    const userId = context.auth.uid;
+
+    if (!code || state !== userId) {
+      throw new functions.https.HttpsError("invalid-argument", "Invalid authorization code or state");
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.OFFICE365_CLIENT_ID,
+      process.env.OFFICE365_CLIENT_SECRET,
+      process.env.OFFICE365_REDIRECT_URI
+    );
+
+    // Exchange code for tokens
+    const {tokens} = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    // Store tokens securely in Firestore
+    await admin.firestore().collection("email_accounts").doc(`${userId}_office365`).set({
+      userId,
+      provider: "office365",
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      tokenExpiry: tokens.expiry_date,
+      connectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      isActive: true
+    });
+
+    return {
+      success: true,
+      message: "Office365 account connected successfully"
+    };
+  } catch (error) {
+    console.error("Error handling Office365 callback:", error);
+    throw new functions.https.HttpsError("internal", "Failed to connect Office365 account");
+  }
+});
+
+exports.disconnectOffice365 = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const userId = context.auth.uid;
+
+    // Remove Office365 account from Firestore
+    await admin.firestore().collection("email_accounts").doc(`${userId}_office365`).delete();
+
+    return {
+      success: true,
+      message: "Office365 account disconnected successfully"
+    };
+  } catch (error) {
+    console.error("Error disconnecting Office365:", error);
+    throw new functions.https.HttpsError("internal", "Failed to disconnect Office365 account");
+  }
+});
+
+exports.getOffice365ConnectionStatus = functions.https.onCall(async (data, context) => {
+  try {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const userId = context.auth.uid;
+
+    // Check if Office365 account is connected
+    const emailAccountDoc = await admin.firestore().collection("email_accounts").doc(`${userId}_office365`).get();
+    
+    if (emailAccountDoc.exists) {
+      const accountData = emailAccountDoc.data();
+      return {
+        success: true,
+        connected: true,
+        provider: accountData.provider,
+        connectedAt: accountData.connectedAt,
+        isActive: accountData.isActive
+      };
+    } else {
+      return {
+        success: true,
+        connected: false
+      };
+    }
+  } catch (error) {
+    console.error("Error checking Office365 connection status:", error);
+    throw new functions.https.HttpsError("internal", "Failed to check connection status");
+  }
+});
+
+/**
  * OCR Function - Extract text from passport images
  */
 exports.extractPassportData = functions.https.onCall(async (data, context) => {
