@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Travelcheck Logo — Monochrome Refined</title>
+  <desc id="desc">Solid stamp ring with passport card, balanced globe, and white knockout check.</desc>
+  <style>
+    :root{ --tc-one:#0f172a; }
+    .ink{ fill:var(--tc-one); }
+    .inv{ fill:#ffffff; }
+    .globe{ stroke:#ffffff; stroke-width:12; stroke-linecap:round; stroke-linejoin:round; fill:none; }
+  </style>
+  <circle class="ink" cx="128" cy="128" r="110"/>
+  <rect class="inv" x="64" y="72" width="128" height="96" rx="20" ry="20"/>
+  <circle class="globe" cx="128" cy="120" r="36"/>
+  <line class="globe" x1="92" y1="120" x2="164" y2="120"/>
+  <path class="inv" d="M112 136l-12-14a8 8 0 0 1 12-10l8 10 20-20a8 8 0 0 1 12 12l-26 26a8 8 0 0 1-12-4z"/>
+</svg>

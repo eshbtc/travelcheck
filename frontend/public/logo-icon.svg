@@ -1,34 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
-  <title id="title">Travelcheck Logo</title>
-  <desc id="desc">Clean passport stamp with verification checkmark for travel history validation.</desc>
+  <title id="title">Travelcheck Logo Refined</title>
+  <desc id="desc">Centered stamp circle with passport card, balanced globe lines, and check mark aligned properly.</desc>
   <style>
     :root{
-      --tc-primary:#20BEFF;  /* TravelCheck brand blue */
-      --tc-accent:#00C853;   /* verification green */
-      --tc-ink:#202124;      /* text primary */
-      --tc-bg:#ffffff;
+      --tc-blue:#0ea5e9;   /* primary circle */
+      --tc-ink:#0f172a;    /* globe strokes */
+      --tc-green:#22c55e;  /* check mark */
+      --tc-bg:#ffffff;     /* card background */
     }
-    .shadow{ fill:rgba(32,33,36,0.08); }
-    .ring{ fill:var(--tc-primary); }
-    .passport{ fill:#ffffff; }
-    .lines{ stroke:var(--tc-ink); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; fill:none; }
-    .check{ fill:var(--tc-accent); }
+    .ring{ fill:var(--tc-blue); }
+    .card{ fill:var(--tc-bg); }
+    .globe{ stroke:var(--tc-ink); stroke-width:12; stroke-linecap:round; stroke-linejoin:round; fill:none; }
+    .check{ fill:var(--tc-green); }
   </style>
 
-  <!-- soft drop shadow -->
-  <ellipse class="shadow" cx="128" cy="200" rx="70" ry="16"/>
+  <!-- background circle -->
+  <circle class="ring" cx="128" cy="128" r="110"/>
 
-  <!-- circular "stamp" border -->
-  <circle class="ring" cx="128" cy="128" r="80" />
+  <!-- passport card -->
+  <rect class="card" x="64" y="72" width="128" height="96" rx="20" ry="20"/>
 
-  <!-- passport card (rounded rectangle) -->
-  <rect class="passport" x="88" y="88" rx="12" ry="12" width="80" height="60"/>
+  <!-- globe circle -->
+  <circle class="globe" cx="128" cy="120" r="36"/>
+  <!-- equator line -->
+  <line class="globe" x1="92" y1="120" x2="164" y2="120"/>
 
-  <!-- passport lines -->
-  <path class="lines" d="M98 118h60"/>
-  <path class="lines" d="M98 128h60"/>
-  <path class="lines" d="M98 138h40"/>
-
-  <!-- verification checkmark -->
-  <path class="check" d="M118 128l8 8 16-16" stroke="var(--tc-accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- check mark, aligned across lower-left quadrant -->
+  <path class="check" d="M112 136l-12-14a8 8 0 0 1 12-10l8 10 20-20a8 8 0 0 1 12 12l-26 26a8 8 0 0 1-12-4z"/>
 </svg>

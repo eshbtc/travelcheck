@@ -10,10 +10,10 @@ module.exports = {
       colors: {
         // TravelCheck brand colors (matching logo)
         brand: {
-          primary: '#20BEFF',    // Logo blue (Kaggle blue)
-          accent: '#00C853',     // Logo green (verification check)
-          ink: '#202124',        // Logo dark (text/lines)
-          bg: '#FFFFFF',         // Logo white (passport card)
+          primary: '#0ea5e9',    // Logo blue (clean, professional)
+          accent: '#22c55e',     // Logo green (verification check)
+          ink: '#0f172a',        // Logo dark (text/lines)
+          bg: '#ffffff',         // Logo white (passport card)
         },
         // Legacy Kaggle-style colors for compatibility
         kaggle: {

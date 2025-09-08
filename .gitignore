@@ -6,7 +6,8 @@
 
 # Service account keys
 service-account-key.json
-*.json
+*-key.json
+*-keys.json
 
 # Python
 __pycache__/
@@ -60,17 +61,9 @@ firebase-debug.*.log
 
 # IDE
 .vscode/
-.idea/
-*.swp
-*.swo
-*~
+.history/
 
 # OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
 ehthumbs.db
 Thumbs.db
 
@@ -112,8 +105,8 @@ jspm_packages/
 .cache
 .parcel-cache
 
-# next.js build output
-.next
+# TypeScript
+*.tsbuildinfo
 
 # nuxt.js build output
 .nuxt
@@ -139,3 +132,64 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+
+# Testing
+.jest/
+test-results/
+playwright-report/
+test-results.xml
+
+# Docker
+.dockerignore
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Lock files (keep package-lock.json but ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# Editor directories
+.sublime-project
+.sublime-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# MacOS
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent

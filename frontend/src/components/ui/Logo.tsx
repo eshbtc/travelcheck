@@ -81,24 +81,21 @@ const Logo: React.FC<LogoProps> = ({
           role="img" 
           aria-labelledby="title3 desc3"
         >
-          <title id="title3">Travelcheck Monochrome</title>
-          <desc id="desc3">Single-color variant of the Travelcheck logo for simplified printing.</desc>
+          <title id="title3">Travelcheck Logo — Monochrome Refined</title>
+          <desc id="desc3">Solid stamp ring with passport card, balanced globe, and white knockout check.</desc>
           <style>
             {`
-              :root{ --tc-one:#202124; }
-              .fill{ fill:var(--tc-one); }
-              .lines{ stroke:#ffffff; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; fill:none; opacity:.9;}
+              :root{ --tc-one:#0f172a; }
+              .ink{ fill:var(--tc-one); }
               .inv{ fill:#ffffff; }
+              .globe{ stroke:#ffffff; stroke-width:12; stroke-linecap:round; stroke-linejoin:round; fill:none; }
             `}
           </style>
-          <circle className="fill" cx="128" cy="124" r="92"/>
-          <rect className="inv" x="76" y="76" rx="14" ry="14" width="104" height="84"/>
-          <path className="lines" d="M92 118h72"/>
-          <path className="lines" d="M128 92c17 0 30 12 30 30s-13 30-30 30"/>
-          <path className="lines" d="M128 92c-17 0-30 12-30 30s13 30 30 30"/>
-          <path className="lines" d="M66 144c20 18 47 28 76 28 21 0 41-5 58-14"/>
-          <path className="inv" d="M194 158l17 4c3 1 3 5-1 6l-17 3-10 9c-2 2-6 1-6-2l3-10-7-7c-2-2 0-5 3-4l11 4 7-5c1-1 3-1 4 2z"/>
-          <path className="inv" d="M108 154a8 8 0 0 1-6-3l-14-18a6 6 0 1 1 10-7l10 12 28-28a6 6 0 1 1 8 8l-34 34a8 8 0 0 1-6 2z"/>
+          <circle className="ink" cx="128" cy="128" r="110"/>
+          <rect className="inv" x="64" y="72" width="128" height="96" rx="20" ry="20"/>
+          <circle className="globe" cx="128" cy="120" r="36"/>
+          <line className="globe" x1="92" y1="120" x2="164" y2="120"/>
+          <path className="inv" d="M112 136l-12-14a8 8 0 0 1 12-10l8 10 20-20a8 8 0 0 1 12 12l-26 26a8 8 0 0 1-12-4z"/>
         </svg>
       </div>
     );
@@ -114,30 +111,27 @@ const Logo: React.FC<LogoProps> = ({
         role="img" 
         aria-labelledby="title desc"
       >
-        <title id="title">Travelcheck Logo</title>
-        <desc id="desc">Clean passport stamp with verification checkmark for travel history validation.</desc>
+        <title id="title">Travelcheck Logo Refined</title>
+        <desc id="desc">Centered stamp circle with passport card, balanced globe lines, and check mark aligned properly.</desc>
         <style>
           {`
             :root{
-              --tc-primary:#20BEFF;
-              --tc-accent:#00C853;
-              --tc-ink:#202124;
+              --tc-blue:#0ea5e9;
+              --tc-ink:#0f172a;
+              --tc-green:#22c55e;
               --tc-bg:#ffffff;
             }
-            .shadow{ fill:rgba(32,33,36,0.08); }
-            .ring{ fill:var(--tc-primary); }
-            .passport{ fill:#ffffff; }
-            .lines{ stroke:var(--tc-ink); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; fill:none; }
-            .check{ fill:var(--tc-accent); }
+            .ring{ fill:var(--tc-blue); }
+            .card{ fill:var(--tc-bg); }
+            .globe{ stroke:var(--tc-ink); stroke-width:12; stroke-linecap:round; stroke-linejoin:round; fill:none; }
+            .check{ fill:var(--tc-green); }
           `}
         </style>
-        <ellipse className="shadow" cx="128" cy="200" rx="70" ry="16"/>
-        <circle className="ring" cx="128" cy="128" r="80" />
-        <rect className="passport" x="88" y="88" rx="12" ry="12" width="80" height="60"/>
-        <path className="lines" d="M98 118h60"/>
-        <path className="lines" d="M98 128h60"/>
-        <path className="lines" d="M98 138h40"/>
-        <path className="check" d="M118 128l8 8 16-16" stroke="var(--tc-accent)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <circle className="ring" cx="128" cy="128" r="110"/>
+        <rect className="card" x="64" y="72" width="128" height="96" rx="20" ry="20"/>
+        <circle className="globe" cx="128" cy="120" r="36"/>
+        <line className="globe" x1="92" y1="120" x2="164" y2="120"/>
+        <path className="check" d="M112 136l-12-14a8 8 0 0 1 12-10l8 10 20-20a8 8 0 0 1 12 12l-26 26a8 8 0 0 1-12-4z"/>
       </svg>
     </div>
   );
