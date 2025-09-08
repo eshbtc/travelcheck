@@ -38,10 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-bg-sidebar">
           <div className="flex h-16 items-center justify-between px-4">
-            <div className="flex items-center space-x-3">
-              <Logo variant="icon" size="sm" />
-              <span className="text-xl font-bold text-text-primary">TravelCheck</span>
-            </div>
+            <Logo variant="lockup" size="md" />
             <button
               onClick={() => setSidebarOpen(false)}
               className="text-text-secondary hover:text-text-primary"
