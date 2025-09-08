@@ -44,7 +44,7 @@ export default function TravelHistoryPage() {
     try {
       const result = await getTravelHistory()
       if (result.success) {
-        setTravelHistory(result.data)
+        setTravelHistory(result.travelHistory)
       }
     } catch (err) {
       console.error('Error loading travel history:', err)
@@ -80,8 +80,35 @@ export default function TravelHistoryPage() {
       const result = await generateUSCISReport(format)
       if (result.success) {
         if (format === 'pdf') {
-          // Handle PDF download
-          const blob = new Blob([result.report], { type: 'application/pdf' })
+          // Convert data URI or base64 string to Blob if needed
+          const toBlob = (input: any): Blob => {
+            if (typeof input === 'string' && input.startsWith('data:')) {
+              // data:application/pdf;base64,....
+              const arr = input.split(',')
+              const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/pdf'
+              const bstr = atob(arr[1])
+              let n = bstr.length
+              const u8arr = new Uint8Array(n)
+              while (n--) {
+                u8arr[n] = bstr.charCodeAt(n)
+              }
+              return new Blob([u8arr], { type: mime })
+            }
+            if (typeof input === 'string') {
+              // Assume base64 payload
+              const bstr = atob(input)
+              let n = bstr.length
+              const u8arr = new Uint8Array(n)
+              while (n--) {
+                u8arr[n] = bstr.charCodeAt(n)
+              }
+              return new Blob([u8arr], { type: 'application/pdf' })
+            }
+            // Fallback if already binary-like
+            return new Blob([input], { type: 'application/pdf' })
+          }
+
+          const blob = toBlob(result.report)
           const url = window.URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url

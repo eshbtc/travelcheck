@@ -13,6 +13,8 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
+import { analytics } from '../services/analytics'
+import { crashlytics } from '../services/crashlytics'
 
 interface User {
   id: string
@@ -52,11 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const idToken = await firebaseUser.getIdToken()
         setToken(idToken)
         
+        // Set user in analytics and crashlytics
+        analytics.setUser(firebaseUser)
+        crashlytics.setUser(firebaseUser)
+        
         // Fetch or create user profile
         await fetchOrCreateUser(firebaseUser)
       } else {
         setUser(null)
         setToken(null)
+        
+        // Clear user from analytics and crashlytics
+        crashlytics.clearUser()
       }
       
       setIsLoading(false)
@@ -107,8 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password)
+      
+      // Track successful login
+      analytics.logLogin('email')
+      crashlytics.logAuthEvent('login', true, 'email')
+      
       // Auth state change will be handled by onAuthStateChanged
     } catch (error: any) {
+      // Track failed login
+      analytics.logEvent('login_failed', { method: 'email', error: error.message })
+      crashlytics.logAuthEvent('login', false, 'email')
+      crashlytics.recordError(error, 'AuthContext.login')
+      
       throw new Error(error.message || 'Login failed')
     }
   }
@@ -125,8 +144,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Send email verification
       await sendEmailVerification(userCredential.user)
       
+      // Track successful registration
+      analytics.logSignup('email')
+      crashlytics.logAuthEvent('signup', true, 'email')
+      
       // Auth state change will be handled by onAuthStateChanged
     } catch (error: any) {
+      // Track failed registration
+      analytics.logEvent('signup_failed', { method: 'email', error: error.message })
+      crashlytics.logAuthEvent('signup', false, 'email')
+      crashlytics.recordError(error, 'AuthContext.register')
+      
       throw new Error(error.message || 'Registration failed')
     }
   }
@@ -135,8 +163,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const provider = new GoogleAuthProvider()
       await signInWithPopup(auth, provider)
+      
+      // Track successful Google login
+      analytics.logLogin('google')
+      crashlytics.logAuthEvent('login', true, 'google')
+      
       // Auth state change will be handled by onAuthStateChanged
     } catch (error: any) {
+      // Track failed Google login
+      analytics.logEvent('login_failed', { method: 'google', error: error.message })
+      crashlytics.logAuthEvent('login', false, 'google')
+      crashlytics.recordError(error, 'AuthContext.loginWithGoogle')
+      
       throw new Error(error.message || 'Google login failed')
     }
   }
@@ -144,8 +182,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await signOut(auth)
+      
+      // Track logout
+      analytics.logLogout()
+      crashlytics.logAuthEvent('logout', true)
+      
       router.push('/')
     } catch (error: any) {
+      // Track logout error
+      crashlytics.logAuthEvent('logout', false)
+      crashlytics.recordError(error, 'AuthContext.logout')
+      
       console.error('Logout error:', error)
     }
   }

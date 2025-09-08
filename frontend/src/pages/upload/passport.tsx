@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRouter } from 'next/router'
-import { Layout } from '../../components/Layout'
+import Layout from '../../components/Layout'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { extractPassportData } from '../../services/firebaseFunctions'

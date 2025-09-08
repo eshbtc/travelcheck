@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
+import { recordErrorInCrashlytics } from '../../services/crashlytics'
 
 interface Props {
   children: ReactNode
@@ -48,8 +49,8 @@ export class ErrorBoundary extends Component<Props, State> {
       this.props.onError(error, errorInfo)
     }
 
-    // TODO: Send error to crash reporting service (Firebase Crashlytics)
-    // crashlytics().recordError(error)
+    // Send error to crash reporting service (Firebase Crashlytics)
+    recordErrorInCrashlytics(error, errorInfo, 'ErrorBoundary')
   }
 
   handleRetry = () => {
