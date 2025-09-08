@@ -8,11 +8,11 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  updateProfile
+  updateProfile,
+  sendEmailVerification
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
-import { api } from '../services/api'
 
 interface User {
   id: string
@@ -29,7 +29,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, fullName: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   token: string | null
 }
 
@@ -51,14 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Get Firebase ID token
         const idToken = await firebaseUser.getIdToken()
         setToken(idToken)
-        api.defaults.headers.common['Authorization'] = `Bearer ${idToken}`
         
         // Fetch or create user profile
         await fetchOrCreateUser(firebaseUser)
       } else {
         setUser(null)
         setToken(null)
-        delete api.defaults.headers.common['Authorization']
       }
       
       setIsLoading(false)
@@ -67,64 +65,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe()
   }, [])
 
-  const fetchUser = async () => {
+  const fetchOrCreateUser = async (firebaseUser: FirebaseUser) => {
     try {
-      const response = await api.get('/auth/me')
-      setUser(response.data)
+      const userRef = doc(db, 'users', firebaseUser.uid)
+      const userSnap = await getDoc(userRef)
+      
+      if (userSnap.exists()) {
+        // User exists, fetch their data
+        const userData = userSnap.data()
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          full_name: userData.full_name || firebaseUser.displayName || '',
+          is_active: userData.is_active || true,
+          created_at: userData.created_at || new Date().toISOString()
+        })
+      } else {
+        // User doesn't exist, create new user document
+        const newUser = {
+          email: firebaseUser.email || '',
+          full_name: firebaseUser.displayName || '',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          email_verified: firebaseUser.emailVerified
+        }
+        
+        await setDoc(userRef, newUser)
+        setUser({
+          id: firebaseUser.uid,
+          email: newUser.email,
+          full_name: newUser.full_name,
+          is_active: newUser.is_active,
+          created_at: newUser.created_at
+        })
+      }
     } catch (error) {
-      // Token is invalid, clear it
-      localStorage.removeItem('auth_token')
-      setToken(null)
-      delete api.defaults.headers.common['Authorization']
-    } finally {
-      setIsLoading(false)
+      console.error('Error fetching/creating user:', error)
     }
   }
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { email, password })
-      const { access_token, user: userData } = response.data
-      
-      setToken(access_token)
-      setUser(userData)
-      localStorage.setItem('auth_token', access_token)
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
-      
-      router.push('/dashboard')
+      await signInWithEmailAndPassword(auth, email, password)
+      // Auth state change will be handled by onAuthStateChanged
     } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Login failed')
+      throw new Error(error.message || 'Login failed')
     }
   }
 
   const register = async (email: string, password: string, fullName: string) => {
     try {
-      const response = await api.post('/auth/register', { 
-        email, 
-        password, 
-        full_name: fullName 
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Update the user's display name
+      await updateProfile(userCredential.user, {
+        displayName: fullName
       })
       
-      // Auto-login after registration
-      await login(email, password)
+      // Send email verification
+      await sendEmailVerification(userCredential.user)
+      
+      // Auth state change will be handled by onAuthStateChanged
     } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Registration failed')
+      throw new Error(error.message || 'Registration failed')
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    setToken(null)
-    localStorage.removeItem('auth_token')
-    delete api.defaults.headers.common['Authorization']
-    router.push('/')
+  const loginWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider()
+      await signInWithPopup(auth, provider)
+      // Auth state change will be handled by onAuthStateChanged
+    } catch (error: any) {
+      throw new Error(error.message || 'Google login failed')
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await signOut(auth)
+      router.push('/')
+    } catch (error: any) {
+      console.error('Logout error:', error)
+    }
   }
 
   const value = {
     user,
+    firebaseUser,
     isLoading,
     login,
     register,
+    loginWithGoogle,
     logout,
     token,
   }

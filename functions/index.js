@@ -210,10 +210,24 @@ async function extractFlightInfo(emailContent) {
 // Import travel history functions
 const travelHistory = require("./travelHistory");
 
+// Import user management functions
+const userManagement = require("./userManagement");
+
 // Export travel history functions
 exports.analyzeTravelHistory = travelHistory.analyzeTravelHistory;
 exports.generateUSCISReport = travelHistory.generateUSCISReport;
 exports.dailyEmailSync = travelHistory.dailyEmailSync;
+
+// Export user management functions
+exports.getUserProfile = userManagement.getUserProfile;
+exports.updateUserProfile = userManagement.updateUserProfile;
+exports.getTravelHistory = userManagement.getTravelHistory;
+exports.getPassportScans = userManagement.getPassportScans;
+exports.getFlightEmails = userManagement.getFlightEmails;
+exports.deletePassportScan = userManagement.deletePassportScan;
+exports.deleteFlightEmail = userManagement.deleteFlightEmail;
+exports.healthCheck = userManagement.healthCheck;
+exports.getSystemStatus = userManagement.getSystemStatus;
 
 // Export the Express app for HTTP functions
 exports.api = onRequest({

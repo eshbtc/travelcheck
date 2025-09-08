@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import Logo from './ui/Logo';
+import React, { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
+import { useAuth } from '../contexts/AuthContext'
+import { Logo } from './ui/Logo'
+import { Button } from './ui/Button'
 import {
   HomeIcon,
   PlusIcon,
-  TrophyIcon,
   DocumentTextIcon,
   ChartBarIcon,
   CogIcon,
@@ -14,34 +15,50 @@ import {
   MagnifyingGlassIcon,
   Bars3Icon,
   XMarkIcon,
-} from '@heroicons/react/24/outline';
+  ArrowRightOnRectangleIcon,
+  PhotoIcon,
+  EnvelopeIcon,
+  GlobeAltIcon,
+} from '@heroicons/react/24/outline'
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const router = useRouter()
+  const { user, logout } = useAuth()
 
   const navigation = [
-    { name: 'Home', href: '/', icon: HomeIcon, current: router.pathname === '/' },
-    { name: 'Travel History', href: '/history', icon: DocumentTextIcon, current: router.pathname === '/history' },
-    { name: 'Reports', href: '/reports', icon: ChartBarIcon, current: router.pathname === '/reports' },
+    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: router.pathname === '/dashboard' },
+    { name: 'Upload Passport', href: '/upload/passport', icon: PhotoIcon, current: router.pathname === '/upload/passport' },
+    { name: 'Gmail Integration', href: '/email/gmail', icon: EnvelopeIcon, current: router.pathname === '/email/gmail' },
+    { name: 'Travel History', href: '/travel/history', icon: DocumentTextIcon, current: router.pathname === '/travel/history' },
+    { name: 'Reports', href: '/reports/generate', icon: ChartBarIcon, current: router.pathname === '/reports/generate' },
     { name: 'Settings', href: '/settings', icon: CogIcon, current: router.pathname === '/settings' },
-  ];
+  ]
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-bg-sidebar">
+        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
           <div className="flex h-16 items-center justify-between px-4">
             <Logo variant="lockup" size="md" />
             <button
               onClick={() => setSidebarOpen(false)}
-              className="text-text-secondary hover:text-text-primary"
+              className="text-gray-400 hover:text-gray-600"
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
@@ -53,9 +70,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 href={item.href}
                 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                   item.current
-                    ? 'bg-kaggle-blue text-white'
-                    : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'
+                    ? 'bg-brand-primary text-white'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
+                onClick={() => setSidebarOpen(false)}
               >
                 <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                 {item.name}
@@ -66,34 +84,39 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-16 lg:flex-col">
-        <div className="flex min-h-0 flex-1 flex-col bg-bg-sidebar">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+        <div className="flex min-h-0 flex-1 flex-col bg-white shadow-sm">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-            <div className="flex flex-shrink-0 items-center justify-center">
-              <Logo variant="icon" size="sm" />
+            <div className="flex flex-shrink-0 items-center justify-center px-4">
+              <Logo variant="lockup" size="md" />
             </div>
-            <nav className="mt-5 flex flex-1 flex-col">
+            <nav className="mt-8 flex flex-1 flex-col">
               <div className="space-y-1 px-2">
                 {navigation.map((item) => (
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`group flex flex-col items-center px-2 py-2 text-xs font-medium rounded-md ${
+                    className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                       item.current
-                        ? 'text-kaggle-blue bg-white shadow-sm'
-                        : 'text-text-secondary hover:bg-white hover:text-text-primary'
+                        ? 'bg-brand-primary text-white'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <item.icon className="h-6 w-6 mb-1" />
-                    <span className="text-xs">{item.name}</span>
+                    <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                    {item.name}
                   </Link>
                 ))}
               </div>
               <div className="mt-auto px-2">
-                <button className="group flex flex-col items-center px-2 py-2 text-xs font-medium rounded-md text-white bg-brand-primary hover:bg-brand-primary/90 w-full">
-                  <PlusIcon className="h-6 w-6 mb-1" />
-                  <span className="text-xs">Create</span>
-                </button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => router.push('/upload/passport')}
+                >
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Quick Upload
+                </Button>
               </div>
             </nav>
           </div>
@@ -101,19 +124,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-16">
+      <div className="lg:pl-64">
         {/* Top navigation */}
-        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border-light bg-bg-primary px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
           <button
             type="button"
-            className="-m-2.5 p-2.5 text-text-secondary lg:hidden"
+            className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <Bars3Icon className="h-6 w-6" />
           </button>
 
           {/* Separator */}
-          <div className="h-6 w-px bg-border-light lg:hidden" />
+          <div className="h-6 w-px bg-gray-200 lg:hidden" />
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             {/* Search */}
@@ -122,43 +145,56 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 Search
               </label>
               <MagnifyingGlassIcon
-                className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-text-tertiary pl-3"
+                className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-gray-400 pl-3"
                 aria-hidden="true"
               />
               <input
                 id="search-field"
-                className="block h-full w-full border-0 py-0 pl-10 pr-0 text-text-primary placeholder:text-text-placeholder focus:ring-0 sm:text-sm bg-bg-secondary rounded-lg"
-                placeholder="Search..."
+                className="block h-full w-full border-0 py-0 pl-10 pr-0 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm bg-gray-50 rounded-lg"
+                placeholder="Search travel history..."
                 type="search"
                 name="search"
               />
             </form>
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               {/* Notifications */}
-              <button type="button" className="-m-2.5 p-2.5 text-text-secondary hover:text-text-primary">
+              <button type="button" className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
                 <BellIcon className="h-6 w-6" />
               </button>
 
               {/* Separator */}
-              <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-border-light" />
+              <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200" />
 
               {/* Profile dropdown */}
               <div className="relative">
                 <button
                   type="button"
                   className="-m-1.5 flex items-center p-1.5"
-                  id="user-menu-button"
+                  onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                 >
                   <span className="sr-only">Open user menu</span>
                   <div className="h-8 w-8 rounded-full bg-brand-primary flex items-center justify-center">
                     <UserIcon className="h-5 w-5 text-white" />
                   </div>
                   <span className="hidden lg:flex lg:items-center">
-                    <span className="ml-4 text-sm font-semibold leading-6 text-text-primary" aria-hidden="true">
-                      User
+                    <span className="ml-4 text-sm font-semibold leading-6 text-gray-900" aria-hidden="true">
+                      {user?.full_name || user?.email || 'User'}
                     </span>
                   </span>
                 </button>
+
+                {/* Profile dropdown menu */}
+                {profileMenuOpen && (
+                  <div className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50"
+                    >
+                      <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
+                      Sign out
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -172,7 +208,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </main>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout

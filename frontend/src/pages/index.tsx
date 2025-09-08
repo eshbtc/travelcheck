@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import StatsCard from '../components/ui/StatsCard';
@@ -18,14 +19,30 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Home: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
 
-  if (loading) {
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, isLoading, router]);
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-primary">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-kaggle-blue"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
       </div>
     );
+  }
+
+  // Don't render the landing page if user is authenticated (will redirect)
+  if (user) {
+    return null;
   }
 
   return (
@@ -190,10 +207,19 @@ const Home: React.FC = () => {
                 Sign in to start tracking your travel history for your USCIS citizenship application.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" className="w-full sm:w-auto">
+                <Button 
+                  size="lg" 
+                  className="w-full sm:w-auto"
+                  onClick={() => router.push('/auth/login')}
+                >
                   Sign In
                 </Button>
-                <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="w-full sm:w-auto"
+                  onClick={() => router.push('/auth/register')}
+                >
                   Create Account
                 </Button>
               </div>

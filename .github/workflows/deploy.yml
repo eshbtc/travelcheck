@@ -99,7 +99,6 @@ jobs:
           cd frontend
           npm ci
           npm run build
-          npm run export
           
           firebase deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }}
       
@@ -108,3 +107,6 @@ jobs:
       
       - name: Deploy Storage rules
         run: firebase deploy --only storage --token ${{ secrets.FIREBASE_TOKEN }}
+      
+      - name: Deploy Firebase Functions
+        run: firebase deploy --only functions --token ${{ secrets.FIREBASE_TOKEN }}

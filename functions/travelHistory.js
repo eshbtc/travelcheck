@@ -134,10 +134,8 @@ exports.dailyEmailSync = onSchedule({
     const user = userDoc.data();
     try {
       // Trigger email parsing for each user
-      await parseGmailEmails({
-        accessToken: user.gmailAccessToken,
-        userId: user.uid,
-      });
+      // Note: This would need to be implemented as a separate function
+      console.log(`Would sync emails for user ${user.uid}`);
     } catch (error) {
       console.error(`Error syncing emails for user ${user.uid}:`, error);
     }
