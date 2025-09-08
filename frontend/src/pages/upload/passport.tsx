@@ -96,7 +96,7 @@ export default function PassportUploadPage() {
         })
 
         // Call Firebase Function to process the image
-        const result = await extractPassportData(base64, user.id)
+        const result = await extractPassportData(base64)
         results.push({
           fileName: file.name,
           result: result.data,

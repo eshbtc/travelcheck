@@ -1,24 +1,19 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const {onRequest} = require("firebase-functions/v2/https");
-const {onSchedule} = require("firebase-functions/v2/scheduler");
 const moment = require("moment");
 const _ = require("lodash");
 
 /**
  * Travel History Analysis - Cross-reference passport stamps with flight data
  */
-exports.analyzeTravelHistory = onRequest({
-  timeoutSeconds: 300,
-  memory: "512MiB",
-  cors: true,
-}, async (req, res) => {
+exports.analyzeTravelHistory = functions.https.onCall(async (data, context) => {
   try {
-    const {userId} = req.body;
-
-    if (!userId) {
-      return res.status(400).json({error: "Missing user ID"});
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
     }
+
+    const userId = context.auth.uid;
 
     // Get passport scans
     const passportSnaps = await admin.firestore()
@@ -50,30 +45,28 @@ exports.analyzeTravelHistory = onRequest({
           userId,
         });
 
-    res.json({
+    return {
       success: true,
       travelHistory,
-    });
+    };
   } catch (error) {
     console.error("Error analyzing travel history:", error);
-    res.status(500).json({error: "Failed to analyze travel history"});
+    throw new functions.https.HttpsError("internal", "Failed to analyze travel history");
   }
 });
 
 /**
  * Generate USCIS Report - Create formatted travel history report
  */
-exports.generateUSCISReport = onRequest({
-  timeoutSeconds: 300,
-  memory: "1GiB",
-  cors: true,
-}, async (req, res) => {
+exports.generateUSCISReport = functions.https.onCall(async (data, context) => {
   try {
-    const {userId, format = "pdf"} = req.body;
-
-    if (!userId) {
-      return res.status(400).json({error: "Missing user ID"});
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
     }
+
+    const {format = "pdf"} = data;
+    const userId = context.auth.uid;
 
     // Get travel history
     const travelHistoryDoc = await admin.firestore()
@@ -82,7 +75,7 @@ exports.generateUSCISReport = onRequest({
         .get();
 
     if (!travelHistoryDoc.exists) {
-      return res.status(404).json({error: "Travel history not found"});
+      throw new functions.https.HttpsError("not-found", "Travel history not found");
     }
 
     const travelHistory = travelHistoryDoc.data();
@@ -96,7 +89,7 @@ exports.generateUSCISReport = onRequest({
     }
 
     // Save report to Firestore
-    await admin.firestore()
+    const reportRef = await admin.firestore()
         .collection("reports")
         .add({
           userId,
@@ -105,23 +98,23 @@ exports.generateUSCISReport = onRequest({
           generatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-    res.json({
+    return {
       success: true,
-      report: reportData,
-    });
+      report: {
+        id: reportRef.id,
+        ...reportData,
+      },
+    };
   } catch (error) {
     console.error("Error generating USCIS report:", error);
-    res.status(500).json({error: "Failed to generate report"});
+    throw new functions.https.HttpsError("internal", "Failed to generate report");
   }
 });
 
 /**
  * Scheduled Function - Daily email sync
  */
-exports.dailyEmailSync = onSchedule({
-  schedule: "0 9 * * *", // 9 AM daily
-  timeZone: "America/New_York",
-}, async (event) => {
+exports.dailyEmailSync = functions.pubsub.schedule("0 9 * * *").timeZone("America/New_York").onRun(async (context) => {
   console.log("Running daily email sync...");
 
   // Get all users with Gmail integration
@@ -188,11 +181,11 @@ function extractPassportStamps(text) {
     /(\d{4})-(\d{2})-(\d{2})/g, // YYYY-MM-DD
   ];
 
-  // Country patterns
-  const countryPatterns = [
-    /(?:ENTRY|EXIT|ARRIVAL|DEPARTURE)\s+([A-Z\s]+)/gi,
-    /([A-Z]{2,3})\s+(?:AIRPORT|PORT|BORDER)/gi,
-  ];
+  // Country patterns (for future use)
+  // const countryPatterns = [
+  //   /(?:ENTRY|EXIT|ARRIVAL|DEPARTURE)\s+([A-Z\s]+)/gi,
+  //   /([A-Z]{2,3})\s+(?:AIRPORT|PORT|BORDER)/gi,
+  // ];
 
   // Extract dates
   stampPatterns.forEach((pattern) => {

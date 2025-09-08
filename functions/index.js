@@ -1,21 +1,9 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const {onRequest} = require("firebase-functions/v2/https");
-const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
-const {onSchedule} = require("firebase-functions/v2/scheduler");
 const vision = require("@google-cloud/vision");
 const documentai = require("@google-cloud/documentai");
 const {google} = require("googleapis");
-const axios = require("axios");
 const sharp = require("sharp");
-const {PDFDocument} = require("pdf-lib");
-const jsPDF = require("jspdf");
-const cors = require("cors");
-const express = require("express");
-const multer = require("multer");
-const cron = require("node-cron");
-const moment = require("moment");
-const _ = require("lodash");
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -24,27 +12,23 @@ admin.initializeApp();
 const visionClient = new vision.ImageAnnotatorClient();
 const documentClient = new documentai.DocumentProcessorServiceClient();
 
-// Express app for HTTP functions
-const app = express();
-app.use(cors({origin: true}));
-app.use(express.json());
-
-// Multer for file uploads
-const upload = multer({storage: multer.memoryStorage()});
+// Note: Express app removed - using callable functions instead
 
 /**
  * OCR Function - Extract text from passport images
  */
-exports.extractPassportData = onRequest({
-  timeoutSeconds: 300,
-  memory: "1GiB",
-  cors: true,
-}, async (req, res) => {
+exports.extractPassportData = functions.https.onCall(async (data, context) => {
   try {
-    const {imageData, userId} = req.body;
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
 
-    if (!imageData || !userId) {
-      return res.status(400).json({error: "Missing required fields"});
+    const {imageData} = data;
+    const userId = context.auth.uid;
+
+    if (!imageData) {
+      throw new functions.https.HttpsError("invalid-argument", "Missing image data");
     }
 
     // Convert base64 to buffer
@@ -81,33 +65,38 @@ exports.extractPassportData = onRequest({
     };
 
     // Save to Firestore
-    await admin.firestore()
+    const docRef = await admin.firestore()
         .collection("passport_scans")
         .add(passportData);
 
-    res.json({
+    return {
       success: true,
-      data: passportData,
-    });
+      data: {
+        id: docRef.id,
+        ...passportData,
+      },
+    };
   } catch (error) {
     console.error("Error extracting passport data:", error);
-    res.status(500).json({error: "Failed to extract passport data"});
+    throw new functions.https.HttpsError("internal", "Failed to extract passport data");
   }
 });
 
 /**
  * Gmail Integration - Parse flight confirmation emails
  */
-exports.parseGmailEmails = onRequest({
-  timeoutSeconds: 300,
-  memory: "512MiB",
-  cors: true,
-}, async (req, res) => {
+exports.parseGmailEmails = functions.https.onCall(async (data, context) => {
   try {
-    const {accessToken, userId} = req.body;
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    }
 
-    if (!accessToken || !userId) {
-      return res.status(400).json({error: "Missing access token or user ID"});
+    const {accessToken} = data;
+    const userId = context.auth.uid;
+
+    if (!accessToken) {
+      throw new functions.https.HttpsError("invalid-argument", "Missing access token");
     }
 
     // Initialize Gmail API
@@ -158,22 +147,27 @@ exports.parseGmailEmails = onRequest({
 
     // Save to Firestore
     const batch = admin.firestore().batch();
+    const emailIds = [];
     flightEmails.forEach((flight) => {
       const docRef = admin.firestore()
           .collection("flight_emails")
           .doc();
+      emailIds.push(docRef.id);
       batch.set(docRef, flight);
     });
     await batch.commit();
 
-    res.json({
+    return {
       success: true,
       count: flightEmails.length,
-      emails: flightEmails,
-    });
+      emails: flightEmails.map((email, index) => ({
+        id: emailIds[index],
+        ...email,
+      })),
+    };
   } catch (error) {
     console.error("Error parsing Gmail emails:", error);
-    res.status(500).json({error: "Failed to parse Gmail emails"});
+    throw new functions.https.HttpsError("internal", "Failed to parse Gmail emails");
   }
 });
 
@@ -229,9 +223,4 @@ exports.deleteFlightEmail = userManagement.deleteFlightEmail;
 exports.healthCheck = userManagement.healthCheck;
 exports.getSystemStatus = userManagement.getSystemStatus;
 
-// Export the Express app for HTTP functions
-exports.api = onRequest({
-  timeoutSeconds: 300,
-  memory: "512MiB",
-  cors: true,
-}, app);
+// Note: Express app removed - all functions are now callable

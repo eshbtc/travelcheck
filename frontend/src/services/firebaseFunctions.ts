@@ -1,31 +1,14 @@
 import { httpsCallable } from 'firebase/functions'
 import { getFunctions } from 'firebase/functions'
-import { auth } from '../lib/firebase'
 
 // Initialize Firebase Functions
 const functions = getFunctions()
 
-// Helper function to get auth token
-const getAuthToken = async () => {
-  if (auth.currentUser) {
-    return await auth.currentUser.getIdToken()
-  }
-  throw new Error('User not authenticated')
-}
-
-// Helper function to make authenticated function calls
+// Helper function to make callable function calls
 const callFunction = async (functionName: string, data: any = {}) => {
   try {
-    const token = await getAuthToken()
     const callable = httpsCallable(functions, functionName)
-    
-    // Add auth token to the data
-    const requestData = {
-      ...data,
-      authToken: token
-    }
-    
-    const result = await callable(requestData)
+    const result = await callable(data)
     return result.data
   } catch (error) {
     console.error(`Error calling function ${functionName}:`, error)
@@ -34,77 +17,77 @@ const callFunction = async (functionName: string, data: any = {}) => {
 }
 
 // OCR Functions
-export const extractPassportData = async (imageData: string, userId: string) => {
-  return callFunction('extractPassportData', { imageData, userId })
+export const extractPassportData = async (imageData: string) => {
+  return callFunction('extractPassportData', { imageData })
 }
 
 // Email Functions
-export const parseGmailEmails = async (accessToken: string, userId: string) => {
-  return callFunction('parseGmailEmails', { accessToken, userId })
+export const parseGmailEmails = async (accessToken: string) => {
+  return callFunction('parseGmailEmails', { accessToken })
 }
 
 // Travel History Functions
-export const analyzeTravelHistory = async (userId: string) => {
-  return callFunction('analyzeTravelHistory', { userId })
+export const analyzeTravelHistory = async () => {
+  return callFunction('analyzeTravelHistory', {})
 }
 
 // Report Functions
-export const generateUSCISReport = async (userId: string, format: 'pdf' | 'json' = 'pdf') => {
-  return callFunction('generateUSCISReport', { userId, format })
+export const generateUSCISReport = async (format: 'pdf' | 'json' = 'pdf') => {
+  return callFunction('generateUSCISReport', { format })
 }
 
 // User Management Functions
-export const getUserProfile = async (userId: string) => {
-  return callFunction('getUserProfile', { userId })
+export const getUserProfile = async () => {
+  return callFunction('getUserProfile', {})
 }
 
-export const updateUserProfile = async (userId: string, profileData: any) => {
-  return callFunction('updateUserProfile', { userId, profileData })
+export const updateUserProfile = async (profileData: any) => {
+  return callFunction('updateUserProfile', { profileData })
 }
 
 // Data Management Functions
-export const getTravelHistory = async (userId: string) => {
-  return callFunction('getTravelHistory', { userId })
+export const getTravelHistory = async () => {
+  return callFunction('getTravelHistory', {})
 }
 
-export const getPassportScans = async (userId: string) => {
-  return callFunction('getPassportScans', { userId })
+export const getPassportScans = async () => {
+  return callFunction('getPassportScans', {})
 }
 
-export const getFlightEmails = async (userId: string) => {
-  return callFunction('getFlightEmails', { userId })
+export const getFlightEmails = async () => {
+  return callFunction('getFlightEmails', {})
 }
 
-export const deletePassportScan = async (userId: string, scanId: string) => {
-  return callFunction('deletePassportScan', { userId, scanId })
+export const deletePassportScan = async (scanId: string) => {
+  return callFunction('deletePassportScan', { scanId })
 }
 
-export const deleteFlightEmail = async (userId: string, emailId: string) => {
-  return callFunction('deleteFlightEmail', { userId, emailId })
+export const deleteFlightEmail = async (emailId: string) => {
+  return callFunction('deleteFlightEmail', { emailId })
 }
 
 // Email Integration Functions
-export const connectGmailAccount = async (userId: string, authCode: string) => {
-  return callFunction('connectGmailAccount', { userId, authCode })
+export const connectGmailAccount = async (authCode: string) => {
+  return callFunction('connectGmailAccount', { authCode })
 }
 
-export const disconnectGmailAccount = async (userId: string) => {
-  return callFunction('disconnectGmailAccount', { userId })
+export const disconnectGmailAccount = async () => {
+  return callFunction('disconnectGmailAccount', {})
 }
 
-export const connectOffice365Account = async (userId: string, authCode: string) => {
-  return callFunction('connectOffice365Account', { userId, authCode })
+export const connectOffice365Account = async (authCode: string) => {
+  return callFunction('connectOffice365Account', { authCode })
 }
 
-export const disconnectOffice365Account = async (userId: string) => {
-  return callFunction('disconnectOffice365Account', { userId })
+export const disconnectOffice365Account = async () => {
+  return callFunction('disconnectOffice365Account', {})
 }
 
 // Utility Functions
 export const healthCheck = async () => {
-  return callFunction('healthCheck')
+  return callFunction('healthCheck', {})
 }
 
 export const getSystemStatus = async () => {
-  return callFunction('getSystemStatus')
+  return callFunction('getSystemStatus', {})
 }

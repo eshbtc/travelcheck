@@ -41,7 +41,7 @@ export default function GmailIntegrationPage() {
     if (!user) return
 
     try {
-      const result = await getFlightEmails(user.id)
+      const result = await getFlightEmails()
       if (result.success) {
         setFlightEmails(result.emails || [])
       }

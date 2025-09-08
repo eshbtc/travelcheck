@@ -5,10 +5,12 @@
 This document outlines the step-by-step implementation plan to make TravelCheck production-ready using **Google Cloud and Firebase services** throughout the entire application. Each phase builds upon the previous one, ensuring a solid foundation for a scalable, user-friendly travel history tracking application.
 
 ### 🏗️ **Google Services Architecture**
+
+### **Core Services**
 - **Authentication**: Firebase Auth (Email/Password, Google OAuth, Phone)
 - **Database**: Firestore (NoSQL, real-time updates)
 - **Storage**: Google Cloud Storage (file uploads, images)
-- **Functions**: Firebase Functions (serverless backend logic)
+- **Functions**: Firebase Functions (serverless backend logic) - **Using Callable Functions**
 - **Hosting**: Firebase Hosting (frontend deployment)
 - **Analytics**: Firebase Analytics (user behavior tracking)
 - **Crashlytics**: Firebase Crashlytics (error tracking)
@@ -21,6 +23,34 @@ This document outlines the step-by-step implementation plan to make TravelCheck 
 - **Monitoring**: Google Cloud Monitoring, Firebase App Check
 - **Security**: Firebase App Check, Google Cloud Security Command Center
 - **Notifications**: Firebase Cloud Messaging (in-app, push, email notifications)
+
+### **Callable Functions Architecture** 🚀
+**Why Callable Functions?**
+- **Automatic Authentication**: No manual JWT token handling required
+- **Built-in Security**: Firebase SDK handles authentication context automatically
+- **No CORS Issues**: Firebase SDK manages cross-origin requests
+- **Simplified Client Code**: Just call `httpsCallable()` with data
+- **Better Error Handling**: Firebase SDK provides proper error types
+- **Type Safety**: Better TypeScript integration
+- **Cost Effective**: No additional API infrastructure needed
+
+**Implementation:**
+```javascript
+// Backend (Firebase Functions)
+exports.extractPassportData = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+  const userId = context.auth.uid;
+  // ... processing logic
+  return { success: true, data: result };
+});
+
+// Frontend (React/Next.js)
+import { httpsCallable } from 'firebase/functions'
+const extractPassport = httpsCallable(functions, 'extractPassportData')
+const result = await extractPassport({ imageData })
+```
 
 ## 📊 Current Status
 
@@ -40,11 +70,14 @@ This document outlines the step-by-step implementation plan to make TravelCheck 
 - [x] Core UI components (Card, Button, StatsCard, FeatureCard)
 - [x] Layout component with navigation
 - [x] Security rules alignment
+- [x] **CALLABLE FUNCTIONS REFACTOR** - Converted all Firebase Functions from onRequest to onCall for better security, automatic authentication, and simplified client code
+- [x] Travel history page with analysis and report generation
+- [x] Reports page with PDF/JSON export functionality
+- [x] Settings page with profile management and email integration controls
 
 ### 🔄 In Progress
-- [ ] Travel history management interface
-- [ ] Report generation functionality
-- [ ] Email integration implementation
+- [ ] Email integration implementation (Gmail/Office365 OAuth flow)
+- [ ] Production environment configuration
 
 ### ⏳ Pending
 - [ ] Production environment setup
