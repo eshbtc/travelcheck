@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Users can read and write their own email accounts
+    match /email_accounts/{accountId} {
+      allow read, write: if request.auth != null && 
+        resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.user_id == request.auth.uid;
+    }
+    
+    // Users can read and write their own email messages
+    match /email_messages/{messageId} {
+      allow read, write: if request.auth != null && 
+        resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.user_id == request.auth.uid;
+    }
+    
+    // Users can read and write their own passport images
+    match /passport_images/{imageId} {
+      allow read, write: if request.auth != null && 
+        resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.user_id == request.auth.uid;
+    }
+    
+    // Users can read and write their own travel entries
+    match /travel_entries/{entryId} {
+      allow read, write: if request.auth != null && 
+        resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.user_id == request.auth.uid;
+    }
+    
+    // Users can read and write their own reports
+    match /reports/{reportId} {
+      allow read, write: if request.auth != null && 
+        resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.user_id == request.auth.uid;
+    }
+    
+    // Health check endpoint (public read)
+    match /health_check/{document} {
+      allow read: if true;
+    }
+  }
+}
