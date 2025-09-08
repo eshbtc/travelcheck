@@ -1,30 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
-  <title id="title">Travelcheck Logo Refined</title>
-  <desc id="desc">Centered stamp circle with passport card, balanced globe lines, and check mark aligned properly.</desc>
-  <style>
-    :root{
-      --tc-blue:#0ea5e9;   /* primary circle */
-      --tc-ink:#0f172a;    /* globe strokes */
-      --tc-green:#22c55e;  /* check mark */
-      --tc-bg:#ffffff;     /* card background */
-    }
-    .ring{ fill:var(--tc-blue); }
-    .card{ fill:var(--tc-bg); }
-    .globe{ stroke:var(--tc-ink); stroke-width:12; stroke-linecap:round; stroke-linejoin:round; fill:none; }
-    .check{ fill:var(--tc-green); }
-  </style>
-
-  <!-- background circle -->
-  <circle class="ring" cx="128" cy="128" r="110"/>
-
-  <!-- passport card -->
-  <rect class="card" x="64" y="72" width="128" height="96" rx="20" ry="20"/>
-
-  <!-- globe circle -->
-  <circle class="globe" cx="128" cy="120" r="36"/>
-  <!-- equator line -->
-  <line class="globe" x1="92" y1="120" x2="164" y2="120"/>
-
-  <!-- check mark, aligned across lower-left quadrant -->
-  <path class="check" d="M112 136l-12-14a8 8 0 0 1 12-10l8 10 20-20a8 8 0 0 1 12 12l-26 26a8 8 0 0 1-12-4z"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="t d">
+    <title id="t">Travelcheck — Transparent</title>
+    <desc id="d">Passport card with globe lines and an offset badge check.</desc>
+    <style>
+      :root{
+        --ink:#0f172a;     /* globe ring */
+        --grid:#223044;    /* globe grid */
+        --land:#0ea5e9;    /* land tint */
+        --card:#ffffff;    /* card */
+        --badge:#0b1220;   /* badge bg */
+        --check:#22c55e;   /* check */
+        --shadow:rgba(15,23,42,.08);
+      }
+      .card{ fill:var(--card); }
+      .globe-ring{ stroke:var(--ink); stroke-width:16; fill:none; stroke-linecap:round; }
+      .equator{ stroke:var(--ink); stroke-width:16; stroke-linecap:round; }
+      .grid{ stroke:var(--grid); stroke-width:4; fill:none; opacity:.9; }
+      .land{ fill:var(--land); opacity:.16; }
+      .badge{ fill:var(--badge); }
+      .check{ fill:var(--check); }
+      .shadow{ fill:var(--shadow); }
+    </style>
+  
+    <!-- soft drop shadow -->
+    <ellipse class="shadow" cx="128" cy="194" rx="74" ry="14"/>
+  
+    <!-- PASSPORT CARD -->
+    <rect class="card" x="62" y="68" width="132" height="100" rx="22"/>
+  
+    <!-- GLOBE -->
+    <defs>
+      <clipPath id="globeClip"><circle cx="128" cy="118" r="46"/></clipPath>
+    </defs>
+    <circle class="globe-ring" cx="128" cy="118" r="46"/>
+    <g clip-path="url(#globeClip)">
+      <path class="grid" d="M82 118h92"/>
+      <path class="grid" d="M86 103c14-8 62-8 86 0"/>
+      <path class="grid" d="M86 133c14 8 62 8 86 0"/>
+      <path class="grid" d="M128 72c-20 0-36 21-36 46s16 46 36 46"/>
+      <path class="grid" d="M128 72c20 0 36 21 36 46s-16 46-36 46"/>
+      <path class="land" d="M102 96c10-6 26-7 38-3 6 2 10 5 12 8 2 3 0 6-4 7-13 3-29 3-43-1-6-2-7-7-3-11z"/>
+      <path class="land" d="M92 127c3-4 10-7 18-8 16-2 36 3 44 10 4 4 3 8-3 9-23 4-44 2-57-5-4-2-5-5-2-6z"/>
+    </g>
+    <line class="equator" x1="82" y1="118" x2="174" y2="118"/>
+  
+    <!-- CORNER BADGE CHECK (non-obtrusive) -->
+    <g transform="translate(154,150)">
+      <circle class="badge" r="20"/>
+      <path class="check" d="M-6 4l-7-8a6 6 0 0 1 9-8l4 5 12-12a6 6 0 1 1 9 9l-17 17a6 6 0 0 1-10-3z"/>
+    </g>
+  </svg>

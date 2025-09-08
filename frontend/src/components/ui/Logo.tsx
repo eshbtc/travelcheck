@@ -81,21 +81,39 @@ const Logo: React.FC<LogoProps> = ({
           role="img" 
           aria-labelledby="title3 desc3"
         >
-          <title id="title3">Travelcheck Logo — Monochrome Refined</title>
-          <desc id="desc3">Solid stamp ring with passport card, balanced globe, and white knockout check.</desc>
+          <title id="title3">Travelcheck — Monochrome</title>
+          <desc id="desc3">Simplified one-color Travelcheck logo with card, globe, and verification badge.</desc>
           <style>
             {`
-              :root{ --tc-one:#0f172a; }
-              .ink{ fill:var(--tc-one); }
-              .inv{ fill:#ffffff; }
-              .globe{ stroke:#ffffff; stroke-width:12; stroke-linecap:round; stroke-linejoin:round; fill:none; }
+              :root{
+                --ink:#0f172a;
+                --bg:#ffffff;
+              }
+              .card{ fill:var(--bg); }
+              .globe-ring{ stroke:var(--ink); stroke-width:16; fill:none; stroke-linecap:round; }
+              .equator{ stroke:var(--ink); stroke-width:16; stroke-linecap:round; }
+              .grid{ stroke:var(--ink); stroke-width:4; fill:none; opacity:.5; }
+              .badge{ fill:var(--ink); }
+              .check{ fill:var(--bg); }
             `}
           </style>
-          <circle className="ink" cx="128" cy="128" r="110"/>
-          <rect className="inv" x="64" y="72" width="128" height="96" rx="20" ry="20"/>
-          <circle className="globe" cx="128" cy="120" r="36"/>
-          <line className="globe" x1="92" y1="120" x2="164" y2="120"/>
-          <path className="inv" d="M112 136l-12-14a8 8 0 0 1 12-10l8 10 20-20a8 8 0 0 1 12 12l-26 26a8 8 0 0 1-12-4z"/>
+          <rect className="card" x="62" y="68" width="132" height="100" rx="22"/>
+          <defs>
+            <clipPath id="gClip"><circle cx="128" cy="118" r="46"/></clipPath>
+          </defs>
+          <circle className="globe-ring" cx="128" cy="118" r="46"/>
+          <g clipPath="url(#gClip)">
+            <path className="grid" d="M82 118h92"/>
+            <path className="grid" d="M86 103c14-8 62-8 86 0"/>
+            <path className="grid" d="M86 133c14 8 62 8 86 0"/>
+            <path className="grid" d="M128 72c-20 0-36 21-36 46s16 46 36 46"/>
+            <path className="grid" d="M128 72c20 0 36 21 36 46s-16 46-36 46"/>
+          </g>
+          <line className="equator" x1="82" y1="118" x2="174" y2="118"/>
+          <g transform="translate(154,150)">
+            <circle className="badge" r="20"/>
+            <path className="check" d="M-6 4l-7-8a6 6 0 0 1 9-8l4 5 12-12a6 6 0 1 1 9 9l-17 17a6 6 0 0 1-10-3z"/>
+          </g>
         </svg>
       </div>
     );
@@ -111,27 +129,49 @@ const Logo: React.FC<LogoProps> = ({
         role="img" 
         aria-labelledby="title desc"
       >
-        <title id="title">Travelcheck Logo Refined</title>
-        <desc id="desc">Centered stamp circle with passport card, balanced globe lines, and check mark aligned properly.</desc>
+        <title id="title">Travelcheck — Transparent</title>
+        <desc id="desc">Passport card with globe lines and an offset badge check.</desc>
         <style>
           {`
             :root{
-              --tc-blue:#0ea5e9;
-              --tc-ink:#0f172a;
-              --tc-green:#22c55e;
-              --tc-bg:#ffffff;
+              --ink:#0f172a;
+              --grid:#223044;
+              --land:#0ea5e9;
+              --card:#ffffff;
+              --badge:#0b1220;
+              --check:#22c55e;
+              --shadow:rgba(15,23,42,.08);
             }
-            .ring{ fill:var(--tc-blue); }
-            .card{ fill:var(--tc-bg); }
-            .globe{ stroke:var(--tc-ink); stroke-width:12; stroke-linecap:round; stroke-linejoin:round; fill:none; }
-            .check{ fill:var(--tc-green); }
+            .card{ fill:var(--card); }
+            .globe-ring{ stroke:var(--ink); stroke-width:16; fill:none; stroke-linecap:round; }
+            .equator{ stroke:var(--ink); stroke-width:16; stroke-linecap:round; }
+            .grid{ stroke:var(--grid); stroke-width:4; fill:none; opacity:.9; }
+            .land{ fill:var(--land); opacity:.16; }
+            .badge{ fill:var(--badge); }
+            .check{ fill:var(--check); }
+            .shadow{ fill:var(--shadow); }
           `}
         </style>
-        <circle className="ring" cx="128" cy="128" r="110"/>
-        <rect className="card" x="64" y="72" width="128" height="96" rx="20" ry="20"/>
-        <circle className="globe" cx="128" cy="120" r="36"/>
-        <line className="globe" x1="92" y1="120" x2="164" y2="120"/>
-        <path className="check" d="M112 136l-12-14a8 8 0 0 1 12-10l8 10 20-20a8 8 0 0 1 12 12l-26 26a8 8 0 0 1-12-4z"/>
+        <ellipse className="shadow" cx="128" cy="194" rx="74" ry="14"/>
+        <rect className="card" x="62" y="68" width="132" height="100" rx="22"/>
+        <defs>
+          <clipPath id="globeClip"><circle cx="128" cy="118" r="46"/></clipPath>
+        </defs>
+        <circle className="globe-ring" cx="128" cy="118" r="46"/>
+        <g clipPath="url(#globeClip)">
+          <path className="grid" d="M82 118h92"/>
+          <path className="grid" d="M86 103c14-8 62-8 86 0"/>
+          <path className="grid" d="M86 133c14 8 62 8 86 0"/>
+          <path className="grid" d="M128 72c-20 0-36 21-36 46s16 46 36 46"/>
+          <path className="grid" d="M128 72c20 0 36 21 36 46s-16 46-36 46"/>
+          <path className="land" d="M102 96c10-6 26-7 38-3 6 2 10 5 12 8 2 3 0 6-4 7-13 3-29 3-43-1-6-2-7-7-3-11z"/>
+          <path className="land" d="M92 127c3-4 10-7 18-8 16-2 36 3 44 10 4 4 3 8-3 9-23 4-44 2-57-5-4-2-5-5-2-6z"/>
+        </g>
+        <line className="equator" x1="82" y1="118" x2="174" y2="118"/>
+        <g transform="translate(154,150)">
+          <circle className="badge" r="20"/>
+          <path className="check" d="M-6 4l-7-8a6 6 0 0 1 9-8l4 5 12-12a6 6 0 1 1 9 9l-17 17a6 6 0 0 1-10-3z"/>
+        </g>
       </svg>
     </div>
   );
