@@ -1,5 +1,6 @@
-import { httpsCallable } from 'firebase/functions'
+import { httpsCallable, HttpsError } from 'firebase/functions'
 import { getFunctions } from 'firebase/functions'
+import { handleError, getUserFriendlyMessage } from '../utils/errorHandling'
 
 // Initialize Firebase Functions
 const functions = getFunctions()
@@ -12,6 +13,17 @@ const callFunction = async (functionName: string, data: any = {}) => {
     return result.data
   } catch (error) {
     console.error(`Error calling function ${functionName}:`, error)
+    
+    // Handle Firebase Functions errors
+    if (error instanceof HttpsError) {
+      const customError = new Error(getUserFriendlyMessage(error))
+      customError.name = 'FirebaseFunctionError'
+      handleError(customError, `Firebase Function: ${functionName}`)
+      throw customError
+    }
+    
+    // Handle other errors
+    handleError(error as Error, `Firebase Function: ${functionName}`)
     throw error
   }
 }
