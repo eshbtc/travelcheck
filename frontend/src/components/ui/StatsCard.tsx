@@ -44,7 +44,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         </div>
         {icon && (
           <div className="flex-shrink-0 ml-4">
-            <div className="h-12 w-12 rounded-lg bg-kaggle-blue/10 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-lg bg-brand-primary/10 flex items-center justify-center">
               {icon}
             </div>
           </div>

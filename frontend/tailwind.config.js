@@ -8,7 +8,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Kaggle-style color palette
+        // TravelCheck brand colors (matching logo)
+        brand: {
+          primary: '#20BEFF',    // Logo blue (Kaggle blue)
+          accent: '#00C853',     // Logo green (verification check)
+          ink: '#202124',        // Logo dark (text/lines)
+          bg: '#FFFFFF',         // Logo white (passport card)
+        },
+        // Legacy Kaggle-style colors for compatibility
         kaggle: {
           blue: '#20BEFF',
           orange: '#FF6B35',
@@ -16,9 +23,9 @@ module.exports = {
           teal: '#00C853',
           green: '#00A65A',
         },
-        // Text colors
+        // Text colors (matching logo)
         text: {
-          primary: '#202124',
+          primary: '#202124',    // Logo ink color
           secondary: '#5F6368',
           tertiary: '#9AA0A6',
           placeholder: '#AAAAAA',

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import Logo from './ui/Logo';
 import {
   HomeIcon,
   PlusIcon,
@@ -37,7 +38,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-bg-sidebar">
           <div className="flex h-16 items-center justify-between px-4">
-            <span className="text-xl font-bold text-text-primary">TravelCheck</span>
+            <div className="flex items-center space-x-3">
+              <Logo variant="icon" size="sm" />
+              <span className="text-xl font-bold text-text-primary">TravelCheck</span>
+            </div>
             <button
               onClick={() => setSidebarOpen(false)}
               className="text-text-secondary hover:text-text-primary"
@@ -69,9 +73,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex min-h-0 flex-1 flex-col bg-bg-sidebar">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex flex-shrink-0 items-center justify-center">
-              <div className="h-8 w-8 rounded-lg bg-kaggle-blue flex items-center justify-center">
-                <span className="text-white font-bold text-sm">TC</span>
-              </div>
+              <Logo variant="icon" size="sm" />
             </div>
             <nav className="mt-5 flex flex-1 flex-col">
               <div className="space-y-1 px-2">
@@ -91,7 +93,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 ))}
               </div>
               <div className="mt-auto px-2">
-                <button className="group flex flex-col items-center px-2 py-2 text-xs font-medium rounded-md text-white bg-kaggle-blue hover:bg-kaggle-blue/90 w-full">
+                <button className="group flex flex-col items-center px-2 py-2 text-xs font-medium rounded-md text-white bg-brand-primary hover:bg-brand-primary/90 w-full">
                   <PlusIcon className="h-6 w-6 mb-1" />
                   <span className="text-xs">Create</span>
                 </button>
@@ -151,7 +153,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   id="user-menu-button"
                 >
                   <span className="sr-only">Open user menu</span>
-                  <div className="h-8 w-8 rounded-full bg-kaggle-blue flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-brand-primary flex items-center justify-center">
                     <UserIcon className="h-5 w-5 text-white" />
                   </div>
                   <span className="hidden lg:flex lg:items-center">
