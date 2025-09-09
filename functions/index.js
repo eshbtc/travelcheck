@@ -1,6 +1,13 @@
 const functions = require("firebase-functions");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {setGlobalOptions} = require("firebase-functions/v2");
 const admin = require("firebase-admin");
+
+// Set global options for CORS
+setGlobalOptions({
+  cors: true,
+  region: "us-central1",
+});
 const vision = require("@google-cloud/vision");
 const documentai = require("@google-cloud/documentai");
 const {google} = require("googleapis");

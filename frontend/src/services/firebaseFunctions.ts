@@ -1,5 +1,5 @@
-import { httpsCallable } from 'firebase/functions'
-import { getFunctions } from 'firebase/functions'
+import { httpsCallable, getFunctions, connectFunctionsEmulator } from 'firebase/functions'
+import { getApp } from 'firebase/app'
 import { handleError, getUserFriendlyMessage } from '../utils/errorHandling'
 import type { 
   FirebaseFunctionResponse, 
@@ -11,8 +11,18 @@ import type {
   UserProfile
 } from '../types/firebase'
 
-// Initialize Firebase Functions
-const functions = getFunctions()
+// Initialize Firebase Functions with correct region
+const app = getApp()
+const functions = getFunctions(app, 'us-central1')
+
+// Connect to emulator in development
+if (process.env.NODE_ENV === 'development') {
+  try {
+    connectFunctionsEmulator(functions, 'localhost', 5001)
+  } catch (error) {
+    // Already connected to emulator or not available
+  }
+}
 
 // Helper function to make callable function calls
 const callFunction = async <T = any>(functionName: string, data: any = {}): Promise<T> => {
