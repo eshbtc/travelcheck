@@ -338,7 +338,7 @@ exports.getOffice365AuthUrl = onCall({enforceAppCheck: true, consumeAppCheckToke
     const cca = new ConfidentialClientApplication(msalConfig);
     await loadMsalCache(cca, request.auth.uid);
     const authCodeUrlParameters = {
-      scopes: ["offline_access", "Mail.Read"],
+      scopes: ["offline_access", "Mail.ReadWrite"],
       redirectUri: envOrConfig("OFFICE365_REDIRECT_URI", "office365", "redirect_uri"),
       state: request.auth.uid,
     };
@@ -374,7 +374,7 @@ exports.handleOffice365Callback = onCall({enforceAppCheck: true, consumeAppCheck
     const tokenResponse = await cca.acquireTokenByCode({
       code,
       redirectUri: envOrConfig("OFFICE365_REDIRECT_URI", "office365", "redirect_uri"),
-      scopes: ["offline_access", "Mail.Read"],
+      scopes: ["offline_access", "Mail.ReadWrite"],
     });
     await saveMsalCache(cca, userId);
 
@@ -486,7 +486,7 @@ exports.syncOffice365 = onCall({enforceAppCheck: true, consumeAppCheckToken: tru
 
     const silent = await cca.acquireTokenSilent({
       account: selected,
-      scopes: ["Mail.Read"],
+      scopes: ["Mail.ReadWrite"],
       forceRefresh: false,
     });
     await saveMsalCache(cca, userId);
@@ -525,6 +525,28 @@ exports.syncOffice365 = onCall({enforceAppCheck: true, consumeAppCheckToken: tru
         userId,
       };
       flightEmails.push(flightData);
+
+      // Add category to processed messages (best effort)
+      try {
+        const categories = Array.isArray(item.categories) ? item.categories.slice() : [];
+        if (!categories.includes("TravelCheck/Processed")) {
+          const updated = categories.concat(["TravelCheck/Processed"]);
+          const patchRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${item.id}`, {
+            method: "PATCH",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({categories: updated}),
+          });
+          if (!patchRes.ok) {
+            const txt = await patchRes.text();
+            functions.logger.warn("Office365 category patch failed", {status: patchRes.status, txt});
+          }
+        }
+      } catch (e) {
+        functions.logger.warn("Office365 category update error", {error: e && e.message});
+      }
     }
 
     if (flightEmails.length) {

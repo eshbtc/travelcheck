@@ -1,8 +1,21 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const functions = require("firebase-functions");
+const {defineSecret} = require("firebase-functions/params");
+const ADMIN_EMAILS_SECRET = defineSecret("ADMIN_EMAILS");
 const admin = require("firebase-admin");
 
 function getAdminEmails() {
-  const raw = process.env.ADMIN_EMAILS || "";
+  let raw = process.env.ADMIN_EMAILS || "";
+  if (!raw) {
+    try {
+      const cfg = functions.config();
+      if (cfg && cfg.security && cfg.security.admin_emails) {
+        raw = cfg.security.admin_emails;
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
   return raw.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 }
 
@@ -88,7 +101,7 @@ exports.updateUserProfile = onCall({enforceAppCheck: true, consumeAppCheckToken:
 /**
  * Admin: Set User Role (admin/user)
  */
-exports.setUserRole = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
+exports.setUserRole = onCall({enforceAppCheck: true, consumeAppCheckToken: true, secrets: [ADMIN_EMAILS_SECRET]}, async (request) => {
   try {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -124,7 +137,7 @@ exports.setUserRole = onCall({enforceAppCheck: true, consumeAppCheckToken: true}
 /**
  * Admin: System Status
  */
-exports.getAdminSystemStatus = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
+exports.getAdminSystemStatus = onCall({enforceAppCheck: true, consumeAppCheckToken: true, secrets: [ADMIN_EMAILS_SECRET]}, async (request) => {
   try {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -173,7 +186,7 @@ exports.getAdminSystemStatus = onCall({enforceAppCheck: true, consumeAppCheckTok
 /**
  * Admin: List Users (from Firestore collection 'users')
  */
-exports.listUsers = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
+exports.listUsers = onCall({enforceAppCheck: true, consumeAppCheckToken: true, secrets: [ADMIN_EMAILS_SECRET]}, async (request) => {
   try {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "User must be authenticated");

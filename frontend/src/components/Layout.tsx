@@ -205,18 +205,35 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </span>
                 </button>
 
-                {/* Profile dropdown menu */}
-                {profileMenuOpen && (
-                  <div className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
-                    <button
-                      onClick={handleLogout}
-                      className="flex w-full items-center px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50"
-                    >
-                      <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
-                      Sign out
-                    </button>
-                  </div>
-                )}
+              {/* Profile dropdown menu */}
+              {profileMenuOpen && (
+                <div className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
+                  {isAdmin && (
+                    <>
+                      <Link
+                        href="/admin/health"
+                        className="flex w-full items-center px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50"
+                      >
+                        Admin Health
+                      </Link>
+                      <Link
+                        href="/admin/users"
+                        className="flex w-full items-center px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50"
+                      >
+                        Users
+                      </Link>
+                      <div className="my-1 h-px bg-gray-100" />
+                    </>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50"
+                  >
+                    <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
+              )}
               </div>
             </div>
           </div>
