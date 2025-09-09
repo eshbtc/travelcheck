@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import Layout from '../../components/Layout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import { getUserProfile, updateUserProfile } from '../../services/firebaseFunctions'
+import { getUserProfile, updateUserProfile, runDailyEmailSync } from '../../services/firebaseFunctions'
 import { toast } from 'react-hot-toast'
 import { 
   UserIcon, 
@@ -28,6 +28,13 @@ export default function SettingsPage() {
     gmail_enabled: false,
     office365_enabled: false
   })
+  const [isRunningSync, setIsRunningSync] = useState(false)
+
+  const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
+  const isAdmin = !!(user?.email && adminEmails.includes((user.email || '').toLowerCase()))
 
   // Redirect if not authenticated
   React.useEffect(() => {
@@ -91,6 +98,24 @@ export default function SettingsPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }))
+  }
+
+  const handleRunDailySync = async () => {
+    if (!user) return
+    setIsRunningSync(true)
+    const tid = toast.loading('Running daily email sync...')
+    try {
+      const res = await runDailyEmailSync()
+      if (res?.success) {
+        toast.success(`Sync completed (checked: ${res.usersChecked ?? 'n/a'}, processed: ${res.processed ?? 'n/a'})`, { id: tid })
+      } else {
+        toast.success('Sync invoked', { id: tid })
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to run daily sync', { id: tid })
+    } finally {
+      setIsRunningSync(false)
+    }
   }
 
   if (authLoading || isLoading) {
@@ -230,6 +255,24 @@ export default function SettingsPage() {
             </div>
           </div>
         </Card>
+
+        {/* Admin Tools */}
+        {isAdmin && (
+          <Card padding="lg">
+            <h2 className="text-xl font-semibold text-text-primary mb-6">Admin Tools</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                <div>
+                  <h3 className="font-medium text-text-primary">Run Daily Email Sync</h3>
+                  <p className="text-sm text-text-secondary">Trigger the scheduled email sync job on demand</p>
+                </div>
+                <Button onClick={handleRunDailySync} disabled={isRunningSync}>
+                  {isRunningSync ? 'Running...' : 'Run Now'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Notifications */}
         <Card padding="lg">

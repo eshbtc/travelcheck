@@ -148,7 +148,8 @@ exports.dailyEmailSync = functions.scheduler.onSchedule("0 9 * * *", async (even
  * Optional callable to trigger the daily sync on demand (different name to avoid conflicts)
  */
 exports.runDailyEmailSync = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
+  const isEmulator = (process.env.FUNCTIONS_EMULATOR === 'true');
+  if (!isEmulator && !context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
   }
   const result = await performDailyEmailSync();

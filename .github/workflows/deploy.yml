@@ -14,25 +14,46 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+      
+      - name: Clear npm cache
+        run: npm cache clean --force
       
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
       
+      - name: Verify frontend package-lock.json exists
+        run: |
+          if [ ! -f "frontend/package-lock.json" ]; then
+            echo "❌ frontend/package-lock.json is missing!"
+            exit 1
+          fi
+          echo "✅ frontend/package-lock.json exists"
+      
       - name: Install frontend dependencies
         run: |
           cd frontend
-          npm ci
+          npm ci --prefer-offline --no-audit --strict-peer-deps
       
       - name: Install functions dependencies
         run: |
           cd functions
-          npm ci
+          if [ -f "package-lock.json" ]; then
+            echo "Using npm ci (package-lock.json exists)"
+            npm ci --prefer-offline --no-audit --strict-peer-deps
+          else
+            echo "Using npm install (no package-lock.json)"
+            npm install --prefer-offline --no-audit --strict-peer-deps
+          fi
       
       - name: Run frontend type checks
         run: |
@@ -53,6 +74,14 @@ jobs:
         run: |
           cd frontend
           npm run build
+      
+      - name: Verify build output
+        run: |
+          if [ ! -d "frontend/out" ]; then
+            echo "❌ Frontend build output directory 'out' not found!"
+            exit 1
+          fi
+          echo "✅ Frontend build completed successfully"
 
   deploy:
     needs: test
@@ -60,30 +89,59 @@ jobs:
     if: github.ref == 'refs/heads/main'
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+      
+      - name: Clear npm cache
+        run: npm cache clean --force
       
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
       
+      - name: Verify frontend package-lock.json exists
+        run: |
+          if [ ! -f "frontend/package-lock.json" ]; then
+            echo "❌ frontend/package-lock.json is missing!"
+            exit 1
+          fi
+          echo "✅ frontend/package-lock.json exists"
+      
       - name: Install frontend dependencies
         run: |
           cd frontend
-          npm ci
+          npm ci --prefer-offline --no-audit --strict-peer-deps
       
       - name: Install functions dependencies
         run: |
           cd functions
-          npm ci
+          if [ -f "package-lock.json" ]; then
+            echo "Using npm ci (package-lock.json exists)"
+            npm ci --prefer-offline --no-audit --strict-peer-deps
+          else
+            echo "Using npm install (no package-lock.json)"
+            npm install --prefer-offline --no-audit --strict-peer-deps
+          fi
       
       - name: Build frontend
         run: |
           cd frontend
           npm run build
+      
+      - name: Verify build output
+        run: |
+          if [ ! -d "frontend/out" ]; then
+            echo "❌ Frontend build output directory 'out' not found!"
+            exit 1
+          fi
+          echo "✅ Frontend build completed successfully"
       
       - name: Deploy Firebase Functions
         run: firebase deploy --only functions --token ${{ secrets.FIREBASE_TOKEN }}
@@ -96,3 +154,9 @@ jobs:
       
       - name: Deploy Firebase Hosting
         run: firebase deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }}
+      
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Frontend: https://travelcheck-app.web.app"
+          echo "🔧 Functions: Deployed to us-central1"

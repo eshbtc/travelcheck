@@ -127,3 +127,8 @@ export const healthCheck = async () => {
 export const getSystemStatus = async () => {
   return callFunction('getSystemStatus', {})
 }
+
+// Admin/maintenance
+export const runDailyEmailSync = async () => {
+  return callFunction('runDailyEmailSync', {})
+}

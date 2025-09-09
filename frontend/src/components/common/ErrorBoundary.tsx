@@ -49,8 +49,12 @@ export class ErrorBoundary extends Component<Props, State> {
       this.props.onError(error, errorInfo)
     }
 
-    // Send error to crash reporting service (Firebase Crashlytics)
-    recordErrorInCrashlytics(error, errorInfo, 'ErrorBoundary')
+    // Send error to crash reporting service (guarded)
+    try {
+      recordErrorInCrashlytics(error, errorInfo, 'ErrorBoundary')
+    } catch (e) {
+      // no-op: crash reporting is best-effort
+    }
   }
 
   handleRetry = () => {
@@ -153,18 +157,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
 // Higher-order component for easier usage
 export function withErrorBoundary<P extends object>(
-  Component: React.ComponentType<P>,
+  Wrapped: React.ComponentType<P>,
   errorBoundaryProps?: Omit<Props, 'children'>
 ) {
-  const WrappedComponent = (props: P) => (
+  const WithErrorBoundary: React.FC<P> = (props: P) => (
     <ErrorBoundary {...errorBoundaryProps}>
-      <Component {...props} />
+      <Wrapped {...props} />
     </ErrorBoundary>
   )
 
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`
-  
-  return WrappedComponent
+  WithErrorBoundary.displayName = `withErrorBoundary(${Wrapped.displayName || Wrapped.name || 'Component'})`
+
+  return WithErrorBoundary
 }
 
 // Hook for error handling
