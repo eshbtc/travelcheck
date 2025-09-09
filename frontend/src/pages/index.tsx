@@ -58,7 +58,7 @@ const Home: React.FC = () => {
           {/* Welcome Section */}
           <div className="text-center">
             <h1 className="text-4xl font-bold text-text-primary sm:text-5xl md:text-6xl">
-              Welcome{user ? `, ${user.email?.split('@')[0]}` : ''}!
+              Welcome{user && 'email' in user ? `, ${(user as any).email.split('@')[0]}` : ''}!
             </h1>
             <p className="mt-3 max-w-3xl mx-auto text-lg text-text-secondary">
               {user 

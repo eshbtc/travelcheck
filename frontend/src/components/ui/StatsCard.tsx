@@ -54,4 +54,5 @@ const StatsCard: React.FC<StatsCardProps> = ({
   );
 };
 
+export { StatsCard };
 export default StatsCard;

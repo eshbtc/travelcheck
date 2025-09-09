@@ -4,7 +4,14 @@ import { useRouter } from 'next/router'
 import Layout from '../../components/Layout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import { getUserProfile, updateUserProfile, runDailyEmailSync } from '../../services/firebaseFunctions'
+import { 
+  getUserProfile, 
+  updateUserProfile, 
+  runDailyEmailSync,
+  getGmailConnectionStatus,
+  getOffice365ConnectionStatus,
+  getFlightEmails
+} from '../../services/firebaseFunctions'
 import { toast } from 'react-hot-toast'
 import { 
   UserIcon, 
@@ -29,6 +36,11 @@ export default function SettingsPage() {
     office365_enabled: false
   })
   const [isRunningSync, setIsRunningSync] = useState(false)
+  const [oauthDiagnostics, setOauthDiagnostics] = useState({
+    gmail: { connected: false as boolean, connectedAt: null as string | null },
+    office365: { connected: false as boolean, connectedAt: null as string | null },
+    lastImportAt: null as string | null,
+  })
 
   const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
     .split(',')
@@ -47,6 +59,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       loadUserProfile()
+      loadOAuthDiagnostics()
     }
   }, [user])
 
@@ -56,7 +69,7 @@ export default function SettingsPage() {
     setIsLoading(true)
     try {
       const result = await getUserProfile()
-      if (result.success) {
+      if (result.success && result.data) {
         setProfile(result.data)
         setFormData({
           full_name: result.data.full_name || '',
@@ -98,6 +111,40 @@ export default function SettingsPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }))
+  }
+
+  const loadOAuthDiagnostics = async () => {
+    try {
+      const [gmailStatus, officeStatus] = await Promise.all([
+        getGmailConnectionStatus().catch(() => null),
+        getOffice365ConnectionStatus().catch(() => null),
+      ])
+
+      let lastImportAt: string | null = null
+      try {
+        const emailsRes = await getFlightEmails()
+        if (emailsRes?.success && Array.isArray(emailsRes.emails) && emailsRes.emails.length > 0) {
+          const first = emailsRes.emails[0]
+          const ts = (first.timestamp && (first.timestamp.seconds ? new Date(first.timestamp.seconds * 1000) : new Date(first.timestamp)))
+            || (first.date ? new Date(first.date) : null)
+          if (ts) lastImportAt = ts.toISOString()
+        }
+      } catch (_) {}
+
+      setOauthDiagnostics({
+        gmail: {
+          connected: !!gmailStatus?.data?.connected,
+          connectedAt: gmailStatus?.data?.connectedAt || null,
+        },
+        office365: {
+          connected: !!officeStatus?.data?.connected,
+          connectedAt: officeStatus?.data?.connectedAt || null,
+        },
+        lastImportAt,
+      })
+    } catch (err) {
+      // best effort
+    }
   }
 
   const handleRunDailySync = async () => {
@@ -273,6 +320,58 @@ export default function SettingsPage() {
             </div>
           </Card>
         )}
+
+        {/* OAuth Diagnostics */}
+        <Card padding="lg">
+          <h2 className="text-xl font-semibold text-text-primary mb-6">OAuth Diagnostics</h2>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-text-primary">Gmail</h3>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    oauthDiagnostics.gmail.connected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {oauthDiagnostics.gmail.connected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+                <p className="text-sm text-text-secondary mt-2">
+                  Connected At: {oauthDiagnostics.gmail.connectedAt ? new Date(oauthDiagnostics.gmail.connectedAt).toLocaleString() : '—'}
+                </p>
+                <p className="text-sm text-text-secondary mt-1 break-words">
+                  Redirect URI: {typeof window !== 'undefined' ? `${window.location.origin}/auth/oauth-callback/gmail` : '/auth/oauth-callback/gmail'}
+                </p>
+              </div>
+
+              <div className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-text-primary">Office 365</h3>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    oauthDiagnostics.office365.connected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {oauthDiagnostics.office365.connected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+                <p className="text-sm text-text-secondary mt-2">
+                  Connected At: {oauthDiagnostics.office365.connectedAt ? new Date(oauthDiagnostics.office365.connectedAt).toLocaleString() : '—'}
+                </p>
+                <p className="text-sm text-text-secondary mt-1 break-words">
+                  Redirect URI: {typeof window !== 'undefined' ? `${window.location.origin}/auth/oauth-callback/office365` : '/auth/oauth-callback/office365'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border border-gray-200 rounded-lg">
+              <h3 className="font-medium text-text-primary">Last Email Import</h3>
+              <p className="text-sm text-text-secondary mt-2">
+                {oauthDiagnostics.lastImportAt ? new Date(oauthDiagnostics.lastImportAt).toLocaleString() : 'Never'}
+              </p>
+              <p className="text-xs text-text-secondary mt-1">
+                Note: This reflects the latest imported email across connected providers.
+              </p>
+            </div>
+          </div>
+        </Card>
 
         {/* Notifications */}
         <Card padding="lg">

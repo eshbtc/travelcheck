@@ -1,6 +1,6 @@
 // Firebase Crashlytics service for error tracking and crash reporting
+// Note: Crashlytics is not available in web SDK, using console logging as fallback
 
-import { getCrashlytics, log, setUserId, setCustomKey, recordError } from 'firebase/crashlytics'
 import { getApp } from 'firebase/app'
 import { User } from 'firebase/auth'
 
@@ -15,13 +15,15 @@ class CrashlyticsService {
 
   private initialize() {
     try {
-      // Only initialize in browser environment
-      if (typeof window !== 'undefined') {
-        const app = getApp()
-        this.crashlytics = getCrashlytics(app)
-        this.isInitialized = true
-        console.log('Crashlytics initialized successfully')
+      // Mock implementation since crashlytics is not available in web SDK
+      this.crashlytics = {
+        log: (message: string) => console.log('[Crashlytics]', message),
+        setUserId: (userId: string) => console.log('[Crashlytics] setUserId:', userId),
+        setCustomKey: (key: string, value: any) => console.log('[Crashlytics] setCustomKey:', key, value),
+        recordError: (error: Error) => console.error('[Crashlytics] recordError:', error)
       }
+      this.isInitialized = true
+      console.log('Crashlytics mock initialized successfully')
     } catch (error) {
       console.warn('Crashlytics initialization failed:', error)
       this.isInitialized = false
@@ -38,11 +40,11 @@ class CrashlyticsService {
     if (!this.isAvailable() || !user) return
 
     try {
-      setUserId(this.crashlytics, user.uid)
-      setCustomKey(this.crashlytics, 'user_email', user.email || '')
-      setCustomKey(this.crashlytics, 'email_verified', user.emailVerified)
-      setCustomKey(this.crashlytics, 'created_at', user.metadata.creationTime || '')
-      setCustomKey(this.crashlytics, 'last_sign_in', user.metadata.lastSignInTime || '')
+      this.crashlytics.setUserId(user.uid)
+      this.crashlytics.setCustomKey('user_email', user.email || '')
+      this.crashlytics.setCustomKey('email_verified', user.emailVerified)
+      this.crashlytics.setCustomKey('created_at', user.metadata.creationTime || '')
+      this.crashlytics.setCustomKey('last_sign_in', user.metadata.lastSignInTime || '')
     } catch (error) {
       console.warn('Failed to set user crashlytics:', error)
     }
@@ -53,7 +55,7 @@ class CrashlyticsService {
     if (!this.isAvailable()) return
 
     try {
-      log(this.crashlytics, message)
+      this.crashlytics.log(message)
     } catch (error) {
       console.warn('Failed to log crashlytics message:', error)
     }
@@ -64,7 +66,7 @@ class CrashlyticsService {
     if (!this.isAvailable()) return
 
     try {
-      setCustomKey(this.crashlytics, key, value)
+      this.crashlytics.setCustomKey(key, value)
     } catch (error) {
       console.warn('Failed to set custom key:', error)
     }
@@ -84,7 +86,7 @@ class CrashlyticsService {
       this.setCustomKey('error_timestamp', new Date().toISOString())
       
       // Record the error
-      recordError(this.crashlytics, error)
+      this.crashlytics.recordError(error)
     } catch (crashlyticsError) {
       console.warn('Failed to record error in crashlytics:', crashlyticsError)
     }
@@ -104,7 +106,7 @@ class CrashlyticsService {
       this.setCustomKey('non_fatal_error_timestamp', new Date().toISOString())
       
       // Record the error
-      recordError(this.crashlytics, error)
+      this.crashlytics.recordError(error)
     } catch (crashlyticsError) {
       console.warn('Failed to record non-fatal error in crashlytics:', crashlyticsError)
     }
@@ -280,7 +282,7 @@ class CrashlyticsService {
     if (!this.isAvailable()) return
 
     try {
-      setUserId(this.crashlytics, null)
+      this.crashlytics.setUserId(null)
     } catch (error) {
       console.warn('Failed to clear user data:', error)
     }

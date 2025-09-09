@@ -149,8 +149,8 @@ export default function DashboardPage() {
                 title={action.title}
                 description={action.description}
                 icon={action.icon}
-                onClick={action.action}
-                color={action.color}
+                onAction={action.action}
+                gradient={action.color as 'blue' | 'teal' | 'yellow' | 'green'}
               />
             ))}
           </div>

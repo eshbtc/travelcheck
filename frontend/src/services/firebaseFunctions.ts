@@ -1,16 +1,25 @@
 import { httpsCallable } from 'firebase/functions'
 import { getFunctions } from 'firebase/functions'
 import { handleError, getUserFriendlyMessage } from '../utils/errorHandling'
+import type { 
+  FirebaseFunctionResponse, 
+  GmailConnectionStatus, 
+  Office365ConnectionStatus,
+  EmailSyncResult,
+  TravelHistoryResult,
+  ReportResult,
+  UserProfile
+} from '../types/firebase'
 
 // Initialize Firebase Functions
 const functions = getFunctions()
 
 // Helper function to make callable function calls
-const callFunction = async (functionName: string, data: any = {}) => {
+const callFunction = async <T = any>(functionName: string, data: any = {}): Promise<T> => {
   try {
     const callable = httpsCallable(functions, functionName)
     const result = await callable(data)
-    return result.data
+    return result.data as T
   } catch (error) {
     console.error(`Error calling function ${functionName}:`, error)
     
@@ -49,8 +58,8 @@ export const generateUSCISReport = async (format: 'pdf' | 'json' = 'pdf') => {
 }
 
 // User Management Functions
-export const getUserProfile = async () => {
-  return callFunction('getUserProfile', {})
+export const getUserProfile = async (): Promise<FirebaseFunctionResponse<UserProfile>> => {
+  return callFunction<FirebaseFunctionResponse<UserProfile>>('getUserProfile', {})
 }
 
 export const updateUserProfile = async (profileData: any) => {
@@ -91,12 +100,12 @@ export const disconnectGmailAccount = async () => {
   return callFunction('disconnectGmail', {})
 }
 
-export const getGmailConnectionStatus = async () => {
-  return callFunction('getGmailConnectionStatus', {})
+export const getGmailConnectionStatus = async (): Promise<FirebaseFunctionResponse<GmailConnectionStatus>> => {
+  return callFunction<FirebaseFunctionResponse<GmailConnectionStatus>>('getGmailConnectionStatus', {})
 }
 
-export const syncGmailEmails = async () => {
-  return callFunction('syncGmail', {})
+export const syncGmailEmails = async (): Promise<FirebaseFunctionResponse<EmailSyncResult>> => {
+  return callFunction<FirebaseFunctionResponse<EmailSyncResult>>('syncGmail', {})
 }
 
 export const getOffice365AuthUrl = async () => {

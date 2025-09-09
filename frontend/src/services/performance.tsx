@@ -1,13 +1,14 @@
 // Firebase Performance Monitoring service for tracking app performance metrics
 
-import { getPerformance, trace, Trace } from 'firebase/performance'
+import React from 'react';
+import { getPerformance, trace } from 'firebase/performance'
 import { getApp } from 'firebase/app'
 
 // Performance service class
 class PerformanceService {
   private performance: any = null
   private isInitialized = false
-  private activeTraces: Map<string, Trace> = new Map()
+  private activeTraces: Map<string, any> = new Map()
 
   constructor() {
     this.initialize()
@@ -33,7 +34,7 @@ class PerformanceService {
   }
 
   // Start a custom trace
-  startTrace(traceName: string): Trace | null {
+  startTrace(traceName: string): any | null {
     if (!this.isAvailable()) return null
 
     try {

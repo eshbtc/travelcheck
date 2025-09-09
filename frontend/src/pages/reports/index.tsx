@@ -9,7 +9,7 @@ import { toast } from 'react-hot-toast'
 import { 
   DocumentTextIcon, 
   ChartBarIcon, 
-  DownloadIcon,
+  ArrowDownTrayIcon as DownloadIcon,
   CalendarIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline'

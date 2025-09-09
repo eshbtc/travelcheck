@@ -38,11 +38,11 @@ export default function GmailIntegrationPage() {
     try {
       // Check Gmail connection status via Firebase Function
       const result = await getGmailConnectionStatus()
-      if (result.success) {
-        if (result.connected) {
+      if (result.success && result.data) {
+        if (result.data.connected) {
           setConnectionStatus('connected')
-          if (result.connectedAt) {
-            setLastSync(result.connectedAt)
+          if (result.data.connectedAt) {
+            setLastSync(result.data.connectedAt)
           }
         } else {
           setConnectionStatus('disconnected')

@@ -1,5 +1,6 @@
 // Firebase Analytics service for tracking user interactions and app performance
 
+import React from 'react';
 import { getAnalytics, logEvent, setUserId, setUserProperties, Analytics } from 'firebase/analytics'
 import { getApp } from 'firebase/app'
 import { User } from 'firebase/auth'
