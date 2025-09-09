@@ -40,7 +40,9 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
       
       <div className="relative z-10">
         <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-white shadow-kaggle">
-          {icon}
+          <div className="w-8 h-8 flex items-center justify-center">
+            {icon}
+          </div>
         </div>
         
         <h3 className="text-lg font-semibold text-text-primary text-center mb-2">

@@ -5,6 +5,7 @@ import Layout from '../../components/Layout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { generateUSCISReport } from '../../services/firebaseFunctions'
+import { useAI } from '../../hooks/useAI'
 import { toast } from 'react-hot-toast'
 import { 
   DocumentTextIcon, 
@@ -17,8 +18,10 @@ import {
 export default function ReportsPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const { generateUSCISReport: generateAIReport, isLoading: aiLoading, error: aiError } = useAI()
   const [isGenerating, setIsGenerating] = useState(false)
   const [recentReports, setRecentReports] = useState<any[]>([])
+  const [useAIEnhancement, setUseAIEnhancement] = useState(true)
 
   // Redirect if not authenticated
   React.useEffect(() => {
@@ -32,7 +35,31 @@ export default function ReportsPage() {
 
     setIsGenerating(true)
     try {
-      const result = await generateUSCISReport(format)
+      let result: any
+      
+      if (useAIEnhancement) {
+        // Use AI-enhanced report generation
+        // First get travel history data, then enhance with AI
+        const basicResult = await generateUSCISReport(format)
+        if (basicResult.success && basicResult.data?.entries) {
+          // Enhance the report data with AI analysis
+          const enhancedData = await generateAIReport(basicResult.data.entries)
+          result = {
+            ...basicResult,
+            data: {
+              ...basicResult.data,
+              ...enhancedData,
+              aiEnhanced: true
+            }
+          }
+        } else {
+          result = basicResult
+        }
+      } else {
+        // Use standard report generation
+        result = await generateUSCISReport(format)
+      }
+      
       if (result.success) {
         if (format === 'pdf') {
           // Convert data URI or base64 string to Blob if needed
@@ -133,6 +160,32 @@ export default function ReportsPage() {
             Create a comprehensive travel history report formatted specifically for USCIS citizenship applications.
           </p>
           
+          {/* AI Enhancement Toggle */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-900">AI Enhancement</h3>
+                <p className="text-sm text-blue-700">
+                  Use Firebase AI Logic to enhance report accuracy and completeness
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useAIEnhancement}
+                  onChange={(e) => setUseAIEnhancement(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            {aiError && (
+              <div className="mt-2 text-sm text-red-600">
+                AI Enhancement Warning: {aiError}
+              </div>
+            )}
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border border-gray-200 rounded-lg p-6">
               <div className="flex items-center mb-4">
@@ -149,11 +202,18 @@ export default function ReportsPage() {
               </p>
               <Button
                 onClick={() => handleGenerateReport('pdf')}
-                disabled={isGenerating}
+                disabled={isGenerating || aiLoading}
                 className="w-full flex items-center justify-center gap-2"
               >
                 <DownloadIcon className="h-5 w-5" />
-                {isGenerating ? 'Generating...' : 'Generate PDF'}
+                {isGenerating || aiLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>{useAIEnhancement ? 'AI Processing...' : 'Generating...'}</span>
+                  </div>
+                ) : (
+                  `Generate PDF${useAIEnhancement ? ' (AI Enhanced)' : ''}`
+                )}
               </Button>
             </div>
 
@@ -173,11 +233,18 @@ export default function ReportsPage() {
               <Button
                 variant="outline"
                 onClick={() => handleGenerateReport('json')}
-                disabled={isGenerating}
+                disabled={isGenerating || aiLoading}
                 className="w-full flex items-center justify-center gap-2"
               >
                 <DownloadIcon className="h-5 w-5" />
-                {isGenerating ? 'Generating...' : 'Generate JSON'}
+                {isGenerating || aiLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-primary"></div>
+                    <span>{useAIEnhancement ? 'AI Processing...' : 'Generating...'}</span>
+                  </div>
+                ) : (
+                  `Generate JSON${useAIEnhancement ? ' (AI Enhanced)' : ''}`
+                )}
               </Button>
             </div>
           </div>
@@ -207,6 +274,13 @@ export default function ReportsPage() {
                 <div>
                   <h3 className="font-medium text-text-primary">Cross-Referenced</h3>
                   <p className="text-sm text-text-secondary">Validated against multiple data sources</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <CheckCircleIcon className="h-6 w-6 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-text-primary">AI Enhanced</h3>
+                  <p className="text-sm text-text-secondary">Powered by Firebase AI Logic for improved accuracy</p>
                 </div>
               </div>
             </div>

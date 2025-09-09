@@ -5,6 +5,7 @@ import Layout from '../../components/Layout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { getTravelHistory, analyzeTravelHistory, generateUSCISReport } from '../../services/firebaseFunctions'
+import { useAI } from '../../hooks/useAI'
 import { toast } from 'react-hot-toast'
 import { 
   DocumentTextIcon, 
@@ -18,10 +19,13 @@ import {
 export default function TravelHistoryPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const { processTravelHistory, crossReferenceData, isLoading: aiLoading, error: aiError } = useAI()
   const [travelHistory, setTravelHistory] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [useAIEnhancement, setUseAIEnhancement] = useState(true)
+  const [aiInsights, setAiInsights] = useState<any>(null)
 
   // Redirect if not authenticated
   React.useEffect(() => {
@@ -59,11 +63,46 @@ export default function TravelHistoryPage() {
 
     setIsAnalyzing(true)
     try {
-      const result = await analyzeTravelHistory()
-      if (result.success) {
-        setTravelHistory(result.travelHistory)
+      let result = await analyzeTravelHistory()
+      
+      if (result.success && useAIEnhancement && result.travelHistory?.entries) {
+        // Use AI to enhance the travel history analysis
+        try {
+          const enhancedEntries = await processTravelHistory(result.travelHistory.entries)
+          result = {
+            ...result,
+            travelHistory: {
+              ...result.travelHistory,
+              entries: enhancedEntries,
+              aiEnhanced: true
+            }
+          }
+          
+          // Generate AI insights
+          const uniqueCountries = Array.from(new Set(enhancedEntries.map((e: any) => e.country)))
+          setAiInsights({
+            totalTrips: enhancedEntries.length,
+            countries: uniqueCountries,
+            dateRange: {
+              start: enhancedEntries.reduce((min: any, entry: any) => 
+                !min || entry.entryDate < min ? entry.entryDate : min, null),
+              end: enhancedEntries.reduce((max: any, entry: any) => 
+                !max || entry.exitDate > max ? entry.exitDate : max, null)
+            },
+            confidence: enhancedEntries.reduce((sum: number, entry: any) => 
+              sum + (entry.confidence || 0), 0) / enhancedEntries.length
+          })
+          
+          toast.success('Travel history analyzed and enhanced with AI successfully')
+        } catch (aiError) {
+          console.error('AI enhancement failed:', aiError)
+          toast.error('Travel history analyzed, but AI enhancement failed')
+        }
+      } else {
         toast.success('Travel history analyzed successfully')
       }
+      
+      setTravelHistory(result.travelHistory)
     } catch (err) {
       console.error('Error analyzing travel history:', err)
       toast.error('Failed to analyze travel history')
@@ -166,10 +205,17 @@ export default function TravelHistoryPage() {
           <div className="flex gap-3">
             <Button
               onClick={handleAnalyzeHistory}
-              disabled={isAnalyzing}
+              disabled={isAnalyzing || aiLoading}
               variant="outline"
             >
-              {isAnalyzing ? 'Analyzing...' : 'Analyze History'}
+              {isAnalyzing || aiLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-primary"></div>
+                  <span>{useAIEnhancement ? 'AI Analyzing...' : 'Analyzing...'}</span>
+                </div>
+              ) : (
+                `Analyze History${useAIEnhancement ? ' (AI Enhanced)' : ''}`
+              )}
             </Button>
             <Button
               onClick={() => handleGenerateReport('pdf')}
@@ -179,6 +225,67 @@ export default function TravelHistoryPage() {
             </Button>
           </div>
         </div>
+
+        {/* AI Enhancement Toggle */}
+        <Card className="p-6">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-900">AI Enhancement</h3>
+                <p className="text-sm text-blue-700">
+                  Use Firebase AI Logic to enhance travel history analysis and validation
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useAIEnhancement}
+                  onChange={(e) => setUseAIEnhancement(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            {aiError && (
+              <div className="mt-2 text-sm text-red-600">
+                AI Enhancement Warning: {aiError}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* AI Insights */}
+        {aiInsights && (
+          <Card className="p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <span className="text-blue-600 text-lg">🤖</span>
+              <h2 className="text-xl font-semibold text-blue-900">AI Insights</h2>
+              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                Enhanced
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-900">{aiInsights.totalTrips}</div>
+                <div className="text-sm text-blue-700">Total Trips Analyzed</div>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-900">{aiInsights.countries.length}</div>
+                <div className="text-sm text-blue-700">Countries Identified</div>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-900">
+                  {Math.round(aiInsights.confidence)}%
+                </div>
+                <div className="text-sm text-blue-700">Average Confidence</div>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-blue-700">
+              <p><strong>Date Range:</strong> {aiInsights.dateRange.start} to {aiInsights.dateRange.end}</p>
+              <p><strong>Countries:</strong> {aiInsights.countries.join(', ')}</p>
+            </div>
+          </Card>
+        )}
 
         {/* Summary Cards */}
         {travelHistory && (

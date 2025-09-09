@@ -5,14 +5,22 @@ import Layout from '../../components/Layout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { extractPassportData } from '../../services/firebaseFunctions'
+import { useAI } from '../../hooks/useAI'
+import { PassportStampAnalysis } from '../../services/aiService'
 
 export default function PassportUploadPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const { analyzePassportStamp, isLoading: aiLoading, error: aiError } = useAI()
   const [dragActive, setDragActive] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [processingResults, setProcessingResults] = useState<any[]>([])
+  const [processingResults, setProcessingResults] = useState<Array<{
+    fileName: string
+    result: PassportStampAnalysis | null
+    success: boolean
+    error?: string
+  }>>([])
   const [error, setError] = useState('')
 
   // Redirect if not authenticated
@@ -84,24 +92,62 @@ export default function PassportUploadPage() {
 
     try {
       for (const file of uploadedFiles) {
-        // Convert file to base64
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const result = reader.result as string
-            resolve(result.split(',')[1]) // Remove data:image/...;base64, prefix
-          }
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
+        try {
+          // Convert file to base64
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const result = reader.result as string
+              resolve(result.split(',')[1]) // Remove data:image/...;base64, prefix
+            }
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
 
-        // Call Firebase Function to process the image
-        const result = await extractPassportData(base64)
-        results.push({
-          fileName: file.name,
-          result: result.data,
-          success: result.success
-        })
+          // Use Firebase AI Logic to analyze the passport stamp
+          const aiResult = await analyzePassportStamp(base64)
+          
+          results.push({
+            fileName: file.name,
+            result: aiResult,
+            success: true
+          })
+        } catch (fileError: any) {
+          // If AI analysis fails, fall back to Firebase Function
+          try {
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader()
+              reader.onload = () => {
+                const result = reader.result as string
+                resolve(result.split(',')[1])
+              }
+              reader.onerror = reject
+              reader.readAsDataURL(file)
+            })
+
+            const fallbackResult = await extractPassportData(base64)
+            results.push({
+              fileName: file.name,
+              result: fallbackResult.data ? {
+                country: fallbackResult.data.country || 'Unknown',
+                entryDate: fallbackResult.data.entryDate || '',
+                exitDate: fallbackResult.data.exitDate,
+                location: fallbackResult.data.location || 'Unknown',
+                visaType: fallbackResult.data.visaType,
+                confidence: fallbackResult.data.confidence || 50,
+                rawText: fallbackResult.data.extractedText || ''
+              } : null,
+              success: fallbackResult.success
+            })
+          } catch (fallbackError: any) {
+            results.push({
+              fileName: file.name,
+              result: null,
+              success: false,
+              error: fileError.message || 'Failed to process image'
+            })
+          }
+        }
       }
 
       setProcessingResults(results)
@@ -183,6 +229,12 @@ export default function PassportUploadPage() {
               {error}
             </div>
           )}
+          
+          {aiError && (
+            <div className="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md text-sm">
+              AI Analysis Warning: {aiError}
+            </div>
+          )}
 
           <div className="mt-6 text-sm text-gray-600">
             <p><strong>Supported formats:</strong> JPG, PNG, GIF, WebP</p>
@@ -230,10 +282,17 @@ export default function PassportUploadPage() {
                 variant="primary"
                 size="lg"
                 onClick={processImages}
-                disabled={isProcessing}
+                disabled={isProcessing || aiLoading}
                 className="w-full"
               >
-                {isProcessing ? 'Processing...' : `Process ${uploadedFiles.length} Image${uploadedFiles.length > 1 ? 's' : ''}`}
+                {isProcessing || aiLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>AI Processing...</span>
+                  </div>
+                ) : (
+                  `Process ${uploadedFiles.length} Image${uploadedFiles.length > 1 ? 's' : ''} with AI`
+                )}
               </Button>
             </div>
           </Card>
@@ -260,22 +319,56 @@ export default function PassportUploadPage() {
                   </div>
                   
                   {result.success && result.result && (
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">Extracted Text:</p>
-                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                          {result.result.extractedText || 'No text extracted'}
-                        </p>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Country:</p>
+                          <p className="text-sm text-gray-900 font-semibold">{result.result.country}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Confidence:</p>
+                          <p className="text-sm text-gray-900">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              result.result.confidence >= 80 ? 'bg-green-100 text-green-800' :
+                              result.result.confidence >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {result.result.confidence}%
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Entry Date:</p>
+                          <p className="text-sm text-gray-900">{result.result.entryDate || 'Not detected'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Exit Date:</p>
+                          <p className="text-sm text-gray-900">{result.result.exitDate || 'Not detected'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Location:</p>
+                          <p className="text-sm text-gray-900">{result.result.location}</p>
+                        </div>
+                        {result.result.visaType && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Visa Type:</p>
+                            <p className="text-sm text-gray-900">{result.result.visaType}</p>
+                          </div>
+                        )}
                       </div>
                       
-                      {result.result.structuredData && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">Structured Data:</p>
-                          <pre className="text-xs text-gray-600 bg-gray-50 p-2 rounded overflow-auto">
-                            {JSON.stringify(result.result.structuredData, null, 2)}
-                          </pre>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Raw Text Extracted:</p>
+                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                          {result.result.rawText || 'No text extracted'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!result.success && result.error && (
+                    <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                      Error: {result.error}
                     </div>
                   )}
                 </div>
@@ -305,11 +398,11 @@ export default function PassportUploadPage() {
           <div className="space-y-3 text-sm text-gray-600">
             <p>
               <strong>What happens after upload?</strong><br />
-              Our AI will analyze your passport images to extract travel stamps, dates, and countries visited.
+              Our advanced AI (Firebase AI Logic with Gemini) will analyze your passport images to extract travel stamps, dates, countries, and visa information with high accuracy.
             </p>
             <p>
-              <strong>How accurate is the extraction?</strong><br />
-              Our OCR technology is highly accurate, but you can review and edit the extracted information.
+              <strong>How accurate is the AI extraction?</strong><br />
+              Our AI-powered analysis provides confidence scores and detailed extraction results. You can review and edit any information before adding to your travel history.
             </p>
             <p>
               <strong>Is my data secure?</strong><br />

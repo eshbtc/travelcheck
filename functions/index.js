@@ -1,4 +1,5 @@
 const functions = require("firebase-functions");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const vision = require("@google-cloud/vision");
 const documentai = require("@google-cloud/documentai");
@@ -49,15 +50,10 @@ function getProcessorName(processorId) {
   return `projects/${DOC_AI_PROJECT}/locations/${DOC_AI_LOCATION}/processors/${processorId}`;
 }
 
-// App Check enforcement flag
-const ENFORCE_APP_CHECK = ((process.env.ENFORCE_APP_CHECK || getConfigValue("security", "enforce_app_check") || "") + "").toLowerCase() === "true";
-
-function ensureAuthAndAppCheck(context) {
+// With v2 onCall, App Check is enforced via function options. Keep a helper for auth.
+function ensureAuth(context) {
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
-  if (ENFORCE_APP_CHECK && !context.app) {
-    throw new functions.https.HttpsError("failed-precondition", "App Check token required");
+    throw new HttpsError("unauthenticated", "User must be authenticated");
   }
 }
 
@@ -121,9 +117,9 @@ async function saveMsalCache(cca, userId) {
 /**
  * Gmail OAuth Functions
  */
-exports.getGmailAuthUrl = functions.https.onCall(async (data, context) => {
+exports.getGmailAuthUrl = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
     const oauth2Client = new google.auth.OAuth2(
         envOrConfig("GMAIL_CLIENT_ID", "gmail", "client_id"),
@@ -132,15 +128,15 @@ exports.getGmailAuthUrl = functions.https.onCall(async (data, context) => {
     );
 
     const scopes = [
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/gmail.labels",
+      // Modify allows read+labels + add/remove labels on messages (used to mark processed)
+      "https://www.googleapis.com/auth/gmail.modify",
     ];
 
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       prompt: "consent",
       scope: scopes,
-      state: context.auth.uid, // Use user ID as state
+      state: request.auth.uid, // Use user ID as state
     });
 
     return {
@@ -149,19 +145,19 @@ exports.getGmailAuthUrl = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     logger.error("Error generating Gmail auth URL", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to generate auth URL");
+    throw new HttpsError("internal", "Failed to generate auth URL");
   }
 });
 
-exports.handleGmailCallback = functions.https.onCall(async (data, context) => {
+exports.handleGmailCallback = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
-    const {code, state} = data;
-    const userId = context.auth.uid;
+    const {code, state} = request.data || {};
+    const userId = request.auth.uid;
 
     if (!code || state !== userId) {
-      throw new functions.https.HttpsError("invalid-argument", "Invalid authorization code or state");
+      throw new HttpsError("invalid-argument", "Invalid authorization code or state");
     }
 
     const oauth2Client = new google.auth.OAuth2(
@@ -191,15 +187,15 @@ exports.handleGmailCallback = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     logger.error("Error handling Gmail callback", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to connect Gmail account");
+    throw new HttpsError("internal", "Failed to connect Gmail account");
   }
 });
 
-exports.disconnectGmail = functions.https.onCall(async (data, context) => {
+exports.disconnectGmail = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
 
     // Remove Gmail account from Firestore
     await admin.firestore().collection("email_accounts").doc(userId).delete();
@@ -210,15 +206,15 @@ exports.disconnectGmail = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     logger.error("Error disconnecting Gmail", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to disconnect Gmail account");
+    throw new HttpsError("internal", "Failed to disconnect Gmail account");
   }
 });
 
-exports.getGmailConnectionStatus = functions.https.onCall(async (data, context) => {
+exports.getGmailConnectionStatus = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
 
     // Check if Gmail account is connected
     const emailAccountDoc = await admin.firestore().collection("email_accounts").doc(userId).get();
@@ -240,21 +236,21 @@ exports.getGmailConnectionStatus = functions.https.onCall(async (data, context) 
     }
   } catch (error) {
     logger.error("Error checking Gmail connection status", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to check connection status");
+    throw new HttpsError("internal", "Failed to check connection status");
   }
 });
 
 /**
  * Gmail Sync - Server-side email parsing using stored refresh token
  */
-exports.syncGmail = functions.https.onCall(async (data, context) => {
+exports.syncGmail = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
-    const userId = context.auth.uid;
+    ensureAuth(request);
+    const userId = request.auth.uid;
 
     const emailDoc = await admin.firestore().collection("email_accounts").doc(userId).get();
     if (!emailDoc.exists || emailDoc.data().provider !== "gmail") {
-      throw new functions.https.HttpsError("failed-precondition", "Gmail account not connected");
+      throw new HttpsError("failed-precondition", "Gmail account not connected");
     }
 
     const {refreshToken} = emailDoc.data();
@@ -273,6 +269,8 @@ exports.syncGmail = functions.https.onCall(async (data, context) => {
     const gmail = google.gmail({version: "v1", auth: oauth2Client});
     const searchQuery = "subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)";
     const {data: list} = await gmail.users.messages.list({userId: "me", q: searchQuery, maxResults: 50});
+    // Prepare processed label
+    const processedLabelId = await ensureGmailLabel(gmail, "TravelCheck/Processed");
 
     const flightEmails = [];
     const emailIds = [];
@@ -298,13 +296,16 @@ exports.syncGmail = functions.https.onCall(async (data, context) => {
           userId,
         };
         flightEmails.push(flightData);
+        // Mark message as processed (best effort)
+        await labelGmailMessageProcessed(gmail, m.id, processedLabelId);
       }
 
       const batch = admin.firestore().batch();
       flightEmails.forEach((flight) => {
-        const docRef = admin.firestore().collection("flight_emails").doc();
-        emailIds.push(docRef.id);
-        batch.set(docRef, flight);
+        const docId = `${userId}_${flight.messageId}`;
+        const docRef = admin.firestore().collection("flight_emails").doc(docId);
+        emailIds.push(docId);
+        batch.set(docRef, flight, {merge: true});
       });
       await batch.commit();
     }
@@ -316,16 +317,16 @@ exports.syncGmail = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     logger.error("Error syncing Gmail", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to sync Gmail emails");
+    throw new HttpsError("internal", "Failed to sync Gmail emails");
   }
 });
 
 /**
  * Office365 OAuth Functions
  */
-exports.getOffice365AuthUrl = functions.https.onCall(async (data, context) => {
+exports.getOffice365AuthUrl = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
     const msalConfig = {
       auth: {
@@ -335,30 +336,30 @@ exports.getOffice365AuthUrl = functions.https.onCall(async (data, context) => {
       },
     };
     const cca = new ConfidentialClientApplication(msalConfig);
-    await loadMsalCache(cca, context.auth.uid);
+    await loadMsalCache(cca, request.auth.uid);
     const authCodeUrlParameters = {
       scopes: ["offline_access", "Mail.Read"],
       redirectUri: envOrConfig("OFFICE365_REDIRECT_URI", "office365", "redirect_uri"),
-      state: context.auth.uid,
+      state: request.auth.uid,
     };
     const authUrl = await cca.getAuthCodeUrl(authCodeUrlParameters);
 
     return {success: true, authUrl};
   } catch (error) {
     logger.error("Error generating Office365 auth URL", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to generate auth URL");
+    throw new HttpsError("internal", "Failed to generate auth URL");
   }
 });
 
-exports.handleOffice365Callback = functions.https.onCall(async (data, context) => {
+exports.handleOffice365Callback = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
-    const {code, state} = data;
-    const userId = context.auth.uid;
+    const {code, state} = request.data || {};
+    const userId = request.auth.uid;
 
     if (!code || state !== userId) {
-      throw new functions.https.HttpsError("invalid-argument", "Invalid authorization code or state");
+      throw new HttpsError("invalid-argument", "Invalid authorization code or state");
     }
 
     const msalConfig = {
@@ -400,15 +401,15 @@ exports.handleOffice365Callback = functions.https.onCall(async (data, context) =
     };
   } catch (error) {
     logger.error("Error handling Office365 callback", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to connect Office365 account");
+    throw new HttpsError("internal", "Failed to connect Office365 account");
   }
 });
 
-exports.disconnectOffice365 = functions.https.onCall(async (data, context) => {
+exports.disconnectOffice365 = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
 
     // Remove Office365 account and MSAL cache from Firestore
     await admin.firestore().collection("email_accounts").doc(`${userId}_office365`).delete();
@@ -420,15 +421,15 @@ exports.disconnectOffice365 = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     logger.error("Error disconnecting Office365", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to disconnect Office365 account");
+    throw new HttpsError("internal", "Failed to disconnect Office365 account");
   }
 });
 
-exports.getOffice365ConnectionStatus = functions.https.onCall(async (data, context) => {
+exports.getOffice365ConnectionStatus = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
 
     // Check if Office365 account is connected
     const emailAccountDoc = await admin.firestore().collection("email_accounts").doc(`${userId}_office365`).get();
@@ -450,21 +451,21 @@ exports.getOffice365ConnectionStatus = functions.https.onCall(async (data, conte
     }
   } catch (error) {
     logger.error("Error checking Office365 connection status", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to check connection status");
+    throw new HttpsError("internal", "Failed to check connection status");
   }
 });
 
 /**
  * Office365 Sync - Server-side email parsing using MS Graph
  */
-exports.syncOffice365 = functions.https.onCall(async (data, context) => {
+exports.syncOffice365 = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
-    const userId = context.auth.uid;
+    ensureAuth(request);
+    const userId = request.auth.uid;
 
     const emailDoc = await admin.firestore().collection("email_accounts").doc(`${userId}_office365`).get();
     if (!emailDoc.exists || emailDoc.data().provider !== "office365") {
-      throw new functions.https.HttpsError("failed-precondition", "Office365 account not connected");
+      throw new HttpsError("failed-precondition", "Office365 account not connected");
     }
 
     const msalConfig = {
@@ -480,7 +481,7 @@ exports.syncOffice365 = functions.https.onCall(async (data, context) => {
     const accounts = await cca.getTokenCache().getAllAccounts();
     const selected = accounts && accounts.length ? accounts[0] : null;
     if (!selected) {
-      throw new functions.https.HttpsError("failed-precondition", "Office365 session expired. Please reconnect.");
+      throw new HttpsError("failed-precondition", "Office365 session expired. Please reconnect.");
     }
 
     const silent = await cca.acquireTokenSilent({
@@ -529,9 +530,10 @@ exports.syncOffice365 = functions.https.onCall(async (data, context) => {
     if (flightEmails.length) {
       const batch = admin.firestore().batch();
       flightEmails.forEach((flight) => {
-        const docRef = admin.firestore().collection("flight_emails").doc();
-        emailIds.push(docRef.id);
-        batch.set(docRef, flight);
+        const docId = `${userId}_${flight.messageId}`;
+        const docRef = admin.firestore().collection("flight_emails").doc(docId);
+        emailIds.push(docId);
+        batch.set(docRef, flight, {merge: true});
       });
       await batch.commit();
     }
@@ -543,22 +545,22 @@ exports.syncOffice365 = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     logger.error("Error syncing Office365", {error: error && error.message});
-    throw new functions.https.HttpsError("internal", "Failed to sync Office365 emails");
+    throw new HttpsError("internal", "Failed to sync Office365 emails");
   }
 });
 
 /**
  * OCR Function - Extract text from passport images
  */
-exports.extractPassportData = functions.https.onCall(async (data, context) => {
+exports.extractPassportData = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    ensureAuthAndAppCheck(context);
+    ensureAuth(request);
 
-    const {imageData} = data;
-    const userId = context.auth.uid;
+    const {imageData} = request.data || {};
+    const userId = request.auth.uid;
 
     if (!imageData) {
-      throw new functions.https.HttpsError("invalid-argument", "Missing image data");
+      throw new HttpsError("invalid-argument", "Missing image data");
     }
 
     // Convert base64 to buffer
@@ -581,7 +583,7 @@ exports.extractPassportData = functions.https.onCall(async (data, context) => {
     // Parse passport data using Document AI
     const passportProcessorName = getProcessorName(PASSPORT_PROCESSOR_ID);
     if (!passportProcessorName) {
-      throw new functions.https.HttpsError("failed-precondition", "Document AI processor is not configured");
+      throw new HttpsError("failed-precondition", "Document AI processor is not configured");
     }
     const [documentResult] = await documentClient.processDocument({
       name: passportProcessorName,
@@ -612,25 +614,22 @@ exports.extractPassportData = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error extracting passport data:", error);
-    throw new functions.https.HttpsError("internal", "Failed to extract passport data");
+    throw new HttpsError("internal", "Failed to extract passport data");
   }
 });
 
 /**
  * Gmail Integration - Parse flight confirmation emails
  */
-exports.parseGmailEmails = functions.https.onCall(async (data, context) => {
+exports.parseGmailEmails = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-    }
+    ensureAuth(request);
 
-    const {accessToken} = data;
-    const userId = context.auth.uid;
+    const {accessToken} = request.data || {};
+    const userId = request.auth.uid;
 
     if (!accessToken) {
-      throw new functions.https.HttpsError("invalid-argument", "Missing access token");
+      throw new HttpsError("invalid-argument", "Missing access token");
     }
 
     // Initialize Gmail API
@@ -677,17 +676,25 @@ exports.parseGmailEmails = functions.https.onCall(async (data, context) => {
       };
 
       flightEmails.push(flightData);
+      // Best effort: label processed if we have permissions
+      try {
+        const processedLabelId = await ensureGmailLabel(gmail, "TravelCheck/Processed");
+        await labelGmailMessageProcessed(gmail, message.id, processedLabelId);
+      } catch (e) {
+        functions.logger.warn("parseGmailEmails: label failed", {messageId: message.id, error: e && e.message});
+      }
     }
 
     // Save to Firestore
     const batch = admin.firestore().batch();
     const emailIds = [];
     flightEmails.forEach((flight) => {
+      const docId = `${userId}_${flight.messageId}`;
       const docRef = admin.firestore()
           .collection("flight_emails")
-          .doc();
-      emailIds.push(docRef.id);
-      batch.set(docRef, flight);
+          .doc(docId);
+      emailIds.push(docId);
+      batch.set(docRef, flight, {merge: true});
     });
     await batch.commit();
 
@@ -701,7 +708,7 @@ exports.parseGmailEmails = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error parsing Gmail emails:", error);
-    throw new functions.https.HttpsError("internal", "Failed to parse Gmail emails");
+    throw new HttpsError("internal", "Failed to parse Gmail emails");
   }
 });
 
@@ -726,7 +733,7 @@ async function extractFlightInfo(emailContent) {
   // Use Document AI to extract structured flight information
   const flightProcessorName = getProcessorName(FLIGHT_PROCESSOR_ID);
   if (!flightProcessorName) {
-    throw new functions.https.HttpsError("failed-precondition", "Document AI processor is not configured");
+    throw new HttpsError("failed-precondition", "Document AI processor is not configured");
   }
   const [result] = await documentClient.processDocument({
     name: flightProcessorName,
@@ -737,6 +744,40 @@ async function extractFlightInfo(emailContent) {
   });
 
   return result.document;
+}
+
+// Gmail helpers: ensure label exists and apply to messages
+async function ensureGmailLabel(gmail, labelName) {
+  try {
+    const {data} = await gmail.users.labels.list({userId: "me"});
+    const existing = (data.labels || []).find((l) => l.name === labelName);
+    if (existing) return existing.id;
+    const created = await gmail.users.labels.create({
+      userId: "me",
+      requestBody: {
+        name: labelName,
+        labelListVisibility: "labelShow",
+        messageListVisibility: "show",
+      },
+    });
+    return created.data.id;
+  } catch (e) {
+    functions.logger.warn("ensureGmailLabel failed", {error: e && e.message});
+    return null;
+  }
+}
+
+async function labelGmailMessageProcessed(gmail, messageId, labelId) {
+  if (!labelId) return;
+  try {
+    await gmail.users.messages.modify({
+      userId: "me",
+      id: messageId,
+      requestBody: {addLabelIds: [labelId]},
+    });
+  } catch (e) {
+    functions.logger.warn("labelGmailMessageProcessed failed", {messageId, error: e && e.message});
+  }
 }
 
 // Import travel history functions
@@ -760,5 +801,8 @@ exports.deletePassportScan = userManagement.deletePassportScan;
 exports.deleteFlightEmail = userManagement.deleteFlightEmail;
 exports.healthCheck = userManagement.healthCheck;
 exports.getSystemStatus = userManagement.getSystemStatus;
+exports.setUserRole = userManagement.setUserRole;
+exports.getAdminSystemStatus = userManagement.getAdminSystemStatus;
+exports.listUsers = userManagement.listUsers;
 
 // Note: Express app removed - all functions are now callable

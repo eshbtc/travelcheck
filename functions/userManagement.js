@@ -1,21 +1,51 @@
-const functions = require("firebase-functions");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+
+function getAdminEmails() {
+  const raw = process.env.ADMIN_EMAILS || "";
+  return raw.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+}
+
+async function isAdmin(request) {
+  if (!request || !request.auth) return false;
+  const uid = request.auth.uid;
+  let email = (request.auth.token && request.auth.token.email) || null;
+  if (!email) {
+    try {
+      const user = await admin.auth().getUser(uid);
+      email = user.email || null;
+    } catch (e) {
+      console.warn("isAdmin: failed to get user for email", {uid, error: e && e.message});
+    }
+  }
+  const adminEmails = new Set(getAdminEmails());
+  if (email && adminEmails.has(String(email).toLowerCase())) return true;
+  try {
+    const doc = await admin.firestore().collection("users").doc(uid).get();
+    if (doc.exists) {
+      const data = doc.data();
+      if (data && (data.role === "admin" || data.isAdmin === true)) return true;
+    }
+  } catch (e) {
+    console.warn("isAdmin: failed to read user doc", {uid, error: e && e.message});
+  }
+  return false;
+}
 
 /**
  * Get User Profile
  */
-exports.getUserProfile = functions.https.onCall(async (data, context) => {
+exports.getUserProfile = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
     const userDoc = await admin.firestore().collection("users").doc(userId).get();
 
     if (!userDoc.exists) {
-      throw new functions.https.HttpsError("not-found", "User profile not found");
+      throw new HttpsError("not-found", "User profile not found");
     }
 
     return {
@@ -24,22 +54,21 @@ exports.getUserProfile = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error getting user profile:", error);
-    throw new functions.https.HttpsError("internal", "Failed to get user profile");
+    throw new HttpsError("internal", "Failed to get user profile");
   }
 });
 
 /**
  * Update User Profile
  */
-exports.updateUserProfile = functions.https.onCall(async (data, context) => {
+exports.updateUserProfile = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
-    const {profileData} = data;
+    const userId = request.auth.uid;
+    const {profileData} = request.data || {};
 
     await admin.firestore().collection("users").doc(userId).update({
       ...profileData,
@@ -52,21 +81,127 @@ exports.updateUserProfile = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error updating user profile:", error);
-    throw new functions.https.HttpsError("internal", "Failed to update user profile");
+    throw new HttpsError("internal", "Failed to update user profile");
+  }
+});
+
+/**
+ * Admin: Set User Role (admin/user)
+ */
+exports.setUserRole = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+    const allowed = await isAdmin(request);
+    if (!allowed) {
+      throw new HttpsError("permission-denied", "Admin privileges required");
+    }
+    const {targetUserId, role} = request.data || {};
+    if (!targetUserId || (role !== "admin" && role !== "user")) {
+      throw new HttpsError("invalid-argument", "Provide targetUserId and role in {admin|user}");
+    }
+    // Update Firestore user role
+    await admin.firestore().collection("users").doc(targetUserId).set({
+      role,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true});
+
+    // Optionally set custom claims
+    try {
+      await admin.auth().setCustomUserClaims(targetUserId, {role});
+    } catch (e) {
+      console.warn("setUserRole: failed to set custom claims", {targetUserId, error: e && e.message});
+    }
+
+    return {success: true, message: `Role for ${targetUserId} set to ${role}`};
+  } catch (error) {
+    console.error("Error setting user role:", error);
+    throw new HttpsError("internal", "Failed to set user role");
+  }
+});
+
+/**
+ * Admin: System Status
+ */
+exports.getAdminSystemStatus = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+    const allowed = await isAdmin(request);
+    if (!allowed) {
+      throw new HttpsError("permission-denied", "Admin privileges required");
+    }
+
+    // Simple connectivity checks and config hints
+    await admin.firestore().collection("health_check").doc("test").get();
+    const gmailConfigured = !!(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET);
+    const officeConfigured = !!(process.env.OFFICE365_CLIENT_ID && process.env.OFFICE365_CLIENT_SECRET);
+    const docAiConfigured = !!(process.env.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID || process.env.GOOGLE_CLOUD_DOCUMENT_AI_PASSPORT_PROCESSOR_ID);
+
+    return {
+      success: true,
+      status: {
+        firestore: "connected",
+        node: process.versions.node,
+        appCheck: {
+          enforced: true,
+          replayProtection: true,
+        },
+        config: {
+          gmailConfigured,
+          officeConfigured,
+          docAiConfigured,
+        },
+        timestamp: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    console.error("Error getting admin system status:", error);
+    return {
+      success: false,
+      status: {
+        firestore: "disconnected",
+        error: error && error.message,
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+});
+
+/**
+ * Admin: List Users (from Firestore collection 'users')
+ */
+exports.listUsers = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+    const allowed = await isAdmin(request);
+    if (!allowed) {
+      throw new HttpsError("permission-denied", "Admin privileges required");
+    }
+
+    const snap = await admin.firestore().collection("users").orderBy("created_at", "desc").limit(500).get();
+    const users = snap.docs.map((d) => ({id: d.id, ...d.data()}));
+    return {success: true, users};
+  } catch (error) {
+    console.error("Error listing users:", error);
+    throw new HttpsError("internal", "Failed to list users");
   }
 });
 
 /**
  * Get Travel History
  */
-exports.getTravelHistory = functions.https.onCall(async (data, context) => {
+exports.getTravelHistory = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
     const travelHistoryDoc = await admin.firestore()
         .collection("travel_history")
         .doc(userId)
@@ -85,21 +220,20 @@ exports.getTravelHistory = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error getting travel history:", error);
-    throw new functions.https.HttpsError("internal", "Failed to get travel history");
+    throw new HttpsError("internal", "Failed to get travel history");
   }
 });
 
 /**
  * Get Passport Scans
  */
-exports.getPassportScans = functions.https.onCall(async (data, context) => {
+exports.getPassportScans = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
     const passportScans = await admin.firestore()
         .collection("passport_scans")
         .where("userId", "==", userId)
@@ -117,21 +251,20 @@ exports.getPassportScans = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error getting passport scans:", error);
-    throw new functions.https.HttpsError("internal", "Failed to get passport scans");
+    throw new HttpsError("internal", "Failed to get passport scans");
   }
 });
 
 /**
  * Get Flight Emails
  */
-exports.getFlightEmails = functions.https.onCall(async (data, context) => {
+exports.getFlightEmails = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
     const flightEmails = await admin.firestore()
         .collection("flight_emails")
         .where("userId", "==", userId)
@@ -149,22 +282,21 @@ exports.getFlightEmails = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error getting flight emails:", error);
-    throw new functions.https.HttpsError("internal", "Failed to get flight emails");
+    throw new HttpsError("internal", "Failed to get flight emails");
   }
 });
 
 /**
  * Delete Passport Scan
  */
-exports.deletePassportScan = functions.https.onCall(async (data, context) => {
+exports.deletePassportScan = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
-    const {scanId} = data;
+    const userId = request.auth.uid;
+    const {scanId} = request.data || {};
 
     // Verify ownership
     const scanDoc = await admin.firestore()
@@ -173,7 +305,7 @@ exports.deletePassportScan = functions.https.onCall(async (data, context) => {
         .get();
 
     if (!scanDoc.exists || scanDoc.data().userId !== userId) {
-      throw new functions.https.HttpsError("permission-denied", "Access denied");
+      throw new HttpsError("permission-denied", "Access denied");
     }
 
     await admin.firestore().collection("passport_scans").doc(scanId).delete();
@@ -184,22 +316,21 @@ exports.deletePassportScan = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error deleting passport scan:", error);
-    throw new functions.https.HttpsError("internal", "Failed to delete passport scan");
+    throw new HttpsError("internal", "Failed to delete passport scan");
   }
 });
 
 /**
  * Delete Flight Email
  */
-exports.deleteFlightEmail = functions.https.onCall(async (data, context) => {
+exports.deleteFlightEmail = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
-    const {emailId} = data;
+    const userId = request.auth.uid;
+    const {emailId} = request.data || {};
 
     // Verify ownership
     const emailDoc = await admin.firestore()
@@ -208,7 +339,7 @@ exports.deleteFlightEmail = functions.https.onCall(async (data, context) => {
         .get();
 
     if (!emailDoc.exists || emailDoc.data().userId !== userId) {
-      throw new functions.https.HttpsError("permission-denied", "Access denied");
+      throw new HttpsError("permission-denied", "Access denied");
     }
 
     await admin.firestore().collection("flight_emails").doc(emailId).delete();
@@ -219,14 +350,14 @@ exports.deleteFlightEmail = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error deleting flight email:", error);
-    throw new functions.https.HttpsError("internal", "Failed to delete flight email");
+    throw new HttpsError("internal", "Failed to delete flight email");
   }
 });
 
 /**
  * Health Check
  */
-exports.healthCheck = functions.https.onCall(async (data, context) => {
+exports.healthCheck = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   return {
     success: true,
     status: "healthy",
@@ -238,7 +369,7 @@ exports.healthCheck = functions.https.onCall(async (data, context) => {
 /**
  * Get System Status
  */
-exports.getSystemStatus = functions.https.onCall(async (data, context) => {
+exports.getSystemStatus = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
     // Check Firestore connection
     await admin.firestore().collection("health_check").doc("test").get();

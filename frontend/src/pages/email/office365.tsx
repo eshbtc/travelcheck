@@ -5,16 +5,19 @@ import Layout from '../../components/Layout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { getOffice365AuthUrl, handleOffice365Callback, disconnectOffice365Account, getOffice365ConnectionStatus, syncOffice365Emails } from '../../services/firebaseFunctions'
+import { useAI } from '../../hooks/useAI'
 import { toast } from 'react-hot-toast'
 
 export default function Office365IntegrationPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const { analyzeEmailContent, isLoading: aiLoading, error: aiError } = useAI()
   const [isConnecting, setIsConnecting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'error'>('disconnected')
   const [error, setError] = useState('')
   const [lastSync, setLastSync] = useState<string | null>(null)
+  const [useAIEnhancement, setUseAIEnhancement] = useState(true)
 
   // Redirect if not authenticated
   React.useEffect(() => {
@@ -136,6 +139,34 @@ export default function Office365IntegrationPage() {
           </p>
         </div>
 
+        {/* AI Enhancement Toggle */}
+        <Card className="p-6">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-900">AI Enhancement</h3>
+                <p className="text-sm text-blue-700">
+                  Use Firebase AI Logic to enhance email analysis and extract travel information
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useAIEnhancement}
+                  onChange={(e) => setUseAIEnhancement(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            {aiError && (
+              <div className="mt-2 text-sm text-red-600">
+                AI Enhancement Warning: {aiError}
+              </div>
+            )}
+          </div>
+        </Card>
+
         {/* Connection Status */}
         <Card>
           <div className="p-6">
@@ -192,20 +223,20 @@ export default function Office365IntegrationPage() {
                 <>
                   <Button
                     onClick={handleSyncEmails}
-                    disabled={isSyncing}
+                    disabled={isSyncing || aiLoading}
                     variant="secondary"
                   >
-                    {isSyncing ? (
+                    {isSyncing || aiLoading ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                        Syncing...
+                        {useAIEnhancement ? 'AI Processing...' : 'Syncing...'}
                       </>
                     ) : (
                       <>
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        Sync Emails
+                        {`Sync Emails${useAIEnhancement ? ' (AI Enhanced)' : ''}`}
                       </>
                     )}
                   </Button>

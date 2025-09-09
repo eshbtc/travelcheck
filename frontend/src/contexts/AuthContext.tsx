@@ -22,6 +22,7 @@ interface User {
   full_name: string
   is_active: boolean
   created_at: string
+  role?: 'admin' | 'user'
 }
 
 interface AuthContextType {
@@ -87,7 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: firebaseUser.email || '',
           full_name: userData.full_name || firebaseUser.displayName || '',
           is_active: userData.is_active || true,
-          created_at: userData.created_at || new Date().toISOString()
+          created_at: userData.created_at || new Date().toISOString(),
+          role: (userData.role as any) || 'user'
         })
       } else {
         // User doesn't exist, create new user document
@@ -96,7 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           full_name: firebaseUser.displayName || '',
           is_active: true,
           created_at: new Date().toISOString(),
-          email_verified: firebaseUser.emailVerified
+          email_verified: firebaseUser.emailVerified,
+          role: 'user'
         }
         
         await setDoc(userRef, newUser)
@@ -105,7 +108,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: newUser.email,
           full_name: newUser.full_name,
           is_active: newUser.is_active,
-          created_at: newUser.created_at
+          created_at: newUser.created_at,
+          role: 'user'
         })
       }
     } catch (error) {

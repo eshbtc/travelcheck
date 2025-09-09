@@ -5,17 +5,21 @@ import Layout from '../../components/Layout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { getFlightEmails, getGmailAuthUrl, handleGmailCallback, disconnectGmailAccount, getGmailConnectionStatus, syncGmailEmails } from '../../services/firebaseFunctions'
+import { useAI } from '../../hooks/useAI'
 import { toast } from 'react-hot-toast'
 
 export default function GmailIntegrationPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const { analyzeEmailContent, isLoading: aiLoading, error: aiError } = useAI()
   const [isConnecting, setIsConnecting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'error'>('disconnected')
   const [flightEmails, setFlightEmails] = useState<any[]>([])
   const [error, setError] = useState('')
   const [lastSync, setLastSync] = useState<string | null>(null)
+  const [aiAnalysisResults, setAiAnalysisResults] = useState<any[]>([])
+  const [useAIEnhancement, setUseAIEnhancement] = useState(true)
 
   // Redirect if not authenticated
   React.useEffect(() => {
@@ -102,10 +106,49 @@ export default function GmailIntegrationPage() {
       await loadFlightEmails()
       setLastSync(new Date().toISOString())
       
+      // If AI enhancement is enabled, analyze emails with AI
+      if (useAIEnhancement && flightEmails.length > 0) {
+        await analyzeEmailsWithAI()
+      }
+      
     } catch (err: any) {
       setError(err.message || 'Failed to sync emails')
     } finally {
       setIsSyncing(false)
+    }
+  }
+
+  const analyzeEmailsWithAI = async () => {
+    if (!flightEmails.length) return
+
+    try {
+      const analysisResults = []
+      
+      for (const email of flightEmails) {
+        try {
+          // Combine subject and body for AI analysis
+          const emailContent = `${email.subject}\n\n${email.body || email.snippet || ''}`
+          
+          const aiResult = await analyzeEmailContent(emailContent)
+          if (aiResult && aiResult.length > 0) {
+            analysisResults.push({
+              emailId: email.id,
+              subject: email.subject,
+              aiAnalysis: aiResult,
+              enhanced: true
+            })
+          }
+        } catch (emailError) {
+          console.error('Error analyzing email with AI:', emailError)
+        }
+      }
+      
+      setAiAnalysisResults(analysisResults)
+      toast.success(`AI analyzed ${analysisResults.length} emails for travel information`)
+      
+    } catch (err) {
+      console.error('Error in AI email analysis:', err)
+      toast.error('AI analysis failed, but emails were synced successfully')
     }
   }
 
@@ -152,6 +195,34 @@ export default function GmailIntegrationPage() {
             Connect your Gmail account to automatically import flight confirmations and travel-related emails.
           </p>
         </div>
+
+        {/* AI Enhancement Toggle */}
+        <Card className="p-6">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-900">AI Enhancement</h3>
+                <p className="text-sm text-blue-700">
+                  Use Firebase AI Logic to enhance email analysis and extract travel information
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useAIEnhancement}
+                  onChange={(e) => setUseAIEnhancement(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            {aiError && (
+              <div className="mt-2 text-sm text-red-600">
+                AI Enhancement Warning: {aiError}
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* Connection Status */}
         <Card className="p-6">
@@ -202,9 +273,16 @@ export default function GmailIntegrationPage() {
                 <Button
                   variant="outline"
                   onClick={handleSyncEmails}
-                  disabled={isSyncing}
+                  disabled={isSyncing || aiLoading}
                 >
-                  {isSyncing ? 'Syncing...' : 'Sync Emails'}
+                  {isSyncing || aiLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-primary"></div>
+                      <span>{useAIEnhancement ? 'AI Processing...' : 'Syncing...'}</span>
+                    </div>
+                  ) : (
+                    `Sync Emails${useAIEnhancement ? ' (AI Enhanced)' : ''}`
+                  )}
                 </Button>
                 <Button
                   variant="outline"
@@ -298,6 +376,50 @@ export default function GmailIntegrationPage() {
                         <pre className="text-xs text-gray-600 overflow-auto">
                           {JSON.stringify(email.extractedFlights, null, 2)}
                         </pre>
+                      </div>
+                    )}
+                    
+                    {/* AI Analysis Results */}
+                    {aiAnalysisResults.find(result => result.emailId === email.id) && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-blue-600 text-sm font-medium">🤖 AI Analysis</span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            Enhanced
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {aiAnalysisResults
+                            .find(result => result.emailId === email.id)
+                            ?.aiAnalysis.map((analysis: any, idx: number) => (
+                            <div key={idx} className="text-sm">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="font-medium text-gray-700">Country:</span>
+                                  <span className="ml-2 text-gray-900">{analysis.country}</span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-700">Confidence:</span>
+                                  <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                                    analysis.confidence >= 80 ? 'bg-green-100 text-green-800' :
+                                    analysis.confidence >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-red-100 text-red-800'
+                                  }`}>
+                                    {analysis.confidence}%
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-700">Entry Date:</span>
+                                  <span className="ml-2 text-gray-900">{analysis.entryDate || 'Not detected'}</span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-700">Exit Date:</span>
+                                  <span className="ml-2 text-gray-900">{analysis.exitDate || 'Not detected'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

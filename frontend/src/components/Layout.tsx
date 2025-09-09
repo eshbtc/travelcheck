@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useAuth } from '../contexts/AuthContext'
@@ -31,6 +31,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const router = useRouter()
   const { user, logout } = useAuth()
 
+  const adminEmails = useMemo(() => (
+    (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
+  ), [])
+  const isAdmin = useMemo(() => {
+    if (!user) return false
+    const emailIsAdmin = !!(user.email && adminEmails.includes(user.email.toLowerCase()))
+    const roleIsAdmin = (user as any).role === 'admin'
+    return emailIsAdmin || roleIsAdmin
+  }, [user, adminEmails])
+
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: router.pathname === '/dashboard' },
     { name: 'Upload Passport', href: '/upload/passport', icon: PhotoIcon, current: router.pathname === '/upload/passport' },
@@ -39,6 +52,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Travel History', href: '/travel/history', icon: DocumentTextIcon, current: router.pathname === '/travel/history' },
     { name: 'Reports', href: '/reports', icon: ChartBarIcon, current: router.pathname === '/reports' },
     { name: 'Settings', href: '/settings', icon: CogIcon, current: router.pathname === '/settings' },
+    ...(
+      isAdmin
+        ? [
+            { name: 'Admin Health', href: '/admin/health', icon: CogIcon, current: router.pathname === '/admin/health' },
+            { name: 'Users', href: '/admin/users', icon: UserIcon, current: router.pathname === '/admin/users' },
+          ]
+        : []
+    )
   ]
 
   const handleLogout = async () => {

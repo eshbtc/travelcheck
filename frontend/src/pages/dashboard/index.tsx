@@ -7,22 +7,68 @@ import Button from '../../components/ui/Button'
 import { StatsCard } from '../../components/ui/StatsCard'
 import { FeatureCard } from '../../components/ui/FeatureCard'
 import { Logo } from '../../components/ui/Logo'
+import { useAI } from '../../hooks/useAI'
+import { getAdminSystemStatus } from '../../services/firebaseFunctions'
 
 export default function DashboardPage() {
   const { user, firebaseUser, isLoading } = useAuth()
   const router = useRouter()
+  const { isLoading: aiLoading } = useAI()
+  const [adminStatus, setAdminStatus] = useState<any>(null)
+  const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
+  const isAdmin = !!(user?.email && adminEmails.includes((user.email || '').toLowerCase())) || (user as any)?.role === 'admin'
   const [stats, setStats] = useState({
     totalTrips: 0,
     countriesVisited: 0,
     daysAbroad: 0,
     lastTrip: null
   })
+  const [aiRecommendations, setAiRecommendations] = useState<string[]>([])
+  const [showAIInsights, setShowAIInsights] = useState(true)
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/auth/login')
     }
   }, [user, isLoading, router])
+
+  // Generate AI recommendations based on current state
+  useEffect(() => {
+    if (user) {
+      const recommendations = []
+      
+      if (stats.totalTrips === 0) {
+        recommendations.push("📄 Upload your passport scans to start building your travel history")
+        recommendations.push("📧 Connect your email accounts to import flight confirmations")
+      } else if (stats.totalTrips < 5) {
+        recommendations.push("🔍 Review your travel history for any missing trips")
+        recommendations.push("📊 Generate your first USCIS report to see the current status")
+      } else {
+        recommendations.push("✅ Your travel history looks comprehensive!")
+        recommendations.push("📋 Consider generating a USCIS report for your citizenship application")
+      }
+      
+      if (stats.countriesVisited === 0) {
+        recommendations.push("🌍 Add countries you've visited to complete your profile")
+      }
+      
+      setAiRecommendations(recommendations)
+    }
+  }, [user, stats])
+
+  // Admin: fetch App Check status
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await getAdminSystemStatus()
+        if (res?.success) setAdminStatus(res.status)
+      } catch (_) {}
+    }
+    if (isAdmin) load()
+  }, [isAdmin])
 
   if (isLoading) {
     return (
@@ -110,6 +156,68 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Admin: App Check Status */}
+        {isAdmin && adminStatus && (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-green-600 text-lg">🛡️</span>
+                <h2 className="text-lg font-semibold text-gray-900">App Check</h2>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Admin</span>
+              </div>
+              <span className={`text-sm ${adminStatus.appCheck?.enforced ? 'text-green-700' : 'text-red-700'}`}>
+                {adminStatus.appCheck?.enforced ? 'Enforced' : 'Not enforced'}
+                {adminStatus.appCheck?.replayProtection ? ' • Replay Protected' : ''}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-700">
+              <div>
+                <div className="text-gray-500">Node</div>
+                <div className="font-medium">{adminStatus.node || '—'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Firestore</div>
+                <div className="font-medium">{adminStatus.firestore || '—'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Timestamp</div>
+                <div className="font-medium">{adminStatus.timestamp ? new Date(adminStatus.timestamp).toLocaleString() : '—'}</div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* AI Insights & Recommendations */}
+        {showAIInsights && aiRecommendations.length > 0 && (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-blue-600 text-lg">🤖</span>
+                <h2 className="text-xl font-semibold text-blue-900">AI Insights & Recommendations</h2>
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                  Powered by Firebase AI Logic
+                </span>
+              </div>
+              <button
+                onClick={() => setShowAIInsights(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-3">
+              {aiRecommendations.map((recommendation, index) => (
+                <div key={index} className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 text-sm">💡</span>
+                  </div>
+                  <p className="text-blue-800 text-sm">{recommendation}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

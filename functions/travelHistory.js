@@ -1,4 +1,5 @@
 const functions = require("firebase-functions");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const moment = require("moment");
 const _ = require("lodash");
@@ -6,14 +7,13 @@ const _ = require("lodash");
 /**
  * Travel History Analysis - Cross-reference passport stamps with flight data
  */
-exports.analyzeTravelHistory = functions.https.onCall(async (data, context) => {
+exports.analyzeTravelHistory = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
 
     // Get passport scans
     const passportSnaps = await admin.firestore()
@@ -51,22 +51,21 @@ exports.analyzeTravelHistory = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error analyzing travel history:", error);
-    throw new functions.https.HttpsError("internal", "Failed to analyze travel history");
+    throw new HttpsError("internal", "Failed to analyze travel history");
   }
 });
 
 /**
  * Generate USCIS Report - Create formatted travel history report
  */
-exports.generateUSCISReport = functions.https.onCall(async (data, context) => {
+exports.generateUSCISReport = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
   try {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const {format = "pdf"} = data;
-    const userId = context.auth.uid;
+    const {format = "pdf"} = request.data || {};
+    const userId = request.auth.uid;
 
     // Get travel history
     const travelHistoryDoc = await admin.firestore()
@@ -75,7 +74,7 @@ exports.generateUSCISReport = functions.https.onCall(async (data, context) => {
         .get();
 
     if (!travelHistoryDoc.exists) {
-      throw new functions.https.HttpsError("not-found", "Travel history not found");
+      throw new HttpsError("not-found", "Travel history not found");
     }
 
     const travelHistory = travelHistoryDoc.data();
@@ -107,7 +106,7 @@ exports.generateUSCISReport = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error generating USCIS report:", error);
-    throw new functions.https.HttpsError("internal", "Failed to generate report");
+    throw new HttpsError("internal", "Failed to generate report");
   }
 });
 
@@ -147,10 +146,10 @@ exports.dailyEmailSync = functions.scheduler.onSchedule("0 9 * * *", async (even
 /**
  * Optional callable to trigger the daily sync on demand (different name to avoid conflicts)
  */
-exports.runDailyEmailSync = functions.https.onCall(async (data, context) => {
-  const isEmulator = (process.env.FUNCTIONS_EMULATOR === 'true');
-  if (!isEmulator && !context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+exports.runDailyEmailSync = onCall({enforceAppCheck: true, consumeAppCheckToken: true}, async (request) => {
+  const isEmulator = (process.env.FUNCTIONS_EMULATOR === "true");
+  if (!isEmulator && !request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
   }
   const result = await performDailyEmailSync();
   return {success: true, ...result};

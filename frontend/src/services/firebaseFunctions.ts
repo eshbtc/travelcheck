@@ -17,7 +17,7 @@ const functions = getFunctions()
 // Helper function to make callable function calls
 const callFunction = async <T = any>(functionName: string, data: any = {}): Promise<T> => {
   try {
-    const callable = httpsCallable(functions, functionName)
+    const callable = httpsCallable(functions, functionName, { limitedUseAppCheckTokens: true })
     const result = await callable(data)
     return result.data as T
   } catch (error) {
@@ -140,4 +140,17 @@ export const getSystemStatus = async () => {
 // Admin/maintenance
 export const runDailyEmailSync = async () => {
   return callFunction('runDailyEmailSync', {})
+}
+
+// Admin functions
+export const setUserRole = async (targetUserId: string, role: 'admin' | 'user') => {
+  return callFunction('setUserRole', { targetUserId, role })
+}
+
+export const getAdminSystemStatus = async () => {
+  return callFunction('getAdminSystemStatus', {})
+}
+
+export const listUsers = async () => {
+  return callFunction('listUsers', {})
 }

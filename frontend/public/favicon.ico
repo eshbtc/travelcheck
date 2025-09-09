@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-labelledby="t d">
+    <title id="t">TravelCheck</title>
+    <desc id="d">TravelCheck favicon - passport with globe and checkmark</desc>
+    <style>
+      :root{
+        --ink:#0f172a;     /* globe ring */
+        --grid:#223044;    /* globe grid */
+        --land:#0ea5e9;    /* land tint */
+        --card:#ffffff;    /* card */
+        --badge:#0b1220;   /* badge bg */
+        --check:#22c55e;   /* check */
+        --shadow:rgba(15,23,42,.08);
+      }
+      .card{ fill:var(--card); }
+      .globe-ring{ stroke:var(--ink); stroke-width:2; fill:none; stroke-linecap:round; }
+      .equator{ stroke:var(--ink); stroke-width:2; stroke-linecap:round; }
+      .grid{ stroke:var(--grid); stroke-width:0.5; fill:none; opacity:.9; }
+      .land{ fill:var(--land); opacity:.16; }
+      .badge{ fill:var(--badge); }
+      .check{ fill:var(--check); }
+      .shadow{ fill:var(--shadow); }
+    </style>
+  
+    <!-- soft drop shadow -->
+    <ellipse class="shadow" cx="16" cy="24" rx="9" ry="2"/>
+  
+    <!-- PASSPORT CARD -->
+    <rect class="card" x="8" y="8" width="16" height="12" rx="3"/>
+  
+    <!-- GLOBE -->
+    <defs>
+      <clipPath id="globeClip"><circle cx="16" cy="14" r="6"/></clipPath>
+    </defs>
+    <circle class="globe-ring" cx="16" cy="14" r="6"/>
+    <g clip-path="url(#globeClip)">
+      <path class="grid" d="M10 14h12"/>
+      <path class="grid" d="M11 12c2-1 8-1 10 0"/>
+      <path class="grid" d="M11 16c2 1 8 1 10 0"/>
+      <path class="grid" d="M16 8c-3 0-5 3-5 6s2 6 5 6"/>
+      <path class="grid" d="M16 8c3 0 5 3 5 6s-2 6-5 6"/>
+      <path class="land" d="M13 12c1-1 3-1 5 0 1 0 1 1 1 1 0 0 0 1-1 1-2 0-4 0-5 0-1 0-1-1 0-2z"/>
+      <path class="land" d="M12 16c0-1 1-1 2-1 2 0 4 0 5 1 1 0 0 1 0 1-3 0-5 0-7-1z"/>
+    </g>
+    <line class="equator" x1="10" y1="14" x2="22" y2="14"/>
+  
+    <!-- CORNER BADGE CHECK -->
+    <g transform="translate(19,18)">
+      <circle class="badge" r="2.5"/>
+      <path class="check" d="M-1 0.5l-1-1a1 1 0 0 1 1-1l0.5 0.5 1.5-1.5a1 1 0 1 1 1 1l-2 2a1 1 0 0 1-1 0z"/>
+    </g>
+</svg>
