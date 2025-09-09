@@ -68,7 +68,7 @@ echo -e "${YELLOW}   Go to: APIs & Services > OAuth consent screen${NC}"
 
 # Create OAuth client
 echo -e "${BLUE}🔑 Creating OAuth 2.0 client...${NC}"
-REDIRECT_URI="${PROTOCOL}://${DOMAIN}/auth/oauth-callback?provider=gmail"
+REDIRECT_URI="${PROTOCOL}://${DOMAIN}/auth/oauth-callback/gmail"
 
 # Create OAuth client configuration
 cat > oauth_client_config.json << EOF

@@ -112,27 +112,47 @@ exports.generateUSCISReport = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * Scheduled Function - Daily email sync
+ * Shared implementation for daily email sync
  */
-exports.dailyEmailSync = functions.pubsub.schedule("0 9 * * *").timeZone("America/New_York").onRun(async (context) => {
+async function performDailyEmailSync() {
   console.log("Running daily email sync...");
-
   // Get all users with Gmail integration
   const usersSnap = await admin.firestore()
       .collection("users")
       .where("gmailEnabled", "==", true)
       .get();
 
+  let processed = 0;
   for (const userDoc of usersSnap.docs) {
     const user = userDoc.data();
     try {
-      // Trigger email parsing for each user
-      // Note: This would need to be implemented as a separate function
+      // TODO: Call callable syncGmail or enqueue per-user sync here
       console.log(`Would sync emails for user ${user.uid}`);
+      processed += 1;
     } catch (error) {
       console.error(`Error syncing emails for user ${user.uid}:`, error);
     }
   }
+  return {usersChecked: usersSnap.size, processed};
+}
+
+/**
+ * Scheduled Function - Daily email sync (kept as scheduled to avoid trigger-type conflicts)
+ */
+exports.dailyEmailSync = functions.scheduler.onSchedule("0 9 * * *", async (event) => {
+  await performDailyEmailSync();
+  return null;
+});
+
+/**
+ * Optional callable to trigger the daily sync on demand (different name to avoid conflicts)
+ */
+exports.runDailyEmailSync = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
+  }
+  const result = await performDailyEmailSync();
+  return {success: true, ...result};
 });
 
 // Helper Functions

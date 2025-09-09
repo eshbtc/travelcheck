@@ -11,6 +11,18 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "redirects": [
+      {
+        "source": "/auth/oauth-callback/gmail",
+        "destination": "/auth/oauth-callback/?provider=gmail",
+        "type": 302
+      },
+      {
+        "source": "/auth/oauth-callback/office365",
+        "destination": "/auth/oauth-callback/?provider=office365",
+        "type": 302
+      }
     ]
   },
   "storage": {

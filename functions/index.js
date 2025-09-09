@@ -5,7 +5,7 @@ const documentai = require("@google-cloud/documentai");
 const {google} = require("googleapis");
 const sharp = require("sharp");
 const crypto = require("crypto");
-const { ConfidentialClientApplication } = require("@azure/msal-node");
+const {ConfidentialClientApplication} = require("@azure/msal-node");
 const logger = require("./utils/logger");
 
 // Initialize Firebase Admin
@@ -17,11 +17,30 @@ const documentClient = new documentai.DocumentProcessorServiceClient();
 
 // Note: Express app removed - using callable functions instead
 
-// Document AI configuration with environment variables
-const DOC_AI_PROJECT = process.env.GOOGLE_CLOUD_DOCUMENT_AI_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GCLOUD_PROJECT;
-const DOC_AI_LOCATION = process.env.GOOGLE_CLOUD_DOCUMENT_AI_LOCATION || 'us';
-const PASSPORT_PROCESSOR_ID = process.env.GOOGLE_CLOUD_DOCUMENT_AI_PASSPORT_PROCESSOR_ID || process.env.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID;
-const FLIGHT_PROCESSOR_ID = process.env.GOOGLE_CLOUD_DOCUMENT_AI_FLIGHT_PROCESSOR_ID || process.env.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID;
+// Env/config helpers (support both process.env and functions.config())
+function getConfigValue(category, key) {
+  try {
+    if (functions.config && typeof functions.config === "function") {
+      const cfg = functions.config();
+      if (cfg && cfg[category] && Object.prototype.hasOwnProperty.call(cfg[category], key)) {
+        return cfg[category][key];
+      }
+    }
+  } catch (e) {
+    // Ignore config errors - fallback to undefined
+  }
+  return undefined;
+}
+
+function envOrConfig(envName, category, key) {
+  return process.env[envName] || getConfigValue(category, key);
+}
+
+// Document AI configuration with environment variables (fallback to functions.config())
+const DOC_AI_PROJECT = envOrConfig("GOOGLE_CLOUD_DOCUMENT_AI_PROJECT_ID", "google", "document_ai_project_id") || process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GCLOUD_PROJECT;
+const DOC_AI_LOCATION = envOrConfig("GOOGLE_CLOUD_DOCUMENT_AI_LOCATION", "google", "document_ai_location") || "us";
+const PASSPORT_PROCESSOR_ID = envOrConfig("GOOGLE_CLOUD_DOCUMENT_AI_PASSPORT_PROCESSOR_ID", "google", "document_ai_passport_processor_id") || envOrConfig("GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID", "google", "document_ai_processor_id");
+const FLIGHT_PROCESSOR_ID = envOrConfig("GOOGLE_CLOUD_DOCUMENT_AI_FLIGHT_PROCESSOR_ID", "google", "document_ai_flight_processor_id") || envOrConfig("GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID", "google", "document_ai_processor_id");
 
 function getProcessorName(processorId) {
   if (!DOC_AI_PROJECT || !processorId) {
@@ -31,7 +50,7 @@ function getProcessorName(processorId) {
 }
 
 // App Check enforcement flag
-const ENFORCE_APP_CHECK = (process.env.ENFORCE_APP_CHECK || "").toLowerCase() === "true";
+const ENFORCE_APP_CHECK = ((process.env.ENFORCE_APP_CHECK || getConfigValue("security", "enforce_app_check") || "") + "").toLowerCase() === "true";
 
 function ensureAuthAndAppCheck(context) {
   if (!context.auth) {
@@ -44,7 +63,7 @@ function ensureAuthAndAppCheck(context) {
 
 // Simple AES-256-GCM encryption for tokens at rest
 function getKey() {
-  const raw = process.env.ENCRYPTION_KEY || "";
+  const raw = process.env.ENCRYPTION_KEY || getConfigValue("security", "encryption_key") || "";
   // Derive 32-byte key from provided string
   return crypto.createHash("sha256").update(raw).digest();
 }
@@ -85,7 +104,7 @@ async function loadMsalCache(cca, userId) {
       }
     }
   } catch (e) {
-    functions.logger.warn("loadMsalCache failed", { error: e?.message });
+    functions.logger.warn("loadMsalCache failed", {error: e && e.message});
   }
 }
 
@@ -93,9 +112,9 @@ async function saveMsalCache(cca, userId) {
   try {
     const serialized = await cca.getTokenCache().serialize();
     const enc = encrypt(serialized);
-    await admin.firestore().collection("email_accounts").doc(`${userId}_office365_msal_cache`).set({ cache: enc }, { merge: true });
+    await admin.firestore().collection("email_accounts").doc(`${userId}_office365_msal_cache`).set({cache: enc}, {merge: true});
   } catch (e) {
-    functions.logger.warn("saveMsalCache failed", { error: e?.message });
+    functions.logger.warn("saveMsalCache failed", {error: e && e.message});
   }
 }
 
@@ -107,29 +126,29 @@ exports.getGmailAuthUrl = functions.https.onCall(async (data, context) => {
     ensureAuthAndAppCheck(context);
 
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
-      process.env.GMAIL_REDIRECT_URI
+        envOrConfig("GMAIL_CLIENT_ID", "gmail", "client_id"),
+        envOrConfig("GMAIL_CLIENT_SECRET", "gmail", "client_secret"),
+        envOrConfig("GMAIL_REDIRECT_URI", "gmail", "redirect_uri"),
     );
 
     const scopes = [
       "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/gmail.labels"
+      "https://www.googleapis.com/auth/gmail.labels",
     ];
 
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       prompt: "consent",
       scope: scopes,
-      state: context.auth.uid // Use user ID as state
+      state: context.auth.uid, // Use user ID as state
     });
 
     return {
       success: true,
-      authUrl
+      authUrl,
     };
   } catch (error) {
-    logger.error("Error generating Gmail auth URL", { error: error?.message });
+    logger.error("Error generating Gmail auth URL", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to generate auth URL");
   }
 });
@@ -146,9 +165,9 @@ exports.handleGmailCallback = functions.https.onCall(async (data, context) => {
     }
 
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
-      process.env.GMAIL_REDIRECT_URI
+        envOrConfig("GMAIL_CLIENT_ID", "gmail", "client_id"),
+        envOrConfig("GMAIL_CLIENT_SECRET", "gmail", "client_secret"),
+        envOrConfig("GMAIL_REDIRECT_URI", "gmail", "redirect_uri"),
     );
 
     // Exchange code for tokens
@@ -163,15 +182,15 @@ exports.handleGmailCallback = functions.https.onCall(async (data, context) => {
       refreshToken: encrypt(tokens.refresh_token || ""),
       tokenExpiry: tokens.expiry_date || null,
       connectedAt: admin.firestore.FieldValue.serverTimestamp(),
-      isActive: true
+      isActive: true,
     });
 
     return {
       success: true,
-      message: "Gmail account connected successfully"
+      message: "Gmail account connected successfully",
     };
   } catch (error) {
-    logger.error("Error handling Gmail callback", { error: error?.message });
+    logger.error("Error handling Gmail callback", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to connect Gmail account");
   }
 });
@@ -187,10 +206,10 @@ exports.disconnectGmail = functions.https.onCall(async (data, context) => {
 
     return {
       success: true,
-      message: "Gmail account disconnected successfully"
+      message: "Gmail account disconnected successfully",
     };
   } catch (error) {
-    logger.error("Error disconnecting Gmail", { error: error?.message });
+    logger.error("Error disconnecting Gmail", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to disconnect Gmail account");
   }
 });
@@ -203,7 +222,7 @@ exports.getGmailConnectionStatus = functions.https.onCall(async (data, context) 
 
     // Check if Gmail account is connected
     const emailAccountDoc = await admin.firestore().collection("email_accounts").doc(userId).get();
-    
+
     if (emailAccountDoc.exists) {
       const accountData = emailAccountDoc.data();
       return {
@@ -211,16 +230,16 @@ exports.getGmailConnectionStatus = functions.https.onCall(async (data, context) 
         connected: true,
         provider: accountData.provider,
         connectedAt: accountData.connectedAt,
-        isActive: accountData.isActive
+        isActive: accountData.isActive,
       };
     } else {
       return {
         success: true,
-        connected: false
+        connected: false,
       };
     }
   } catch (error) {
-    logger.error("Error checking Gmail connection status", { error: error?.message });
+    logger.error("Error checking Gmail connection status", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to check connection status");
   }
 });
@@ -238,34 +257,33 @@ exports.syncGmail = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError("failed-precondition", "Gmail account not connected");
     }
 
-    const { accessToken, refreshToken } = emailDoc.data();
+    const {refreshToken} = emailDoc.data();
     const rt = decrypt(refreshToken);
 
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
-      process.env.GMAIL_REDIRECT_URI
+        envOrConfig("GMAIL_CLIENT_ID", "gmail", "client_id"),
+        envOrConfig("GMAIL_CLIENT_SECRET", "gmail", "client_secret"),
+        envOrConfig("GMAIL_REDIRECT_URI", "gmail", "redirect_uri"),
     );
 
-    oauth2Client.setCredentials({ refresh_token: rt });
-    const { credentials } = await oauth2Client.refreshAccessToken();
-    const at = credentials.access_token;
+    oauth2Client.setCredentials({refresh_token: rt});
+    await oauth2Client.refreshAccessToken();
 
     // Use Gmail API to fetch messages
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+    const gmail = google.gmail({version: "v1", auth: oauth2Client});
     const searchQuery = "subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)";
-    const { data: list } = await gmail.users.messages.list({ userId: "me", q: searchQuery, maxResults: 50 });
+    const {data: list} = await gmail.users.messages.list({userId: "me", q: searchQuery, maxResults: 50});
 
     const flightEmails = [];
     const emailIds = [];
     if (list.messages && list.messages.length) {
       for (const m of list.messages) {
-        const messageData = await gmail.users.messages.get({ userId: "me", id: m.id, format: "full" });
+        const messageData = await gmail.users.messages.get({userId: "me", id: m.id, format: "full"});
         const email = messageData.data;
         const headers = email.payload.headers;
-        const subject = headers.find((h) => h.name === "Subject")?.value || "";
-        const from = headers.find((h) => h.name === "From")?.value || "";
-        const date = headers.find((h) => h.name === "Date")?.value || "";
+        const subject = (headers.find((h) => h.name === "Subject") && headers.find((h) => h.name === "Subject").value) || "";
+        const from = (headers.find((h) => h.name === "From") && headers.find((h) => h.name === "From").value) || "";
+        const date = (headers.find((h) => h.name === "Date") && headers.find((h) => h.name === "Date").value) || "";
         const emailContent = extractEmailContent(email.payload);
 
         const extractedFlights = await extractFlightInfo(emailContent);
@@ -294,10 +312,10 @@ exports.syncGmail = functions.https.onCall(async (data, context) => {
     return {
       success: true,
       count: flightEmails.length,
-      emails: flightEmails.map((e, i) => ({ id: emailIds[i], ...e })),
+      emails: flightEmails.map((e, i) => ({id: emailIds[i], ...e})),
     };
   } catch (error) {
-    logger.error("Error syncing Gmail", { error: error?.message });
+    logger.error("Error syncing Gmail", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to sync Gmail emails");
   }
 });
@@ -311,23 +329,23 @@ exports.getOffice365AuthUrl = functions.https.onCall(async (data, context) => {
 
     const msalConfig = {
       auth: {
-        clientId: process.env.OFFICE365_CLIENT_ID,
+        clientId: envOrConfig("OFFICE365_CLIENT_ID", "office365", "client_id"),
         authority: "https://login.microsoftonline.com/common",
-        clientSecret: process.env.OFFICE365_CLIENT_SECRET,
+        clientSecret: envOrConfig("OFFICE365_CLIENT_SECRET", "office365", "client_secret"),
       },
     };
     const cca = new ConfidentialClientApplication(msalConfig);
     await loadMsalCache(cca, context.auth.uid);
     const authCodeUrlParameters = {
       scopes: ["offline_access", "Mail.Read"],
-      redirectUri: process.env.OFFICE365_REDIRECT_URI,
+      redirectUri: envOrConfig("OFFICE365_REDIRECT_URI", "office365", "redirect_uri"),
       state: context.auth.uid,
     };
     const authUrl = await cca.getAuthCodeUrl(authCodeUrlParameters);
 
-    return { success: true, authUrl };
+    return {success: true, authUrl};
   } catch (error) {
-    logger.error("Error generating Office365 auth URL", { error: error?.message });
+    logger.error("Error generating Office365 auth URL", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to generate auth URL");
   }
 });
@@ -345,16 +363,16 @@ exports.handleOffice365Callback = functions.https.onCall(async (data, context) =
 
     const msalConfig = {
       auth: {
-        clientId: process.env.OFFICE365_CLIENT_ID,
+        clientId: envOrConfig("OFFICE365_CLIENT_ID", "office365", "client_id"),
         authority: "https://login.microsoftonline.com/common",
-        clientSecret: process.env.OFFICE365_CLIENT_SECRET,
+        clientSecret: envOrConfig("OFFICE365_CLIENT_SECRET", "office365", "client_secret"),
       },
     };
     const cca = new ConfidentialClientApplication(msalConfig);
     await loadMsalCache(cca, userId);
     const tokenResponse = await cca.acquireTokenByCode({
       code,
-      redirectUri: process.env.OFFICE365_REDIRECT_URI,
+      redirectUri: envOrConfig("OFFICE365_REDIRECT_URI", "office365", "redirect_uri"),
       scopes: ["offline_access", "Mail.Read"],
     });
     await saveMsalCache(cca, userId);
@@ -373,15 +391,15 @@ exports.handleOffice365Callback = functions.https.onCall(async (data, context) =
         tenantId: tokenResponse.account.tenantId,
       } : null,
       connectedAt: admin.firestore.FieldValue.serverTimestamp(),
-      isActive: true
+      isActive: true,
     });
 
     return {
       success: true,
-      message: "Office365 account connected successfully"
+      message: "Office365 account connected successfully",
     };
   } catch (error) {
-    logger.error("Error handling Office365 callback", { error: error?.message });
+    logger.error("Error handling Office365 callback", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to connect Office365 account");
   }
 });
@@ -398,10 +416,10 @@ exports.disconnectOffice365 = functions.https.onCall(async (data, context) => {
 
     return {
       success: true,
-      message: "Office365 account disconnected successfully"
+      message: "Office365 account disconnected successfully",
     };
   } catch (error) {
-    logger.error("Error disconnecting Office365", { error: error?.message });
+    logger.error("Error disconnecting Office365", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to disconnect Office365 account");
   }
 });
@@ -414,7 +432,7 @@ exports.getOffice365ConnectionStatus = functions.https.onCall(async (data, conte
 
     // Check if Office365 account is connected
     const emailAccountDoc = await admin.firestore().collection("email_accounts").doc(`${userId}_office365`).get();
-    
+
     if (emailAccountDoc.exists) {
       const accountData = emailAccountDoc.data();
       return {
@@ -422,16 +440,16 @@ exports.getOffice365ConnectionStatus = functions.https.onCall(async (data, conte
         connected: true,
         provider: accountData.provider,
         connectedAt: accountData.connectedAt,
-        isActive: accountData.isActive
+        isActive: accountData.isActive,
       };
     } else {
       return {
         success: true,
-        connected: false
+        connected: false,
       };
     }
   } catch (error) {
-    logger.error("Error checking Office365 connection status", { error: error?.message });
+    logger.error("Error checking Office365 connection status", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to check connection status");
   }
 });
@@ -451,9 +469,9 @@ exports.syncOffice365 = functions.https.onCall(async (data, context) => {
 
     const msalConfig = {
       auth: {
-        clientId: process.env.OFFICE365_CLIENT_ID,
+        clientId: envOrConfig("OFFICE365_CLIENT_ID", "office365", "client_id"),
         authority: "https://login.microsoftonline.com/common",
-        clientSecret: process.env.OFFICE365_CLIENT_SECRET,
+        clientSecret: envOrConfig("OFFICE365_CLIENT_SECRET", "office365", "client_secret"),
       },
     };
     const cca = new ConfidentialClientApplication(msalConfig);
@@ -476,7 +494,7 @@ exports.syncOffice365 = functions.https.onCall(async (data, context) => {
     // Fetch messages from Graph
     const response = await fetch("https://graph.microsoft.com/v1.0/me/messages?$top=50", {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -491,9 +509,9 @@ exports.syncOffice365 = functions.https.onCall(async (data, context) => {
     const emailIds = [];
     for (const item of items) {
       const subject = item.subject || "";
-      const from = item.from?.emailAddress?.address || "";
+      const from = (item.from && item.from.emailAddress && item.from.emailAddress.address) || "";
       const date = item.receivedDateTime || item.sentDateTime || "";
-      const content = item.body?.content || "";
+      const content = (item.body && item.body.content) || "";
       const extractedFlights = await extractFlightInfo(content);
       const flightData = {
         messageId: item.id,
@@ -521,10 +539,10 @@ exports.syncOffice365 = functions.https.onCall(async (data, context) => {
     return {
       success: true,
       count: flightEmails.length,
-      emails: flightEmails.map((e, i) => ({ id: emailIds[i], ...e })),
+      emails: flightEmails.map((e, i) => ({id: emailIds[i], ...e})),
     };
   } catch (error) {
-    logger.error("Error syncing Office365", { error: error?.message });
+    logger.error("Error syncing Office365", {error: error && error.message});
     throw new functions.https.HttpsError("internal", "Failed to sync Office365 emails");
   }
 });

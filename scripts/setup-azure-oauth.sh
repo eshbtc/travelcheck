@@ -44,7 +44,7 @@ echo -e "${BLUE}📋 Using subscription: ${SUBSCRIPTION_ID}${NC}"
 
 # Create app registration
 echo -e "${BLUE}📱 Creating Azure app registration...${NC}"
-REDIRECT_URI="${PROTOCOL}://${DOMAIN}/auth/oauth-callback?provider=office365"
+REDIRECT_URI="${PROTOCOL}://${DOMAIN}/auth/oauth-callback/office365"
 
 # Create the app registration
 APP_REGISTRATION=$(az ad app create \

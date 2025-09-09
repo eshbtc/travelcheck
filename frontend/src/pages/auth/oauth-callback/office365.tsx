@@ -1,77 +1,58 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../../contexts/AuthContext'
-import { handleGmailCallback, handleOffice365Callback } from '../../services/firebaseFunctions'
+import { useAuth } from '../../../contexts/AuthContext'
+import { handleOffice365Callback } from '../../../services/firebaseFunctions'
 import { toast } from 'react-hot-toast'
 
-export default function OAuthCallbackPage() {
+export default function Office365OAuthCallbackPage() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing')
-  const [message, setMessage] = useState('Processing OAuth callback...')
-  const [provider, setProvider] = useState<'gmail' | 'office365' | null>(null)
+  const [message, setMessage] = useState('Processing Office365 OAuth callback...')
 
   useEffect(() => {
     const processCallback = async () => {
       if (isLoading || !user) return
 
       try {
-        const { code, state, error, provider: providerParam } = router.query
+        const { code, state, error } = router.query
 
         if (error) {
           setStatus('error')
-          setMessage('OAuth authorization was denied or failed')
-          toast.error('Email authorization failed')
+          setMessage('Office365 authorization was denied or failed')
+          toast.error('Office365 authorization failed')
           return
         }
 
         if (!code || !state) {
           setStatus('error')
-          setMessage('Invalid OAuth callback parameters')
-          toast.error('Invalid OAuth callback')
+          setMessage('Invalid Office365 OAuth callback parameters')
+          toast.error('Invalid Office365 OAuth callback')
           return
         }
 
-        // Determine provider from query or path
-        let detectedProvider = (providerParam as string) || ''
-        if (!detectedProvider && typeof window !== 'undefined') {
-          const parts = window.location.pathname.split('/').filter(Boolean)
-          // Expecting /auth/oauth-callback/<provider>
-          const idx = parts.findIndex(p => p === 'oauth-callback')
-          if (idx >= 0 && parts[idx + 1]) {
-            detectedProvider = parts[idx + 1]
-          }
-        }
-        if (!detectedProvider) detectedProvider = 'gmail'
-        setProvider(detectedProvider as 'gmail' | 'office365')
-
-        // Handle the OAuth callback based on provider
-        let result
-        if (detectedProvider === 'office365') {
-          result = await handleOffice365Callback(code as string, state as string)
-        } else {
-          result = await handleGmailCallback(code as string, state as string)
-        }
+        // Handle the Office365 OAuth callback
+        const result = await handleOffice365Callback(code as string, state as string)
         
         if (result.success) {
           setStatus('success')
-          setMessage(`${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account connected successfully!`)
-          toast.success(`${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account connected successfully!`)
+          setMessage('Office365 account connected successfully!')
+          toast.success('Office365 account connected successfully!')
           
-          // Redirect to appropriate integration page after 2 seconds
+          // Redirect to Office365 integration page after 2 seconds
           setTimeout(() => {
-            router.push(detectedProvider === 'office365' ? '/email/office365' : '/email/gmail')
+            router.push('/email/office365')
           }, 2000)
         } else {
           setStatus('error')
-          setMessage(`Failed to connect ${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account`)
-          toast.error(`Failed to connect ${detectedProvider === 'office365' ? 'Office365' : 'Gmail'} account`)
+          setMessage('Failed to connect Office365 account')
+          toast.error('Failed to connect Office365 account')
         }
       } catch (err: any) {
-        console.error('OAuth callback error:', err)
+        console.error('Office365 OAuth callback error:', err)
         setStatus('error')
-        setMessage(err.message || 'An error occurred during OAuth callback')
-        toast.error('OAuth callback failed')
+        setMessage(err.message || 'An error occurred during Office365 OAuth callback')
+        toast.error('Office365 OAuth callback failed')
       }
     }
 
@@ -100,7 +81,7 @@ export default function OAuthCallbackPage() {
         {status === 'processing' && (
           <>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
-            <h2 className="mt-4 text-xl font-semibold text-gray-900">Processing...</h2>
+            <h2 className="mt-4 text-xl font-semibold text-gray-900">Processing Office365 Connection...</h2>
             <p className="mt-2 text-gray-600">{message}</p>
           </>
         )}
@@ -112,9 +93,9 @@ export default function OAuthCallbackPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="mt-4 text-xl font-semibold text-gray-900">Success!</h2>
+            <h2 className="mt-4 text-xl font-semibold text-gray-900">Office365 Connected!</h2>
             <p className="mt-2 text-gray-600">{message}</p>
-            <p className="mt-2 text-sm text-gray-500">Redirecting to Gmail integration...</p>
+            <p className="mt-2 text-sm text-gray-500">Redirecting to Office365 integration...</p>
           </>
         )}
 
@@ -125,14 +106,14 @@ export default function OAuthCallbackPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="mt-4 text-xl font-semibold text-gray-900">Error</h2>
+            <h2 className="mt-4 text-xl font-semibold text-gray-900">Connection Failed</h2>
             <p className="mt-2 text-gray-600">{message}</p>
             <div className="mt-6">
               <button
-                onClick={() => router.push(provider === 'office365' ? '/email/office365' : '/email/gmail')}
+                onClick={() => router.push('/email/office365')}
                 className="w-full bg-brand-primary text-white py-2 px-4 rounded-md hover:bg-brand-primary/90 transition-colors"
               >
-                Return to {provider === 'office365' ? 'Office365' : 'Gmail'} Integration
+                Return to Office365 Integration
               </button>
             </div>
           </>
