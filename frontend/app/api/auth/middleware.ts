@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-server'
 
 export async function authenticateUser(request: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function authenticateUser(request: NextRequest) {
     const token = authHeader.split(' ')[1]
     
     // Verify the JWT token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token)
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
     
     if (error || !user) {
       return { error: 'Invalid or expired token', status: 401 }

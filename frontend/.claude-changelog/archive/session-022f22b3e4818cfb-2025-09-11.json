@@ -200,13 +200,808 @@
         }
       },
       "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:07:10.302Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/passport/scans/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:07:10.373Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/passport/scans/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/passport/scans/route.ts",
+          "oldString": "  const { user } = authResult\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)",
+          "newString": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)",
+          "originalFile": "import { NextRequest, NextResponse } from 'next/server'\nimport { supabase } from '@/lib/supabase'\nimport { requireAuth } from '../../auth/middleware'\n\nexport async function GET(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)\n      .order('created_at', { ascending: false })\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to get passport scans' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      scans: scans || [],\n    })\n  } catch (error) {\n    console.error('Error getting passport scans:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to get passport scans' },\n      { status: 500 }\n    )\n  }\n}\n\nexport async function POST(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { fileUrl, analysisResults, fileName } = body\n\n    const { data, error } = await supabase\n      .from('passport_scans')\n      .insert({\n        user_id: user.id,\n        file_url: fileUrl,\n        analysis_results: analysisResults,\n        file_name: fileName,\n        created_at: new Date().toISOString(),\n      })\n      .select()\n      .single()\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to save passport scan' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      message: 'Passport scan saved successfully',\n      scan: data,\n    })\n  } catch (error) {\n    console.error('Error saving passport scan:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to save passport scan' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 13,
+              "oldLines": 6,
+              "newStart": 13,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     const { data: scans, error } = await supabase",
+                "       .from('passport_scans')"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:07:29.061Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/passport/scans/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:07:29.133Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/passport/scans/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/passport/scans/route.ts",
+          "oldString": "  const { user } = authResult\n\n  try {",
+          "newString": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {",
+          "originalFile": "import { NextRequest, NextResponse } from 'next/server'\nimport { supabase } from '@/lib/supabase'\nimport { requireAuth } from '../../auth/middleware'\n\nexport async function GET(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: scans, error } = await supabase\n      .from('passport_scans')\n      .select('*')\n      .eq('user_id', user.id)\n      .order('created_at', { ascending: false })\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to get passport scans' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      scans: scans || [],\n    })\n  } catch (error) {\n    console.error('Error getting passport scans:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to get passport scans' },\n      { status: 500 }\n    )\n  }\n}\n\nexport async function POST(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { fileUrl, analysisResults, fileName } = body\n\n    const { data, error } = await supabase\n      .from('passport_scans')\n      .insert({\n        user_id: user.id,\n        file_url: fileUrl,\n        analysis_results: analysisResults,\n        file_name: fileName,\n        created_at: new Date().toISOString(),\n      })\n      .select()\n      .single()\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to save passport scan' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      message: 'Passport scan saved successfully',\n      scan: data,\n    })\n  } catch (error) {\n    console.error('Error saving passport scan:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to save passport scan' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 56,
+              "oldLines": 6,
+              "newStart": 56,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     const body = await request.json()",
+                "     const { fileUrl, analysisResults, fileName } = body"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:09:27.768Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/travel/history/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:09:27.844Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/travel/history/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/travel/history/route.ts",
+          "oldString": "  const { user } = authResult\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)",
+          "newString": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)",
+          "originalFile": "import { NextRequest, NextResponse } from 'next/server'\nimport { supabase } from '@/lib/supabase'\nimport { requireAuth } from '../../auth/middleware'\n\nexport async function GET(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)\n      .single()\n\n    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to get travel history' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      travelHistory: travelHistory || null,\n    })\n  } catch (error) {\n    console.error('Error getting travel history:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to get travel history' },\n      { status: 500 }\n    )\n  }\n}\n\nexport async function POST(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,\n        passport_data: passportData,\n        flight_data: flightData,\n        updated_at: new Date().toISOString(),\n      })\n      .select()\n      .single()\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to save travel history' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      message: 'Travel history saved successfully',\n      travelHistory: data,\n    })\n  } catch (error) {\n    console.error('Error saving travel history:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to save travel history' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 13,
+              "oldLines": 6,
+              "newStart": 13,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     const { data: travelHistory, error } = await supabase",
+                "       .from('travel_history')"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:09:44.844Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/travel/history/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:09:44.921Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/travel/history/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/travel/history/route.ts",
+          "oldString": "  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,",
+          "newString": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,",
+          "originalFile": "import { NextRequest, NextResponse } from 'next/server'\nimport { supabase } from '@/lib/supabase'\nimport { requireAuth } from '../../auth/middleware'\n\nexport async function GET(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const { data: travelHistory, error } = await supabase\n      .from('travel_history')\n      .select('*')\n      .eq('user_id', user.id)\n      .single()\n\n    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to get travel history' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      travelHistory: travelHistory || null,\n    })\n  } catch (error) {\n    console.error('Error getting travel history:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to get travel history' },\n      { status: 500 }\n    )\n  }\n}\n\nexport async function POST(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { passportData, flightData } = body\n\n    // Upsert travel history\n    const { data, error } = await supabase\n      .from('travel_history')\n      .upsert({\n        user_id: user.id,\n        passport_data: passportData,\n        flight_data: flightData,\n        updated_at: new Date().toISOString(),\n      })\n      .select()\n      .single()\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to save travel history' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      message: 'Travel history saved successfully',\n      travelHistory: data,\n    })\n  } catch (error) {\n    console.error('Error saving travel history:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to save travel history' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 56,
+              "oldLines": 6,
+              "newStart": 56,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     const body = await request.json()",
+                "     const { passportData, flightData } = body"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:09:53.611Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/user/profile/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:09:53.687Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/user/profile/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/user/profile/route.ts",
+          "oldString": "  const { user } = authResult\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)",
+          "newString": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)",
+          "originalFile": "import { NextRequest, NextResponse } from 'next/server'\nimport { supabase } from '@/lib/supabase'\nimport { requireAuth } from '../../auth/middleware'\n\nexport async function GET(request: NextRequest) {\n  // Authenticate user\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)\n      .single()\n\n    if (error) {\n      return NextResponse.json(\n        { success: false, error: 'User profile not found' },\n        { status: 404 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      user: profile,\n    })\n  } catch (error) {\n    console.error('Error getting user profile:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to get user profile' },\n      { status: 500 }\n    )\n  }\n}\n\nexport async function POST(request: NextRequest) {\n  // Authenticate user\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)\n      .select()\n      .single()\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to update profile' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      message: 'Profile updated successfully',\n      user: data,\n    })\n  } catch (error) {\n    console.error('Error updating user profile:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to update user profile' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 14,
+              "oldLines": 6,
+              "newStart": 14,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     // Get user profile from Supabase",
+                "     const { data: profile, error } = await supabase"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:10:02.686Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/user/profile/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:10:02.762Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/user/profile/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/user/profile/route.ts",
+          "oldString": "  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)",
+          "newString": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)",
+          "originalFile": "import { NextRequest, NextResponse } from 'next/server'\nimport { supabase } from '@/lib/supabase'\nimport { requireAuth } from '../../auth/middleware'\n\nexport async function GET(request: NextRequest) {\n  // Authenticate user\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {\n    // Get user profile from Supabase\n    const { data: profile, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('id', user.id)\n      .single()\n\n    if (error) {\n      return NextResponse.json(\n        { success: false, error: 'User profile not found' },\n        { status: 404 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      user: profile,\n    })\n  } catch (error) {\n    console.error('Error getting user profile:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to get user profile' },\n      { status: 500 }\n    )\n  }\n}\n\nexport async function POST(request: NextRequest) {\n  // Authenticate user\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { profileData } = body\n\n    // Update user profile in Supabase\n    const { data, error } = await supabase\n      .from('users')\n      .update({\n        ...profileData,\n        updated_at: new Date().toISOString(),\n      })\n      .eq('id', user.id)\n      .select()\n      .single()\n\n    if (error) {\n      console.error('Supabase error:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to update profile' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      message: 'Profile updated successfully',\n      user: data,\n    })\n  } catch (error) {\n    console.error('Error updating user profile:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to update user profile' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 58,
+              "oldLines": 6,
+              "newStart": 58,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     const body = await request.json()",
+                "     const { profileData } = body"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:11:44.930Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/services/supabaseService.ts",
+          "old_string": "  const headers = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }",
+          "new_string": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:11:45.013Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/services/supabaseService.ts",
+          "old_string": "  const headers = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }",
+          "new_string": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/services/supabaseService.ts",
+          "oldString": "  const headers = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }",
+          "newString": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }",
+          "originalFile": "import { supabase } from '../lib/supabase'\n\n// Auth helpers\nexport const authService = {\n  signUp: async (email: string, password: string) => {\n    return await supabase.auth.signUp({ email, password })\n  },\n\n  signIn: async (email: string, password: string) => {\n    return await supabase.auth.signInWithPassword({ email, password })\n  },\n\n  signOut: async () => {\n    return await supabase.auth.signOut()\n  },\n\n  getUser: async () => {\n    return await supabase.auth.getUser()\n  },\n\n  getSession: async () => {\n    return await supabase.auth.getSession()\n  },\n\n  signInWithOAuth: async (provider: 'google' | 'github') => {\n    return await supabase.auth.signInWithOAuth({\n      provider,\n      options: {\n        redirectTo: `${window.location.origin}/auth/callback`\n      }\n    })\n  }\n}\n\n// API call helper that automatically includes auth token\nexport const apiCall = async (endpoint: string, options: RequestInit = {}) => {\n  const { data: { session } } = await supabase.auth.getSession()\n  \n  const headers = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }\n\n  const response = await fetch(`/api${endpoint}`, {\n    ...options,\n    headers,\n  })\n\n  if (!response.ok) {\n    const errorData = await response.json().catch(() => ({}))\n    throw new Error(errorData.error || `HTTP ${response.status}`)\n  }\n\n  return response.json()\n}\n\n// Replacement functions for Firebase Functions calls\nexport const supabaseService = {\n  // User Management\n  getUserProfile: async () => {\n    return apiCall('/user/profile')\n  },\n\n  updateUserProfile: async (profileData: any) => {\n    return apiCall('/user/profile', {\n      method: 'POST',\n      body: JSON.stringify({ profileData })\n    })\n  },\n\n  // Travel History\n  getTravelHistory: async () => {\n    return apiCall('/travel/history')\n  },\n\n  saveTravelHistory: async (passportData: any, flightData: any) => {\n    return apiCall('/travel/history', {\n      method: 'POST',\n      body: JSON.stringify({ passportData, flightData })\n    })\n  },\n\n  // Passport Scans\n  getPassportScans: async () => {\n    return apiCall('/passport/scans')\n  },\n\n  savePassportScan: async (fileUrl: string, analysisResults: any, fileName?: string) => {\n    return apiCall('/passport/scans', {\n      method: 'POST',\n      body: JSON.stringify({ fileUrl, analysisResults, fileName })\n    })\n  },\n\n  deletePassportScan: async (scanId: string) => {\n    return apiCall(`/passport/scans/${scanId}`, {\n      method: 'DELETE'\n    })\n  },\n\n  // Flight Emails\n  getFlightEmails: async () => {\n    return apiCall('/flight/emails')\n  },\n\n  deleteFlightEmail: async (emailId: string) => {\n    return apiCall(`/flight/emails/${emailId}`, {\n      method: 'DELETE'\n    })\n  },\n\n  // System\n  healthCheck: async () => {\n    return apiCall('/health')\n  },\n\n  getSystemStatus: async () => {\n    return apiCall('/system/status')\n  },\n\n  // Integration Status (to be implemented)\n  getIntegrationStatus: async () => {\n    return apiCall('/integration/status')\n  },\n\n  getBookingIngestionStatus: async () => {\n    return apiCall('/booking/status')\n  },\n\n  // Admin functions (to be implemented)\n  setUserRole: async (targetUserId: string, role: 'admin' | 'user') => {\n    return apiCall('/admin/users/role', {\n      method: 'POST',\n      body: JSON.stringify({ targetUserId, role })\n    })\n  },\n\n  listUsers: async () => {\n    return apiCall('/admin/users')\n  }\n}\n\n// Real-time subscriptions (replacing Firebase Firestore listeners)\nexport const subscribeToUserData = (userId: string, callback: (data: any) => void) => {\n  return supabase\n    .channel(`user_${userId}`)\n    .on(\n      'postgres_changes',\n      {\n        event: '*',\n        schema: 'public',\n        table: 'users',\n        filter: `id=eq.${userId}`,\n      },\n      callback\n    )\n    .subscribe()\n}\n\nexport const subscribeToPassportScans = (userId: string, callback: (data: any) => void) => {\n  return supabase\n    .channel(`passport_scans_${userId}`)\n    .on(\n      'postgres_changes',\n      {\n        event: '*',\n        schema: 'public',\n        table: 'passport_scans',\n        filter: `user_id=eq.${userId}`,\n      },\n      callback\n    )\n    .subscribe()\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 36,
+              "oldLines": 7,
+              "newStart": 36,
+              "newLines": 7,
+              "lines": [
+                " export const apiCall = async (endpoint: string, options: RequestInit = {}) => {",
+                "   const { data: { session } } = await supabase.auth.getSession()",
+                "   ",
+                "-  const headers = {",
+                "+  const headers: Record<string, string> = {",
+                "     'Content-Type': 'application/json',",
+                "     ...options.headers,",
+                "   }"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:13:47.987Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/services/supabaseService.ts",
+          "old_string": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }",
+          "new_string": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n  }\n\n  // Add any additional headers from options\n  if (options.headers) {\n    Object.entries(options.headers).forEach(([key, value]) => {\n      if (typeof value === 'string') {\n        headers[key] = value\n      }\n    })\n  }"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:13:48.074Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/services/supabaseService.ts",
+          "old_string": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }",
+          "new_string": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n  }\n\n  // Add any additional headers from options\n  if (options.headers) {\n    Object.entries(options.headers).forEach(([key, value]) => {\n      if (typeof value === 'string') {\n        headers[key] = value\n      }\n    })\n  }"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/services/supabaseService.ts",
+          "oldString": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }",
+          "newString": "  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n  }\n\n  // Add any additional headers from options\n  if (options.headers) {\n    Object.entries(options.headers).forEach(([key, value]) => {\n      if (typeof value === 'string') {\n        headers[key] = value\n      }\n    })\n  }",
+          "originalFile": "import { supabase } from '../lib/supabase'\n\n// Auth helpers\nexport const authService = {\n  signUp: async (email: string, password: string) => {\n    return await supabase.auth.signUp({ email, password })\n  },\n\n  signIn: async (email: string, password: string) => {\n    return await supabase.auth.signInWithPassword({ email, password })\n  },\n\n  signOut: async () => {\n    return await supabase.auth.signOut()\n  },\n\n  getUser: async () => {\n    return await supabase.auth.getUser()\n  },\n\n  getSession: async () => {\n    return await supabase.auth.getSession()\n  },\n\n  signInWithOAuth: async (provider: 'google' | 'github') => {\n    return await supabase.auth.signInWithOAuth({\n      provider,\n      options: {\n        redirectTo: `${window.location.origin}/auth/callback`\n      }\n    })\n  }\n}\n\n// API call helper that automatically includes auth token\nexport const apiCall = async (endpoint: string, options: RequestInit = {}) => {\n  const { data: { session } } = await supabase.auth.getSession()\n  \n  const headers: Record<string, string> = {\n    'Content-Type': 'application/json',\n    ...options.headers,\n  }\n\n  if (session?.access_token) {\n    headers['Authorization'] = `Bearer ${session.access_token}`\n  }\n\n  const response = await fetch(`/api${endpoint}`, {\n    ...options,\n    headers,\n  })\n\n  if (!response.ok) {\n    const errorData = await response.json().catch(() => ({}))\n    throw new Error(errorData.error || `HTTP ${response.status}`)\n  }\n\n  return response.json()\n}\n\n// Replacement functions for Firebase Functions calls\nexport const supabaseService = {\n  // User Management\n  getUserProfile: async () => {\n    return apiCall('/user/profile')\n  },\n\n  updateUserProfile: async (profileData: any) => {\n    return apiCall('/user/profile', {\n      method: 'POST',\n      body: JSON.stringify({ profileData })\n    })\n  },\n\n  // Travel History\n  getTravelHistory: async () => {\n    return apiCall('/travel/history')\n  },\n\n  saveTravelHistory: async (passportData: any, flightData: any) => {\n    return apiCall('/travel/history', {\n      method: 'POST',\n      body: JSON.stringify({ passportData, flightData })\n    })\n  },\n\n  // Passport Scans\n  getPassportScans: async () => {\n    return apiCall('/passport/scans')\n  },\n\n  savePassportScan: async (fileUrl: string, analysisResults: any, fileName?: string) => {\n    return apiCall('/passport/scans', {\n      method: 'POST',\n      body: JSON.stringify({ fileUrl, analysisResults, fileName })\n    })\n  },\n\n  deletePassportScan: async (scanId: string) => {\n    return apiCall(`/passport/scans/${scanId}`, {\n      method: 'DELETE'\n    })\n  },\n\n  // Flight Emails\n  getFlightEmails: async () => {\n    return apiCall('/flight/emails')\n  },\n\n  deleteFlightEmail: async (emailId: string) => {\n    return apiCall(`/flight/emails/${emailId}`, {\n      method: 'DELETE'\n    })\n  },\n\n  // System\n  healthCheck: async () => {\n    return apiCall('/health')\n  },\n\n  getSystemStatus: async () => {\n    return apiCall('/system/status')\n  },\n\n  // Integration Status (to be implemented)\n  getIntegrationStatus: async () => {\n    return apiCall('/integration/status')\n  },\n\n  getBookingIngestionStatus: async () => {\n    return apiCall('/booking/status')\n  },\n\n  // Admin functions (to be implemented)\n  setUserRole: async (targetUserId: string, role: 'admin' | 'user') => {\n    return apiCall('/admin/users/role', {\n      method: 'POST',\n      body: JSON.stringify({ targetUserId, role })\n    })\n  },\n\n  listUsers: async () => {\n    return apiCall('/admin/users')\n  }\n}\n\n// Real-time subscriptions (replacing Firebase Firestore listeners)\nexport const subscribeToUserData = (userId: string, callback: (data: any) => void) => {\n  return supabase\n    .channel(`user_${userId}`)\n    .on(\n      'postgres_changes',\n      {\n        event: '*',\n        schema: 'public',\n        table: 'users',\n        filter: `id=eq.${userId}`,\n      },\n      callback\n    )\n    .subscribe()\n}\n\nexport const subscribeToPassportScans = (userId: string, callback: (data: any) => void) => {\n  return supabase\n    .channel(`passport_scans_${userId}`)\n    .on(\n      'postgres_changes',\n      {\n        event: '*',\n        schema: 'public',\n        table: 'passport_scans',\n        filter: `user_id=eq.${userId}`,\n      },\n      callback\n    )\n    .subscribe()\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 38,
+              "oldLines": 9,
+              "newStart": 38,
+              "newLines": 17,
+              "lines": [
+                "   ",
+                "   const headers: Record<string, string> = {",
+                "     'Content-Type': 'application/json',",
+                "-    ...options.headers,",
+                "   }",
+                " ",
+                "+  // Add any additional headers from options",
+                "+  if (options.headers) {",
+                "+    Object.entries(options.headers).forEach(([key, value]) => {",
+                "+      if (typeof value === 'string') {",
+                "+        headers[key] = value",
+                "+      }",
+                "+    })",
+                "+  }",
+                "+",
+                "   if (session?.access_token) {",
+                "     headers['Authorization'] = `Bearer ${session.access_token}`",
+                "   }"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:17:56.461Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/.env.local",
+          "old_string": "# Disable App Check for SSR (server-side)\nENABLE_APPCHECK=false",
+          "new_string": "# Disable App Check for SSR (server-side)\nENABLE_APPCHECK=false\n\n# Supabase Configuration\nNEXT_PUBLIC_SUPABASE_URL=https://akghlsguwswwhkrcgzwt.supabase.co\nNEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZ2hsc2d1d3N3d2hrcmNnend0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MTgyMDQsImV4cCI6MjA3MzE5NDIwNH0.Dw3WPvaWomUeaHPqNRWHeZ2fQ-JRTtwHYLcbDVr6NG4"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:17:56.561Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/.env.local",
+          "old_string": "# Disable App Check for SSR (server-side)\nENABLE_APPCHECK=false",
+          "new_string": "# Disable App Check for SSR (server-side)\nENABLE_APPCHECK=false\n\n# Supabase Configuration\nNEXT_PUBLIC_SUPABASE_URL=https://akghlsguwswwhkrcgzwt.supabase.co\nNEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZ2hsc2d1d3N3d2hrcmNnend0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MTgyMDQsImV4cCI6MjA3MzE5NDIwNH0.Dw3WPvaWomUeaHPqNRWHeZ2fQ-JRTtwHYLcbDVr6NG4"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/.env.local",
+          "oldString": "# Disable App Check for SSR (server-side)\nENABLE_APPCHECK=false",
+          "newString": "# Disable App Check for SSR (server-side)\nENABLE_APPCHECK=false\n\n# Supabase Configuration\nNEXT_PUBLIC_SUPABASE_URL=https://akghlsguwswwhkrcgzwt.supabase.co\nNEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZ2hsc2d1d3N3d2hrcmNnend0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MTgyMDQsImV4cCI6MjA3MzE5NDIwNH0.Dw3WPvaWomUeaHPqNRWHeZ2fQ-JRTtwHYLcbDVr6NG4",
+          "originalFile": "# Frontend Environment Variables for Development\n\n# Firebase Configuration (get these from Firebase Console)\nNEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBqZdIAhnqRikaBopSRw9vm7u5Y1ASShS0\nNEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=travel-check-8532.firebaseapp.com\nNEXT_PUBLIC_FIREBASE_PROJECT_ID=travel-check-8532\nNEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=travel-check-8532.firebasestorage.app\nNEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=158855767654\nNEXT_PUBLIC_FIREBASE_APP_ID=1:158855767654:web:564b31f2d04ce893f76fa7\nNEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-228SDW9J1L\n\n# Development Settings\nNEXT_PUBLIC_USE_FUNCTIONS_EMULATOR=false\nNEXT_PUBLIC_FUNCTIONS_BASE=\n\n# Application\nNEXT_PUBLIC_APP_NAME=Travel History Tracker\n\n# App Check Configuration\nNEXT_PUBLIC_ENABLE_APPCHECK=true\nNEXT_PUBLIC_APPCHECK_FORCE_DEBUG=true\nNEXT_PUBLIC_APPCHECK_DEBUG_TOKEN=A06E312E-767E-4AD1-9327-4366B1920B49\nNEXT_PUBLIC_RECAPTCHA_SITE_KEY=6LfQUcYrAAAAANl1YsxKKu04lDAI1lpRS0G0TV-b\n\n# Disable App Check for SSR (server-side)\nENABLE_APPCHECK=false",
+          "structuredPatch": [
+            {
+              "oldStart": 23,
+              "oldLines": 4,
+              "newStart": 23,
+              "newLines": 8,
+              "lines": [
+                " NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6LfQUcYrAAAAANl1YsxKKu04lDAI1lpRS0G0TV-b",
+                " ",
+                " # Disable App Check for SSR (server-side)",
+                "-ENABLE_APPCHECK=false",
+                "\\ No newline at end of file",
+                "+ENABLE_APPCHECK=false",
+                "+",
+                "+# Supabase Configuration",
+                "+NEXT_PUBLIC_SUPABASE_URL=https://akghlsguwswwhkrcgzwt.supabase.co",
+                "+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZ2hsc2d1d3N3d2hrcmNnend0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MTgyMDQsImV4cCI6MjA3MzE5NDIwNH0.Dw3WPvaWomUeaHPqNRWHeZ2fQ-JRTtwHYLcbDVr6NG4",
+                "\\ No newline at end of file"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:31:32.115Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/comprehensive-supabase-schema.sql",
+          "content": "-- Comprehensive Supabase Schema for Travel Check App\n-- Based on existing Firestore structure\n\n-- Enable necessary extensions\nCREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\nCREATE EXTENSION IF NOT EXISTS \"pg_crypto\";\n\n-- Users table (extends Supabase auth.users)\nCREATE TABLE IF NOT EXISTS public.users (\n    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,\n    email TEXT NOT NULL,\n    role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),\n    display_name TEXT,\n    photo_url TEXT,\n    provider TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW(),\n    last_login TIMESTAMPTZ,\n    settings JSONB DEFAULT '{}'::jsonb\n);\n\n-- Email Accounts table for OAuth integrations\nCREATE TABLE IF NOT EXISTS public.email_accounts (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    provider TEXT NOT NULL CHECK (provider IN ('gmail', 'office365')),\n    email TEXT NOT NULL,\n    access_token TEXT,\n    refresh_token TEXT,\n    token_expires_at TIMESTAMPTZ,\n    scope TEXT,\n    is_active BOOLEAN DEFAULT true,\n    last_sync TIMESTAMPTZ,\n    sync_status TEXT DEFAULT 'pending',\n    error_message TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW(),\n    UNIQUE(user_id, provider, email)\n);\n\n-- Flight Emails table\nCREATE TABLE IF NOT EXISTS public.flight_emails (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    email_account_id UUID REFERENCES public.email_accounts(id),\n    message_id TEXT,\n    thread_id TEXT,\n    subject TEXT,\n    sender TEXT,\n    recipient TEXT,\n    body_text TEXT,\n    body_html TEXT,\n    attachments JSONB DEFAULT '[]'::jsonb,\n    flight_data JSONB,\n    booking_data JSONB,\n    parsed_data JSONB,\n    confidence_score DECIMAL,\n    processing_status TEXT DEFAULT 'pending',\n    is_processed BOOLEAN DEFAULT false,\n    date_received TIMESTAMPTZ,\n    date_flight TIMESTAMPTZ,\n    airline TEXT,\n    flight_number TEXT,\n    departure_airport TEXT,\n    arrival_airport TEXT,\n    confirmation_number TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Travel History table (main user travel record)\nCREATE TABLE IF NOT EXISTS public.travel_history (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    passport_data JSONB DEFAULT '{}'::jsonb,\n    flight_data JSONB DEFAULT '{}'::jsonb,\n    email_data JSONB DEFAULT '{}'::jsonb,\n    manual_entries JSONB DEFAULT '[]'::jsonb,\n    computed_presence JSONB DEFAULT '{}'::jsonb,\n    summary_stats JSONB DEFAULT '{}'::jsonb,\n    last_updated TIMESTAMPTZ DEFAULT NOW(),\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    UNIQUE(user_id)\n);\n\n-- Passport Scans table\nCREATE TABLE IF NOT EXISTS public.passport_scans (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    file_name TEXT,\n    file_url TEXT NOT NULL,\n    file_size INTEGER,\n    mime_type TEXT,\n    analysis_results JSONB DEFAULT '{}'::jsonb,\n    extracted_stamps JSONB DEFAULT '[]'::jsonb,\n    processing_status TEXT DEFAULT 'pending',\n    confidence_score DECIMAL,\n    manual_corrections JSONB DEFAULT '{}'::jsonb,\n    is_verified BOOLEAN DEFAULT false,\n    ocr_text TEXT,\n    passport_info JSONB DEFAULT '{}'::jsonb,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Travel Entries table (individual travel records)\nCREATE TABLE IF NOT EXISTS public.travel_entries (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    entry_type TEXT NOT NULL CHECK (entry_type IN ('passport_stamp', 'flight', 'manual', 'email')),\n    source_id UUID, -- References passport_scans.id, flight_emails.id, etc.\n    source_type TEXT,\n    \n    -- Location data\n    country_code TEXT,\n    country_name TEXT,\n    city TEXT,\n    airport_code TEXT,\n    \n    -- Date data\n    entry_date DATE,\n    exit_date DATE,\n    entry_time TIME,\n    exit_time TIME,\n    timezone TEXT,\n    \n    -- Travel details\n    purpose TEXT,\n    transport_type TEXT CHECK (transport_type IN ('flight', 'land', 'sea', 'other')),\n    carrier TEXT,\n    flight_number TEXT,\n    confirmation_number TEXT,\n    \n    -- Status and validation\n    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'disputed', 'ignored')),\n    confidence_score DECIMAL,\n    is_verified BOOLEAN DEFAULT false,\n    manual_override BOOLEAN DEFAULT false,\n    \n    -- Additional data\n    notes TEXT,\n    tags TEXT[],\n    metadata JSONB DEFAULT '{}'::jsonb,\n    \n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Reports table\nCREATE TABLE IF NOT EXISTS public.reports (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    report_type TEXT NOT NULL CHECK (report_type IN ('presence', 'travel_summary', 'tax_residency', 'visa_compliance', 'custom')),\n    title TEXT NOT NULL,\n    description TEXT,\n    parameters JSONB DEFAULT '{}'::jsonb,\n    report_data JSONB NOT NULL,\n    file_format TEXT DEFAULT 'json' CHECK (file_format IN ('json', 'pdf', 'csv', 'xlsx')),\n    file_url TEXT,\n    status TEXT DEFAULT 'generated' CHECK (status IN ('generating', 'generated', 'failed', 'archived')),\n    expires_at TIMESTAMPTZ,\n    download_count INTEGER DEFAULT 0,\n    is_public BOOLEAN DEFAULT false,\n    share_token TEXT UNIQUE,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Duplicate Detection table\nCREATE TABLE IF NOT EXISTS public.duplicate_groups (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    group_type TEXT NOT NULL,\n    similarity_score DECIMAL,\n    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'ignored')),\n    resolution_action TEXT,\n    resolved_by UUID REFERENCES public.users(id),\n    resolved_at TIMESTAMPTZ,\n    metadata JSONB DEFAULT '{}'::jsonb,\n    created_at TIMESTAMPTZ DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.duplicate_items (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    group_id UUID NOT NULL REFERENCES public.duplicate_groups(id) ON DELETE CASCADE,\n    item_type TEXT NOT NULL,\n    item_id UUID NOT NULL,\n    is_primary BOOLEAN DEFAULT false,\n    confidence_score DECIMAL,\n    metadata JSONB DEFAULT '{}'::jsonb\n);\n\n-- Health Check table\nCREATE TABLE IF NOT EXISTS public.health_check (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    status TEXT DEFAULT 'healthy',\n    last_check TIMESTAMPTZ DEFAULT NOW(),\n    metadata JSONB DEFAULT '{}'::jsonb\n);\n\n-- Indexes for better performance\nCREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);\nCREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);\n\nCREATE INDEX IF NOT EXISTS idx_email_accounts_user_id ON public.email_accounts(user_id);\nCREATE INDEX IF NOT EXISTS idx_email_accounts_provider ON public.email_accounts(provider);\nCREATE INDEX IF NOT EXISTS idx_email_accounts_active ON public.email_accounts(is_active);\n\nCREATE INDEX IF NOT EXISTS idx_flight_emails_user_id ON public.flight_emails(user_id);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_processed ON public.flight_emails(is_processed);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_date_flight ON public.flight_emails(date_flight);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_airline ON public.flight_emails(airline);\n\nCREATE INDEX IF NOT EXISTS idx_passport_scans_user_id ON public.passport_scans(user_id);\nCREATE INDEX IF NOT EXISTS idx_passport_scans_status ON public.passport_scans(processing_status);\n\nCREATE INDEX IF NOT EXISTS idx_travel_entries_user_id ON public.travel_entries(user_id);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_type ON public.travel_entries(entry_type);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_country ON public.travel_entries(country_code);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_date ON public.travel_entries(entry_date);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_status ON public.travel_entries(status);\n\nCREATE INDEX IF NOT EXISTS idx_reports_user_id ON public.reports(user_id);\nCREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports(report_type);\nCREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);\n\n-- Row Level Security (RLS) Policies\nALTER TABLE public.users ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.email_accounts ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.flight_emails ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.travel_history ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.passport_scans ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.travel_entries ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.duplicate_groups ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.duplicate_items ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.health_check ENABLE ROW LEVEL SECURITY;\n\n-- Users policies\nCREATE POLICY \"Users can view own data\" ON public.users\n    FOR ALL USING (auth.uid() = id);\n\nCREATE POLICY \"Admins can view all users\" ON public.users\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Email accounts policies\nCREATE POLICY \"Users can manage own email accounts\" ON public.email_accounts\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all email accounts\" ON public.email_accounts\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Flight emails policies\nCREATE POLICY \"Users can manage own flight emails\" ON public.flight_emails\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all flight emails\" ON public.flight_emails\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Travel history policies\nCREATE POLICY \"Users can manage own travel history\" ON public.travel_history\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all travel history\" ON public.travel_history\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Passport scans policies\nCREATE POLICY \"Users can manage own passport scans\" ON public.passport_scans\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all passport scans\" ON public.passport_scans\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Travel entries policies\nCREATE POLICY \"Users can manage own travel entries\" ON public.travel_entries\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all travel entries\" ON public.travel_entries\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Reports policies\nCREATE POLICY \"Users can manage own reports\" ON public.reports\n    FOR ALL USING (auth.uid() = user_id OR is_public = true);\n\nCREATE POLICY \"Admins can view all reports\" ON public.reports\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Duplicate detection policies\nCREATE POLICY \"Users can manage own duplicates\" ON public.duplicate_groups\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Users can view duplicate items for own groups\" ON public.duplicate_items\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.duplicate_groups\n            WHERE id = group_id AND user_id = auth.uid()\n        )\n    );\n\n-- Health check is public read\nCREATE POLICY \"Public health check\" ON public.health_check\n    FOR SELECT USING (true);\n\n-- Functions to automatically create user profile on signup\nCREATE OR REPLACE FUNCTION public.handle_new_user()\nRETURNS TRIGGER AS $$\nBEGIN\n    INSERT INTO public.users (id, email, display_name)\n    VALUES (\n        NEW.id, \n        NEW.email,\n        COALESCE(NEW.raw_user_meta_data->>'display_name', NEW.email)\n    );\n    RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql SECURITY DEFINER;\n\n-- Trigger to create user profile on auth signup\nDROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;\nCREATE TRIGGER on_auth_user_created\n    AFTER INSERT ON auth.users\n    FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();\n\n-- Function to update updated_at timestamp\nCREATE OR REPLACE FUNCTION public.update_updated_at_column()\nRETURNS TRIGGER AS $$\nBEGIN\n    NEW.updated_at = NOW();\n    RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql;\n\n-- Triggers for updated_at columns\nCREATE TRIGGER update_users_updated_at\n    BEFORE UPDATE ON public.users\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_email_accounts_updated_at\n    BEFORE UPDATE ON public.email_accounts\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_flight_emails_updated_at\n    BEFORE UPDATE ON public.flight_emails\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_passport_scans_updated_at\n    BEFORE UPDATE ON public.passport_scans\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_travel_entries_updated_at\n    BEFORE UPDATE ON public.travel_entries\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_reports_updated_at\n    BEFORE UPDATE ON public.reports\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\n-- Insert initial health check record\nINSERT INTO public.health_check (status, metadata) \nVALUES ('healthy', '{\"initialized\": true, \"version\": \"1.0.0\"}'::jsonb)\nON CONFLICT DO NOTHING;"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T20:31:32.219Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/comprehensive-supabase-schema.sql",
+          "content": "-- Comprehensive Supabase Schema for Travel Check App\n-- Based on existing Firestore structure\n\n-- Enable necessary extensions\nCREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\nCREATE EXTENSION IF NOT EXISTS \"pg_crypto\";\n\n-- Users table (extends Supabase auth.users)\nCREATE TABLE IF NOT EXISTS public.users (\n    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,\n    email TEXT NOT NULL,\n    role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),\n    display_name TEXT,\n    photo_url TEXT,\n    provider TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW(),\n    last_login TIMESTAMPTZ,\n    settings JSONB DEFAULT '{}'::jsonb\n);\n\n-- Email Accounts table for OAuth integrations\nCREATE TABLE IF NOT EXISTS public.email_accounts (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    provider TEXT NOT NULL CHECK (provider IN ('gmail', 'office365')),\n    email TEXT NOT NULL,\n    access_token TEXT,\n    refresh_token TEXT,\n    token_expires_at TIMESTAMPTZ,\n    scope TEXT,\n    is_active BOOLEAN DEFAULT true,\n    last_sync TIMESTAMPTZ,\n    sync_status TEXT DEFAULT 'pending',\n    error_message TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW(),\n    UNIQUE(user_id, provider, email)\n);\n\n-- Flight Emails table\nCREATE TABLE IF NOT EXISTS public.flight_emails (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    email_account_id UUID REFERENCES public.email_accounts(id),\n    message_id TEXT,\n    thread_id TEXT,\n    subject TEXT,\n    sender TEXT,\n    recipient TEXT,\n    body_text TEXT,\n    body_html TEXT,\n    attachments JSONB DEFAULT '[]'::jsonb,\n    flight_data JSONB,\n    booking_data JSONB,\n    parsed_data JSONB,\n    confidence_score DECIMAL,\n    processing_status TEXT DEFAULT 'pending',\n    is_processed BOOLEAN DEFAULT false,\n    date_received TIMESTAMPTZ,\n    date_flight TIMESTAMPTZ,\n    airline TEXT,\n    flight_number TEXT,\n    departure_airport TEXT,\n    arrival_airport TEXT,\n    confirmation_number TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Travel History table (main user travel record)\nCREATE TABLE IF NOT EXISTS public.travel_history (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    passport_data JSONB DEFAULT '{}'::jsonb,\n    flight_data JSONB DEFAULT '{}'::jsonb,\n    email_data JSONB DEFAULT '{}'::jsonb,\n    manual_entries JSONB DEFAULT '[]'::jsonb,\n    computed_presence JSONB DEFAULT '{}'::jsonb,\n    summary_stats JSONB DEFAULT '{}'::jsonb,\n    last_updated TIMESTAMPTZ DEFAULT NOW(),\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    UNIQUE(user_id)\n);\n\n-- Passport Scans table\nCREATE TABLE IF NOT EXISTS public.passport_scans (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    file_name TEXT,\n    file_url TEXT NOT NULL,\n    file_size INTEGER,\n    mime_type TEXT,\n    analysis_results JSONB DEFAULT '{}'::jsonb,\n    extracted_stamps JSONB DEFAULT '[]'::jsonb,\n    processing_status TEXT DEFAULT 'pending',\n    confidence_score DECIMAL,\n    manual_corrections JSONB DEFAULT '{}'::jsonb,\n    is_verified BOOLEAN DEFAULT false,\n    ocr_text TEXT,\n    passport_info JSONB DEFAULT '{}'::jsonb,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Travel Entries table (individual travel records)\nCREATE TABLE IF NOT EXISTS public.travel_entries (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    entry_type TEXT NOT NULL CHECK (entry_type IN ('passport_stamp', 'flight', 'manual', 'email')),\n    source_id UUID, -- References passport_scans.id, flight_emails.id, etc.\n    source_type TEXT,\n    \n    -- Location data\n    country_code TEXT,\n    country_name TEXT,\n    city TEXT,\n    airport_code TEXT,\n    \n    -- Date data\n    entry_date DATE,\n    exit_date DATE,\n    entry_time TIME,\n    exit_time TIME,\n    timezone TEXT,\n    \n    -- Travel details\n    purpose TEXT,\n    transport_type TEXT CHECK (transport_type IN ('flight', 'land', 'sea', 'other')),\n    carrier TEXT,\n    flight_number TEXT,\n    confirmation_number TEXT,\n    \n    -- Status and validation\n    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'disputed', 'ignored')),\n    confidence_score DECIMAL,\n    is_verified BOOLEAN DEFAULT false,\n    manual_override BOOLEAN DEFAULT false,\n    \n    -- Additional data\n    notes TEXT,\n    tags TEXT[],\n    metadata JSONB DEFAULT '{}'::jsonb,\n    \n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Reports table\nCREATE TABLE IF NOT EXISTS public.reports (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    report_type TEXT NOT NULL CHECK (report_type IN ('presence', 'travel_summary', 'tax_residency', 'visa_compliance', 'custom')),\n    title TEXT NOT NULL,\n    description TEXT,\n    parameters JSONB DEFAULT '{}'::jsonb,\n    report_data JSONB NOT NULL,\n    file_format TEXT DEFAULT 'json' CHECK (file_format IN ('json', 'pdf', 'csv', 'xlsx')),\n    file_url TEXT,\n    status TEXT DEFAULT 'generated' CHECK (status IN ('generating', 'generated', 'failed', 'archived')),\n    expires_at TIMESTAMPTZ,\n    download_count INTEGER DEFAULT 0,\n    is_public BOOLEAN DEFAULT false,\n    share_token TEXT UNIQUE,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Duplicate Detection table\nCREATE TABLE IF NOT EXISTS public.duplicate_groups (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    group_type TEXT NOT NULL,\n    similarity_score DECIMAL,\n    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'ignored')),\n    resolution_action TEXT,\n    resolved_by UUID REFERENCES public.users(id),\n    resolved_at TIMESTAMPTZ,\n    metadata JSONB DEFAULT '{}'::jsonb,\n    created_at TIMESTAMPTZ DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.duplicate_items (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    group_id UUID NOT NULL REFERENCES public.duplicate_groups(id) ON DELETE CASCADE,\n    item_type TEXT NOT NULL,\n    item_id UUID NOT NULL,\n    is_primary BOOLEAN DEFAULT false,\n    confidence_score DECIMAL,\n    metadata JSONB DEFAULT '{}'::jsonb\n);\n\n-- Health Check table\nCREATE TABLE IF NOT EXISTS public.health_check (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    status TEXT DEFAULT 'healthy',\n    last_check TIMESTAMPTZ DEFAULT NOW(),\n    metadata JSONB DEFAULT '{}'::jsonb\n);\n\n-- Indexes for better performance\nCREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);\nCREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);\n\nCREATE INDEX IF NOT EXISTS idx_email_accounts_user_id ON public.email_accounts(user_id);\nCREATE INDEX IF NOT EXISTS idx_email_accounts_provider ON public.email_accounts(provider);\nCREATE INDEX IF NOT EXISTS idx_email_accounts_active ON public.email_accounts(is_active);\n\nCREATE INDEX IF NOT EXISTS idx_flight_emails_user_id ON public.flight_emails(user_id);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_processed ON public.flight_emails(is_processed);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_date_flight ON public.flight_emails(date_flight);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_airline ON public.flight_emails(airline);\n\nCREATE INDEX IF NOT EXISTS idx_passport_scans_user_id ON public.passport_scans(user_id);\nCREATE INDEX IF NOT EXISTS idx_passport_scans_status ON public.passport_scans(processing_status);\n\nCREATE INDEX IF NOT EXISTS idx_travel_entries_user_id ON public.travel_entries(user_id);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_type ON public.travel_entries(entry_type);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_country ON public.travel_entries(country_code);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_date ON public.travel_entries(entry_date);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_status ON public.travel_entries(status);\n\nCREATE INDEX IF NOT EXISTS idx_reports_user_id ON public.reports(user_id);\nCREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports(report_type);\nCREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);\n\n-- Row Level Security (RLS) Policies\nALTER TABLE public.users ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.email_accounts ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.flight_emails ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.travel_history ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.passport_scans ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.travel_entries ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.duplicate_groups ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.duplicate_items ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.health_check ENABLE ROW LEVEL SECURITY;\n\n-- Users policies\nCREATE POLICY \"Users can view own data\" ON public.users\n    FOR ALL USING (auth.uid() = id);\n\nCREATE POLICY \"Admins can view all users\" ON public.users\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Email accounts policies\nCREATE POLICY \"Users can manage own email accounts\" ON public.email_accounts\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all email accounts\" ON public.email_accounts\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Flight emails policies\nCREATE POLICY \"Users can manage own flight emails\" ON public.flight_emails\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all flight emails\" ON public.flight_emails\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Travel history policies\nCREATE POLICY \"Users can manage own travel history\" ON public.travel_history\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all travel history\" ON public.travel_history\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Passport scans policies\nCREATE POLICY \"Users can manage own passport scans\" ON public.passport_scans\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all passport scans\" ON public.passport_scans\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Travel entries policies\nCREATE POLICY \"Users can manage own travel entries\" ON public.travel_entries\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all travel entries\" ON public.travel_entries\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Reports policies\nCREATE POLICY \"Users can manage own reports\" ON public.reports\n    FOR ALL USING (auth.uid() = user_id OR is_public = true);\n\nCREATE POLICY \"Admins can view all reports\" ON public.reports\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Duplicate detection policies\nCREATE POLICY \"Users can manage own duplicates\" ON public.duplicate_groups\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Users can view duplicate items for own groups\" ON public.duplicate_items\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.duplicate_groups\n            WHERE id = group_id AND user_id = auth.uid()\n        )\n    );\n\n-- Health check is public read\nCREATE POLICY \"Public health check\" ON public.health_check\n    FOR SELECT USING (true);\n\n-- Functions to automatically create user profile on signup\nCREATE OR REPLACE FUNCTION public.handle_new_user()\nRETURNS TRIGGER AS $$\nBEGIN\n    INSERT INTO public.users (id, email, display_name)\n    VALUES (\n        NEW.id, \n        NEW.email,\n        COALESCE(NEW.raw_user_meta_data->>'display_name', NEW.email)\n    );\n    RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql SECURITY DEFINER;\n\n-- Trigger to create user profile on auth signup\nDROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;\nCREATE TRIGGER on_auth_user_created\n    AFTER INSERT ON auth.users\n    FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();\n\n-- Function to update updated_at timestamp\nCREATE OR REPLACE FUNCTION public.update_updated_at_column()\nRETURNS TRIGGER AS $$\nBEGIN\n    NEW.updated_at = NOW();\n    RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql;\n\n-- Triggers for updated_at columns\nCREATE TRIGGER update_users_updated_at\n    BEFORE UPDATE ON public.users\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_email_accounts_updated_at\n    BEFORE UPDATE ON public.email_accounts\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_flight_emails_updated_at\n    BEFORE UPDATE ON public.flight_emails\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_passport_scans_updated_at\n    BEFORE UPDATE ON public.passport_scans\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_travel_entries_updated_at\n    BEFORE UPDATE ON public.travel_entries\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_reports_updated_at\n    BEFORE UPDATE ON public.reports\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\n-- Insert initial health check record\nINSERT INTO public.health_check (status, metadata) \nVALUES ('healthy', '{\"initialized\": true, \"version\": \"1.0.0\"}'::jsonb)\nON CONFLICT DO NOTHING;"
+        },
+        "tool_response": {
+          "type": "create",
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/comprehensive-supabase-schema.sql",
+          "content": "-- Comprehensive Supabase Schema for Travel Check App\n-- Based on existing Firestore structure\n\n-- Enable necessary extensions\nCREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\nCREATE EXTENSION IF NOT EXISTS \"pg_crypto\";\n\n-- Users table (extends Supabase auth.users)\nCREATE TABLE IF NOT EXISTS public.users (\n    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,\n    email TEXT NOT NULL,\n    role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),\n    display_name TEXT,\n    photo_url TEXT,\n    provider TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW(),\n    last_login TIMESTAMPTZ,\n    settings JSONB DEFAULT '{}'::jsonb\n);\n\n-- Email Accounts table for OAuth integrations\nCREATE TABLE IF NOT EXISTS public.email_accounts (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    provider TEXT NOT NULL CHECK (provider IN ('gmail', 'office365')),\n    email TEXT NOT NULL,\n    access_token TEXT,\n    refresh_token TEXT,\n    token_expires_at TIMESTAMPTZ,\n    scope TEXT,\n    is_active BOOLEAN DEFAULT true,\n    last_sync TIMESTAMPTZ,\n    sync_status TEXT DEFAULT 'pending',\n    error_message TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW(),\n    UNIQUE(user_id, provider, email)\n);\n\n-- Flight Emails table\nCREATE TABLE IF NOT EXISTS public.flight_emails (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    email_account_id UUID REFERENCES public.email_accounts(id),\n    message_id TEXT,\n    thread_id TEXT,\n    subject TEXT,\n    sender TEXT,\n    recipient TEXT,\n    body_text TEXT,\n    body_html TEXT,\n    attachments JSONB DEFAULT '[]'::jsonb,\n    flight_data JSONB,\n    booking_data JSONB,\n    parsed_data JSONB,\n    confidence_score DECIMAL,\n    processing_status TEXT DEFAULT 'pending',\n    is_processed BOOLEAN DEFAULT false,\n    date_received TIMESTAMPTZ,\n    date_flight TIMESTAMPTZ,\n    airline TEXT,\n    flight_number TEXT,\n    departure_airport TEXT,\n    arrival_airport TEXT,\n    confirmation_number TEXT,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Travel History table (main user travel record)\nCREATE TABLE IF NOT EXISTS public.travel_history (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    passport_data JSONB DEFAULT '{}'::jsonb,\n    flight_data JSONB DEFAULT '{}'::jsonb,\n    email_data JSONB DEFAULT '{}'::jsonb,\n    manual_entries JSONB DEFAULT '[]'::jsonb,\n    computed_presence JSONB DEFAULT '{}'::jsonb,\n    summary_stats JSONB DEFAULT '{}'::jsonb,\n    last_updated TIMESTAMPTZ DEFAULT NOW(),\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    UNIQUE(user_id)\n);\n\n-- Passport Scans table\nCREATE TABLE IF NOT EXISTS public.passport_scans (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    file_name TEXT,\n    file_url TEXT NOT NULL,\n    file_size INTEGER,\n    mime_type TEXT,\n    analysis_results JSONB DEFAULT '{}'::jsonb,\n    extracted_stamps JSONB DEFAULT '[]'::jsonb,\n    processing_status TEXT DEFAULT 'pending',\n    confidence_score DECIMAL,\n    manual_corrections JSONB DEFAULT '{}'::jsonb,\n    is_verified BOOLEAN DEFAULT false,\n    ocr_text TEXT,\n    passport_info JSONB DEFAULT '{}'::jsonb,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Travel Entries table (individual travel records)\nCREATE TABLE IF NOT EXISTS public.travel_entries (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    entry_type TEXT NOT NULL CHECK (entry_type IN ('passport_stamp', 'flight', 'manual', 'email')),\n    source_id UUID, -- References passport_scans.id, flight_emails.id, etc.\n    source_type TEXT,\n    \n    -- Location data\n    country_code TEXT,\n    country_name TEXT,\n    city TEXT,\n    airport_code TEXT,\n    \n    -- Date data\n    entry_date DATE,\n    exit_date DATE,\n    entry_time TIME,\n    exit_time TIME,\n    timezone TEXT,\n    \n    -- Travel details\n    purpose TEXT,\n    transport_type TEXT CHECK (transport_type IN ('flight', 'land', 'sea', 'other')),\n    carrier TEXT,\n    flight_number TEXT,\n    confirmation_number TEXT,\n    \n    -- Status and validation\n    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'disputed', 'ignored')),\n    confidence_score DECIMAL,\n    is_verified BOOLEAN DEFAULT false,\n    manual_override BOOLEAN DEFAULT false,\n    \n    -- Additional data\n    notes TEXT,\n    tags TEXT[],\n    metadata JSONB DEFAULT '{}'::jsonb,\n    \n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Reports table\nCREATE TABLE IF NOT EXISTS public.reports (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    report_type TEXT NOT NULL CHECK (report_type IN ('presence', 'travel_summary', 'tax_residency', 'visa_compliance', 'custom')),\n    title TEXT NOT NULL,\n    description TEXT,\n    parameters JSONB DEFAULT '{}'::jsonb,\n    report_data JSONB NOT NULL,\n    file_format TEXT DEFAULT 'json' CHECK (file_format IN ('json', 'pdf', 'csv', 'xlsx')),\n    file_url TEXT,\n    status TEXT DEFAULT 'generated' CHECK (status IN ('generating', 'generated', 'failed', 'archived')),\n    expires_at TIMESTAMPTZ,\n    download_count INTEGER DEFAULT 0,\n    is_public BOOLEAN DEFAULT false,\n    share_token TEXT UNIQUE,\n    created_at TIMESTAMPTZ DEFAULT NOW(),\n    updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\n-- Duplicate Detection table\nCREATE TABLE IF NOT EXISTS public.duplicate_groups (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,\n    group_type TEXT NOT NULL,\n    similarity_score DECIMAL,\n    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'ignored')),\n    resolution_action TEXT,\n    resolved_by UUID REFERENCES public.users(id),\n    resolved_at TIMESTAMPTZ,\n    metadata JSONB DEFAULT '{}'::jsonb,\n    created_at TIMESTAMPTZ DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.duplicate_items (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    group_id UUID NOT NULL REFERENCES public.duplicate_groups(id) ON DELETE CASCADE,\n    item_type TEXT NOT NULL,\n    item_id UUID NOT NULL,\n    is_primary BOOLEAN DEFAULT false,\n    confidence_score DECIMAL,\n    metadata JSONB DEFAULT '{}'::jsonb\n);\n\n-- Health Check table\nCREATE TABLE IF NOT EXISTS public.health_check (\n    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n    status TEXT DEFAULT 'healthy',\n    last_check TIMESTAMPTZ DEFAULT NOW(),\n    metadata JSONB DEFAULT '{}'::jsonb\n);\n\n-- Indexes for better performance\nCREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);\nCREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);\n\nCREATE INDEX IF NOT EXISTS idx_email_accounts_user_id ON public.email_accounts(user_id);\nCREATE INDEX IF NOT EXISTS idx_email_accounts_provider ON public.email_accounts(provider);\nCREATE INDEX IF NOT EXISTS idx_email_accounts_active ON public.email_accounts(is_active);\n\nCREATE INDEX IF NOT EXISTS idx_flight_emails_user_id ON public.flight_emails(user_id);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_processed ON public.flight_emails(is_processed);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_date_flight ON public.flight_emails(date_flight);\nCREATE INDEX IF NOT EXISTS idx_flight_emails_airline ON public.flight_emails(airline);\n\nCREATE INDEX IF NOT EXISTS idx_passport_scans_user_id ON public.passport_scans(user_id);\nCREATE INDEX IF NOT EXISTS idx_passport_scans_status ON public.passport_scans(processing_status);\n\nCREATE INDEX IF NOT EXISTS idx_travel_entries_user_id ON public.travel_entries(user_id);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_type ON public.travel_entries(entry_type);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_country ON public.travel_entries(country_code);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_date ON public.travel_entries(entry_date);\nCREATE INDEX IF NOT EXISTS idx_travel_entries_status ON public.travel_entries(status);\n\nCREATE INDEX IF NOT EXISTS idx_reports_user_id ON public.reports(user_id);\nCREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports(report_type);\nCREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);\n\n-- Row Level Security (RLS) Policies\nALTER TABLE public.users ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.email_accounts ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.flight_emails ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.travel_history ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.passport_scans ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.travel_entries ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.duplicate_groups ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.duplicate_items ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.health_check ENABLE ROW LEVEL SECURITY;\n\n-- Users policies\nCREATE POLICY \"Users can view own data\" ON public.users\n    FOR ALL USING (auth.uid() = id);\n\nCREATE POLICY \"Admins can view all users\" ON public.users\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Email accounts policies\nCREATE POLICY \"Users can manage own email accounts\" ON public.email_accounts\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all email accounts\" ON public.email_accounts\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Flight emails policies\nCREATE POLICY \"Users can manage own flight emails\" ON public.flight_emails\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all flight emails\" ON public.flight_emails\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Travel history policies\nCREATE POLICY \"Users can manage own travel history\" ON public.travel_history\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all travel history\" ON public.travel_history\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Passport scans policies\nCREATE POLICY \"Users can manage own passport scans\" ON public.passport_scans\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all passport scans\" ON public.passport_scans\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Travel entries policies\nCREATE POLICY \"Users can manage own travel entries\" ON public.travel_entries\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Admins can view all travel entries\" ON public.travel_entries\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Reports policies\nCREATE POLICY \"Users can manage own reports\" ON public.reports\n    FOR ALL USING (auth.uid() = user_id OR is_public = true);\n\nCREATE POLICY \"Admins can view all reports\" ON public.reports\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.users\n            WHERE id = auth.uid() AND role = 'admin'\n        )\n    );\n\n-- Duplicate detection policies\nCREATE POLICY \"Users can manage own duplicates\" ON public.duplicate_groups\n    FOR ALL USING (auth.uid() = user_id);\n\nCREATE POLICY \"Users can view duplicate items for own groups\" ON public.duplicate_items\n    FOR ALL USING (\n        EXISTS (\n            SELECT 1 FROM public.duplicate_groups\n            WHERE id = group_id AND user_id = auth.uid()\n        )\n    );\n\n-- Health check is public read\nCREATE POLICY \"Public health check\" ON public.health_check\n    FOR SELECT USING (true);\n\n-- Functions to automatically create user profile on signup\nCREATE OR REPLACE FUNCTION public.handle_new_user()\nRETURNS TRIGGER AS $$\nBEGIN\n    INSERT INTO public.users (id, email, display_name)\n    VALUES (\n        NEW.id, \n        NEW.email,\n        COALESCE(NEW.raw_user_meta_data->>'display_name', NEW.email)\n    );\n    RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql SECURITY DEFINER;\n\n-- Trigger to create user profile on auth signup\nDROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;\nCREATE TRIGGER on_auth_user_created\n    AFTER INSERT ON auth.users\n    FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();\n\n-- Function to update updated_at timestamp\nCREATE OR REPLACE FUNCTION public.update_updated_at_column()\nRETURNS TRIGGER AS $$\nBEGIN\n    NEW.updated_at = NOW();\n    RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql;\n\n-- Triggers for updated_at columns\nCREATE TRIGGER update_users_updated_at\n    BEFORE UPDATE ON public.users\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_email_accounts_updated_at\n    BEFORE UPDATE ON public.email_accounts\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_flight_emails_updated_at\n    BEFORE UPDATE ON public.flight_emails\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_passport_scans_updated_at\n    BEFORE UPDATE ON public.passport_scans\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_travel_entries_updated_at\n    BEFORE UPDATE ON public.travel_entries\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\nCREATE TRIGGER update_reports_updated_at\n    BEFORE UPDATE ON public.reports\n    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();\n\n-- Insert initial health check record\nINSERT INTO public.health_check (status, metadata) \nVALUES ('healthy', '{\"initialized\": true, \"version\": \"1.0.0\"}'::jsonb)\nON CONFLICT DO NOTHING;",
+          "structuredPatch": []
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T21:02:30.457Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/gmail/auth/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T21:02:30.552Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/gmail/auth/route.ts",
+          "old_string": "  const { user } = authResult\n\n  try {",
+          "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/gmail/auth/route.ts",
+          "oldString": "  const { user } = authResult\n\n  try {",
+          "newString": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {",
+          "originalFile": "import { NextRequest, NextResponse } from 'next/server'\nimport { requireAuth } from '../../auth/middleware'\nimport { google } from 'googleapis'\n\nexport async function POST(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const oauth2Client = new google.auth.OAuth2(\n      process.env.GMAIL_CLIENT_ID,\n      process.env.GMAIL_CLIENT_SECRET,\n      process.env.GMAIL_REDIRECT_URI,\n    )\n\n    const scopes = [\n      'https://www.googleapis.com/auth/gmail.modify',\n    ]\n\n    const authUrl = oauth2Client.generateAuthUrl({\n      access_type: 'offline',\n      prompt: 'consent',\n      scope: scopes,\n      state: user.id, // Use user ID as state\n    })\n\n    return NextResponse.json({\n      success: true,\n      authUrl,\n    })\n  } catch (error) {\n    console.error('Error generating Gmail auth URL:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to generate auth URL' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 13,
+              "oldLines": 6,
+              "newStart": 13,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     const oauth2Client = new google.auth.OAuth2(",
+                "       process.env.GMAIL_CLIENT_ID,"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T21:02:41.413Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "MultiEdit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/gmail/callback/route.ts",
+          "edits": [
+            {
+              "old_string": "  const { user } = authResult\n\n  try {",
+              "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {"
+            }
+          ]
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/gmail/callback/route.ts",
+          "edits": [
+            {
+              "old_string": "  const { user } = authResult\n\n  try {",
+              "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {",
+              "replace_all": false
+            }
+          ],
+          "originalFileContents": "import { NextRequest, NextResponse } from 'next/server'\nimport { requireAuth } from '../../auth/middleware'\nimport { supabase } from '@/lib/supabase'\nimport { google } from 'googleapis'\nimport crypto from 'crypto'\n\n// Simple AES encryption for tokens\nfunction getKey() {\n  const raw = process.env.ENCRYPTION_KEY || 'default-key'\n  return crypto.createHash('sha256').update(raw).digest()\n}\n\nfunction encrypt(text: string) {\n  const iv = crypto.randomBytes(12)\n  const key = getKey()\n  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)\n  const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])\n  const tag = cipher.getAuthTag()\n  return {\n    iv: iv.toString('base64'),\n    data: enc.toString('base64'),\n    tag: tag.toString('base64'),\n  }\n}\n\nexport async function POST(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    const body = await request.json()\n    const { code, state } = body\n\n    if (!code || state !== user.id) {\n      return NextResponse.json(\n        { success: false, error: 'Invalid authorization code or state' },\n        { status: 400 }\n      )\n    }\n\n    const oauth2Client = new google.auth.OAuth2(\n      process.env.GMAIL_CLIENT_ID,\n      process.env.GMAIL_CLIENT_SECRET,\n      process.env.GMAIL_REDIRECT_URI,\n    )\n\n    // Exchange code for tokens\n    const { tokens } = await oauth2Client.getToken(code)\n    oauth2Client.setCredentials(tokens)\n\n    // Get user email\n    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })\n    const profile = await gmail.users.getProfile({ userId: 'me' })\n    const emailAddress = profile.data.emailAddress\n\n    // Store tokens securely in Supabase\n    const { error } = await supabase\n      .from('email_accounts')\n      .upsert({\n        user_id: user.id,\n        provider: 'gmail',\n        email: emailAddress,\n        access_token: JSON.stringify(encrypt(tokens.access_token || '')),\n        refresh_token: JSON.stringify(encrypt(tokens.refresh_token || '')),\n        token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,\n        scope: 'gmail.modify',\n        is_active: true,\n        last_sync: null,\n        sync_status: 'ready',\n        error_message: null,\n        updated_at: new Date().toISOString(),\n      }, {\n        onConflict: 'user_id,provider,email'\n      })\n\n    if (error) {\n      console.error('Error storing Gmail tokens:', error)\n      return NextResponse.json(\n        { success: false, error: 'Failed to store account information' },\n        { status: 500 }\n      )\n    }\n\n    return NextResponse.json({\n      success: true,\n      message: 'Gmail account connected successfully',\n    })\n  } catch (error) {\n    console.error('Error handling Gmail callback:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to connect Gmail account' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 34,
+              "oldLines": 6,
+              "newStart": 34,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     const body = await request.json()",
+                "     const { code, state } = body"
+              ]
+            }
+          ],
+          "userModified": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T21:02:48.872Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "MultiEdit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/office365/auth/route.ts",
+          "edits": [
+            {
+              "old_string": "  const { user } = authResult\n\n  try {",
+              "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {"
+            }
+          ]
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/api/office365/auth/route.ts",
+          "edits": [
+            {
+              "old_string": "  const { user } = authResult\n\n  try {",
+              "new_string": "  const { user } = authResult\n\n  if (!user) {\n    return NextResponse.json({ error: 'User not found' }, { status: 401 })\n  }\n\n  try {",
+              "replace_all": false
+            }
+          ],
+          "originalFileContents": "import { NextRequest, NextResponse } from 'next/server'\nimport { requireAuth } from '../../auth/middleware'\n\nexport async function POST(request: NextRequest) {\n  const authResult = await requireAuth(request)\n  if (authResult.error) {\n    return NextResponse.json(\n      { success: false, error: authResult.error },\n      { status: authResult.status || 401 }\n    )\n  }\n\n  const { user } = authResult\n\n  try {\n    // Build Microsoft OAuth URL\n    const clientId = process.env.OFFICE365_CLIENT_ID\n    const redirectUri = process.env.OFFICE365_REDIRECT_URI\n    const scopes = 'offline_access Mail.ReadWrite'\n    const responseType = 'code'\n    const state = user.id\n\n    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +\n      `client_id=${encodeURIComponent(clientId!)}&` +\n      `response_type=${responseType}&` +\n      `redirect_uri=${encodeURIComponent(redirectUri!)}&` +\n      `scope=${encodeURIComponent(scopes)}&` +\n      `state=${encodeURIComponent(state)}&` +\n      `prompt=consent`\n\n    return NextResponse.json({\n      success: true,\n      authUrl,\n    })\n  } catch (error) {\n    console.error('Error generating Office365 auth URL:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to generate auth URL' },\n      { status: 500 }\n    )\n  }\n}",
+          "structuredPatch": [
+            {
+              "oldStart": 12,
+              "oldLines": 6,
+              "newStart": 12,
+              "newLines": 10,
+              "lines": [
+                " ",
+                "   const { user } = authResult",
+                " ",
+                "+  if (!user) {",
+                "+    return NextResponse.json({ error: 'User not found' }, { status: 401 })",
+                "+  }",
+                "+",
+                "   try {",
+                "     // Build Microsoft OAuth URL",
+                "     const clientId = process.env.OFFICE365_CLIENT_ID"
+              ]
+            }
+          ],
+          "userModified": false
+        }
+      },
+      "warnings": []
     }
   ],
   "fileChanges": {},
   "toolUsage": {
     "undefined": {
-      "count": 2,
-      "success": 2,
+      "count": 15,
+      "success": 15,
       "failed": 0
     }
   },
@@ -217,8 +1012,8 @@
   },
   "summary": {
     "sessionId": "022f22b3e4818cfb",
-    "duration": 89,
-    "totalEvents": 4,
+    "duration": 9339,
+    "totalEvents": 28,
     "filesChanged": 0,
     "filesCreated": 0,
     "filesRead": 0,
@@ -231,5 +1026,5 @@
     },
     "successRate": 1
   },
-  "endTime": "2025-09-11T19:28:11.964Z"
+  "endTime": "2025-09-11T22:02:21.668Z"
 }

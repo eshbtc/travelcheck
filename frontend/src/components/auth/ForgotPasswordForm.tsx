@@ -3,10 +3,10 @@
 import React, { useState } from 'react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
-import { auth } from '@/lib/firebase'
-import { sendPasswordResetEmail } from 'firebase/auth'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function ForgotPasswordForm() {
+  const { resetPassword } = useAuth()
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +17,7 @@ export function ForgotPasswordForm() {
     setError(null)
     setSubmitting(true)
     try {
-      await sendPasswordResetEmail(auth, email)
+      await resetPassword(email)
       setSent(true)
     } catch (err: any) {
       setError(err?.message || 'Failed to send reset email')

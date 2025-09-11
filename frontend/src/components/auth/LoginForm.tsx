@@ -7,7 +7,7 @@ import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
 
 export function LoginForm() {
-  const { login, loginWithGoogle, isLoading } = useAuth()
+  const { login, loginWithGoogle, loginWithAzure, isLoading } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -100,15 +100,36 @@ export function LoginForm() {
         <div className="h-px flex-1 bg-border-light" />
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={onGoogleLogin}
-        disabled={submitting || isLoading}
-      >
-        Continue with Google
-      </Button>
+      <div className="space-y-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={onGoogleLogin}
+          disabled={submitting || isLoading}
+        >
+          Continue with Google
+        </Button>
+        
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={async () => {
+            setError(null)
+            setSubmitting(true)
+            try {
+              await loginWithAzure()
+            } catch (err: any) {
+              setError(err?.message || 'Azure sign-in failed')
+              setSubmitting(false)
+            }
+          }}
+          disabled={submitting || isLoading}
+        >
+          Continue with Microsoft
+        </Button>
+      </div>
 
       <p className="mt-6 text-center text-sm text-text-secondary">
         Don&apos;t have an account?{' '}

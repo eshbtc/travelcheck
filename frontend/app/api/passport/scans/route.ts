@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase-server'
 import { requireAuth } from '../../auth/middleware'
 
 export async function GET(request: NextRequest) {
@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
   }
 
   const { user } = authResult
+
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 401 })
+  }
 
   try {
     const { data: scans, error } = await supabase
@@ -51,6 +55,10 @@ export async function POST(request: NextRequest) {
   }
 
   const { user } = authResult
+
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 401 })
+  }
 
   try {
     const body = await request.json()

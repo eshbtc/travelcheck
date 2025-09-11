@@ -7,7 +7,7 @@ import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
 
 export function RegisterForm() {
-  const { register, loginWithGoogle, isLoading } = useAuth()
+  const { register, loginWithGoogle, loginWithAzure, isLoading } = useAuth()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -128,15 +128,36 @@ export function RegisterForm() {
         <div className="h-px flex-1 bg-border-light" />
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={onGoogle}
-        disabled={submitting || isLoading}
-      >
-        Continue with Google
-      </Button>
+      <div className="space-y-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={onGoogle}
+          disabled={submitting || isLoading}
+        >
+          Continue with Google
+        </Button>
+        
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={async () => {
+            setError(null)
+            setSubmitting(true)
+            try {
+              await loginWithAzure()
+            } catch (err: any) {
+              setError(err?.message || 'Microsoft sign-up failed')
+              setSubmitting(false)
+            }
+          }}
+          disabled={submitting || isLoading}
+        >
+          Continue with Microsoft
+        </Button>
+      </div>
 
       <p className="mt-6 text-center text-sm text-text-secondary">
         Already have an account?{' '}
