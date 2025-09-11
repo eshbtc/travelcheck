@@ -1897,13 +1897,284 @@
         }
       },
       "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:03.841Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/auth/callback/page.tsx",
+          "old_string": "    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback\n        const hashFragment = window.location.hash\n        if (hashFragment) {\n          // For newer versions of Supabase, the session is automatically handled\n          // Just redirect to dashboard if we have a session\n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Successful OAuth login, redirect to dashboard\n            router.replace('/dashboard')\n            return\n          } else {\n            // No session found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }",
+          "new_string": "    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback (has access_token in URL)\n        const urlParams = new URLSearchParams(window.location.hash.substring(1))\n        const accessToken = urlParams.get('access_token')\n        \n        if (accessToken) {\n          // This is a Supabase OAuth callback\n          // Wait a moment for the auth state to update\n          await new Promise(resolve => setTimeout(resolve, 1000))\n          \n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Clean up the URL and redirect to dashboard\n            window.history.replaceState({}, document.title, '/dashboard')\n            router.replace('/dashboard')\n            return\n          } else {\n            // Session not found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:03.973Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/auth/callback/page.tsx",
+          "old_string": "    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback\n        const hashFragment = window.location.hash\n        if (hashFragment) {\n          // For newer versions of Supabase, the session is automatically handled\n          // Just redirect to dashboard if we have a session\n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Successful OAuth login, redirect to dashboard\n            router.replace('/dashboard')\n            return\n          } else {\n            // No session found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }",
+          "new_string": "    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback (has access_token in URL)\n        const urlParams = new URLSearchParams(window.location.hash.substring(1))\n        const accessToken = urlParams.get('access_token')\n        \n        if (accessToken) {\n          // This is a Supabase OAuth callback\n          // Wait a moment for the auth state to update\n          await new Promise(resolve => setTimeout(resolve, 1000))\n          \n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Clean up the URL and redirect to dashboard\n            window.history.replaceState({}, document.title, '/dashboard')\n            router.replace('/dashboard')\n            return\n          } else {\n            // Session not found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/auth/callback/page.tsx",
+          "oldString": "    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback\n        const hashFragment = window.location.hash\n        if (hashFragment) {\n          // For newer versions of Supabase, the session is automatically handled\n          // Just redirect to dashboard if we have a session\n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Successful OAuth login, redirect to dashboard\n            router.replace('/dashboard')\n            return\n          } else {\n            // No session found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }",
+          "newString": "    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback (has access_token in URL)\n        const urlParams = new URLSearchParams(window.location.hash.substring(1))\n        const accessToken = urlParams.get('access_token')\n        \n        if (accessToken) {\n          // This is a Supabase OAuth callback\n          // Wait a moment for the auth state to update\n          await new Promise(resolve => setTimeout(resolve, 1000))\n          \n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Clean up the URL and redirect to dashboard\n            window.history.replaceState({}, document.title, '/dashboard')\n            router.replace('/dashboard')\n            return\n          } else {\n            // Session not found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }",
+          "originalFile": "\"use client\"\n\nimport React, { Suspense, useEffect, useState } from 'react'\nimport { useRouter, useSearchParams } from 'next/navigation'\nimport { OAuthCallback } from '@/components/auth/OAuthCallback'\nimport { useAuth } from '@/contexts/AuthContext'\nimport { supabase } from '@/lib/supabase'\n\nexport const dynamic = 'force-dynamic'\n\nfunction CallbackHandler() {\n  const router = useRouter()\n  const params = useSearchParams()\n  const { user, session } = useAuth()\n  const [handled, setHandled] = useState(false)\n\n  useEffect(() => {\n    if (handled) return\n\n    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback\n        const hashFragment = window.location.hash\n        if (hashFragment) {\n          // For newer versions of Supabase, the session is automatically handled\n          // Just redirect to dashboard if we have a session\n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Successful OAuth login, redirect to dashboard\n            router.replace('/dashboard')\n            return\n          } else {\n            // No session found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }\n\n        // Handle email integration callbacks (Gmail/Office365)\n        const code = params?.get('code')\n        const state = params?.get('state')\n        const provider = params?.get('provider')\n\n        if (code && user) {\n          // This is an email integration callback\n          try {\n            if (provider === 'gmail') {\n              // Call Gmail integration API\n              const response = await fetch('/api/gmail/callback', {\n                method: 'POST',\n                headers: {\n                  'Content-Type': 'application/json',\n                  'Authorization': `Bearer ${session?.access_token}`\n                },\n                body: JSON.stringify({ code, state })\n              })\n              \n              if (response.ok) {\n                router.replace('/integrations?success=gmail_connected')\n              } else {\n                router.replace('/integrations?error=gmail_connection_failed')\n              }\n            } else if (provider === 'office365') {\n              // Call Office365 integration API\n              const response = await fetch('/api/office365/callback', {\n                method: 'POST',\n                headers: {\n                  'Content-Type': 'application/json',\n                  'Authorization': `Bearer ${session?.access_token}`\n                },\n                body: JSON.stringify({ code, state })\n              })\n              \n              if (response.ok) {\n                router.replace('/integrations?success=office365_connected')\n              } else {\n                router.replace('/integrations?error=office365_connection_failed')\n              }\n            }\n          } catch (error) {\n            console.error('Integration callback error:', error)\n            router.replace('/integrations?error=integration_failed')\n          }\n        } else if (!code && !hashFragment) {\n          // No callback parameters, redirect to login\n          router.replace('/auth/login')\n        }\n      } catch (error) {\n        console.error('Callback handler error:', error)\n        router.replace('/auth/login?error=callback_failed')\n      } finally {\n        setHandled(true)\n      }\n    }\n\n    handleAuthCallback()\n  }, [handled, router, params, user, session])\n\n  return (\n    <div className=\"min-h-screen bg-bg-secondary flex items-center justify-center\">\n      <div className=\"text-center\">\n        <div className=\"animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mx-auto mb-4\"></div>\n        <p className=\"text-text-secondary\">Processing authentication...</p>\n      </div>\n    </div>\n  )\n}\n\nexport default function AuthCallbackPage() {\n  return (\n    <Suspense fallback={<OAuthCallback />}>\n      <CallbackHandler />\n    </Suspense>\n  )\n}\n\n\n",
+          "structuredPatch": [
+            {
+              "oldStart": 19,
+              "oldLines": 19,
+              "newStart": 19,
+              "newLines": 24,
+              "lines": [
+                " ",
+                "     const handleAuthCallback = async () => {",
+                "       try {",
+                "-        // Check if this is a Supabase OAuth callback",
+                "-        const hashFragment = window.location.hash",
+                "-        if (hashFragment) {",
+                "-          // For newer versions of Supabase, the session is automatically handled",
+                "-          // Just redirect to dashboard if we have a session",
+                "+        // Check if this is a Supabase OAuth callback (has access_token in URL)",
+                "+        const urlParams = new URLSearchParams(window.location.hash.substring(1))",
+                "+        const accessToken = urlParams.get('access_token')",
+                "+        ",
+                "+        if (accessToken) {",
+                "+          // This is a Supabase OAuth callback",
+                "+          // Wait a moment for the auth state to update",
+                "+          await new Promise(resolve => setTimeout(resolve, 1000))",
+                "+          ",
+                "           const { data: { session } } = await supabase.auth.getSession()",
+                "           ",
+                "           if (session) {",
+                "-            // Successful OAuth login, redirect to dashboard",
+                "+            // Clean up the URL and redirect to dashboard",
+                "+            window.history.replaceState({}, document.title, '/dashboard')",
+                "             router.replace('/dashboard')",
+                "             return",
+                "           } else {",
+                "-            // No session found, redirect to login with error",
+                "+            // Session not found, redirect to login with error",
+                "             router.replace('/auth/login?error=oauth_callback_failed')",
+                "             return",
+                "           }"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:13.524Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/contexts/AuthContext.tsx",
+          "old_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n        },\n      })",
+          "new_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/auth/callback`,\n        },\n      })"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:13.646Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/contexts/AuthContext.tsx",
+          "old_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n        },\n      })",
+          "new_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/auth/callback`,\n        },\n      })"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/contexts/AuthContext.tsx",
+          "oldString": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n        },\n      })",
+          "newString": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/auth/callback`,\n        },\n      })",
+          "originalFile": "\"use client\"\n\nimport React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'\nimport { useRouter } from 'next/navigation'\nimport { supabase } from '../lib/supabase'\nimport type { User as SupabaseUser, Session, AuthError } from '@supabase/supabase-js'\n\ninterface User {\n  id: string\n  email: string\n  full_name: string\n  is_active: boolean\n  created_at: string\n  role?: 'admin' | 'user'\n  email_verified?: boolean\n}\n\ninterface AuthContextType {\n  user: User | null\n  supabaseUser: SupabaseUser | null\n  session: Session | null\n  isLoading: boolean\n  login: (email: string, password: string) => Promise<void>\n  register: (email: string, password: string, fullName: string) => Promise<void>\n  loginWithGoogle: () => Promise<void>\n  loginWithAzure: () => Promise<void>\n  logout: () => Promise<void>\n  resetPassword: (email: string) => Promise<void>\n}\n\nconst AuthContext = createContext<AuthContextType | undefined>(undefined)\n\nexport function AuthProvider({ children }: { children: ReactNode }) {\n  const [user, setUser] = useState<User | null>(null)\n  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null)\n  const [session, setSession] = useState<Session | null>(null)\n  const [isLoading, setIsLoading] = useState(true)\n  const router = useRouter()\n\n  useEffect(() => {\n    // Get initial session\n    supabase.auth.getSession().then(({ data: { session } }) => {\n      setSession(session)\n      setSupabaseUser(session?.user ?? null)\n      if (session?.user) {\n        fetchOrCreateUser(session.user)\n      } else {\n        setUser(null)\n        setIsLoading(false)\n      }\n    })\n\n    // Listen for auth changes\n    const {\n      data: { subscription },\n    } = supabase.auth.onAuthStateChange(async (event, session) => {\n      setSession(session)\n      setSupabaseUser(session?.user ?? null)\n      \n      if (session?.user) {\n        await fetchOrCreateUser(session.user)\n        \n        // Redirect to dashboard if we're on any auth route\n        const redirectFromAuth = () => {\n          if (typeof window === 'undefined') return\n          const currentPath = window.location.pathname.replace(/\\/+$/, '')\n          if (currentPath === '/auth' || currentPath.startsWith('/auth/')) {\n            try {\n              router.replace('/dashboard')\n            } catch (_) {}\n            setTimeout(() => {\n              const stillOnAuth = window.location.pathname.replace(/\\/+$/, '').startsWith('/auth')\n              if (stillOnAuth) {\n                window.location.assign('/dashboard/')\n              }\n            }, 150)\n          }\n        }\n        redirectFromAuth()\n      } else {\n        setUser(null)\n      }\n      \n      setIsLoading(false)\n    })\n\n    return () => subscription.unsubscribe()\n  }, [router])\n\n\n  const fetchOrCreateUser = async (supabaseUser: SupabaseUser) => {\n    try {\n      // Check if user exists in our users table\n      const { data: existingUser, error: fetchError } = await supabase\n        .from('users')\n        .select('*')\n        .eq('id', supabaseUser.id)\n        .single()\n\n      if (existingUser && !fetchError) {\n        // User exists, set user data\n        setUser({\n          id: existingUser.id,\n          email: existingUser.email,\n          full_name: existingUser.full_name || '',\n          is_active: existingUser.is_active,\n          created_at: existingUser.created_at,\n          role: existingUser.role || 'user',\n          email_verified: existingUser.email_verified\n        })\n      } else {\n        // User doesn't exist, create new user\n        const newUser = {\n          id: supabaseUser.id,\n          email: supabaseUser.email || '',\n          full_name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || '',\n          is_active: true,\n          created_at: new Date().toISOString(),\n          email_verified: supabaseUser.email_confirmed_at ? true : false,\n          role: 'user' as 'user' | 'admin'\n        }\n        \n        const { error: createError } = await supabase\n          .from('users')\n          .insert([newUser])\n        \n        if (!createError) {\n          setUser(newUser)\n        } else {\n          console.error('Error creating user:', createError)\n        }\n      }\n    } catch (error) {\n      console.error('Error fetching/creating user:', error)\n    }\n  }\n\n  const login = async (email: string, password: string) => {\n    try {\n      const { error } = await supabase.auth.signInWithPassword({\n        email,\n        password,\n      })\n      \n      if (error) throw error\n      \n      // Auth state change will be handled by onAuthStateChange\n    } catch (error: any) {\n      throw new Error(error.message || 'Login failed')\n    }\n  }\n\n  const register = async (email: string, password: string, fullName: string) => {\n    try {\n      const { error } = await supabase.auth.signUp({\n        email,\n        password,\n        options: {\n          data: {\n            full_name: fullName,\n            name: fullName,\n          },\n        },\n      })\n      \n      if (error) throw error\n      \n      // Auth state change will be handled by onAuthStateChange\n    } catch (error: any) {\n      throw new Error(error.message || 'Registration failed')\n    }\n  }\n\n  const loginWithGoogle = async () => {\n    try {\n      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n        },\n      })\n      \n      if (error) throw error\n    } catch (error: any) {\n      throw new Error(error.message || 'Google login failed')\n    }\n  }\n\n  const loginWithAzure = async () => {\n    try {\n      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n          scopes: 'email profile openid',\n        },\n      })\n      \n      if (error) throw error\n    } catch (error: any) {\n      throw new Error(error.message || 'Azure login failed')\n    }\n  }\n\n  const logout = async () => {\n    try {\n      const { error } = await supabase.auth.signOut()\n      \n      if (error) throw error\n      \n      router.push('/')\n    } catch (error: any) {\n      console.error('Logout error:', error)\n    }\n  }\n\n  const resetPassword = async (email: string) => {\n    try {\n      const { error } = await supabase.auth.resetPasswordForEmail(email, {\n        redirectTo: `${window.location.origin}/auth/reset-password`,\n      })\n      \n      if (error) throw error\n    } catch (error: any) {\n      throw new Error(error.message || 'Password reset failed')\n    }\n  }\n\n  const value = {\n    user,\n    supabaseUser,\n    session,\n    isLoading,\n    login,\n    register,\n    loginWithGoogle,\n    loginWithAzure,\n    logout,\n    resetPassword,\n  }\n\n  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>\n}\n\nexport function useAuth() {\n  const context = useContext(AuthContext)\n  if (context === undefined) {\n    throw new Error('useAuth must be used within an AuthProvider')\n  }\n  return context\n}\n",
+          "structuredPatch": [
+            {
+              "oldStart": 176,
+              "oldLines": 7,
+              "newStart": 176,
+              "newLines": 7,
+              "lines": [
+                "       const { error } = await supabase.auth.signInWithOAuth({",
+                "         provider: 'google',",
+                "         options: {",
+                "-          redirectTo: `${window.location.origin}/dashboard`,",
+                "+          redirectTo: `${window.location.origin}/auth/callback`,",
+                "         },",
+                "       })",
+                "       "
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:22.715Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/contexts/AuthContext.tsx",
+          "old_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n          scopes: 'email profile openid',\n        },\n      })",
+          "new_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/auth/callback`,\n          scopes: 'email profile openid',\n        },\n      })"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:22.844Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/contexts/AuthContext.tsx",
+          "old_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n          scopes: 'email profile openid',\n        },\n      })",
+          "new_string": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/auth/callback`,\n          scopes: 'email profile openid',\n        },\n      })"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/src/contexts/AuthContext.tsx",
+          "oldString": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n          scopes: 'email profile openid',\n        },\n      })",
+          "newString": "      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/auth/callback`,\n          scopes: 'email profile openid',\n        },\n      })",
+          "originalFile": "\"use client\"\n\nimport React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'\nimport { useRouter } from 'next/navigation'\nimport { supabase } from '../lib/supabase'\nimport type { User as SupabaseUser, Session, AuthError } from '@supabase/supabase-js'\n\ninterface User {\n  id: string\n  email: string\n  full_name: string\n  is_active: boolean\n  created_at: string\n  role?: 'admin' | 'user'\n  email_verified?: boolean\n}\n\ninterface AuthContextType {\n  user: User | null\n  supabaseUser: SupabaseUser | null\n  session: Session | null\n  isLoading: boolean\n  login: (email: string, password: string) => Promise<void>\n  register: (email: string, password: string, fullName: string) => Promise<void>\n  loginWithGoogle: () => Promise<void>\n  loginWithAzure: () => Promise<void>\n  logout: () => Promise<void>\n  resetPassword: (email: string) => Promise<void>\n}\n\nconst AuthContext = createContext<AuthContextType | undefined>(undefined)\n\nexport function AuthProvider({ children }: { children: ReactNode }) {\n  const [user, setUser] = useState<User | null>(null)\n  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null)\n  const [session, setSession] = useState<Session | null>(null)\n  const [isLoading, setIsLoading] = useState(true)\n  const router = useRouter()\n\n  useEffect(() => {\n    // Get initial session\n    supabase.auth.getSession().then(({ data: { session } }) => {\n      setSession(session)\n      setSupabaseUser(session?.user ?? null)\n      if (session?.user) {\n        fetchOrCreateUser(session.user)\n      } else {\n        setUser(null)\n        setIsLoading(false)\n      }\n    })\n\n    // Listen for auth changes\n    const {\n      data: { subscription },\n    } = supabase.auth.onAuthStateChange(async (event, session) => {\n      setSession(session)\n      setSupabaseUser(session?.user ?? null)\n      \n      if (session?.user) {\n        await fetchOrCreateUser(session.user)\n        \n        // Redirect to dashboard if we're on any auth route\n        const redirectFromAuth = () => {\n          if (typeof window === 'undefined') return\n          const currentPath = window.location.pathname.replace(/\\/+$/, '')\n          if (currentPath === '/auth' || currentPath.startsWith('/auth/')) {\n            try {\n              router.replace('/dashboard')\n            } catch (_) {}\n            setTimeout(() => {\n              const stillOnAuth = window.location.pathname.replace(/\\/+$/, '').startsWith('/auth')\n              if (stillOnAuth) {\n                window.location.assign('/dashboard/')\n              }\n            }, 150)\n          }\n        }\n        redirectFromAuth()\n      } else {\n        setUser(null)\n      }\n      \n      setIsLoading(false)\n    })\n\n    return () => subscription.unsubscribe()\n  }, [router])\n\n\n  const fetchOrCreateUser = async (supabaseUser: SupabaseUser) => {\n    try {\n      // Check if user exists in our users table\n      const { data: existingUser, error: fetchError } = await supabase\n        .from('users')\n        .select('*')\n        .eq('id', supabaseUser.id)\n        .single()\n\n      if (existingUser && !fetchError) {\n        // User exists, set user data\n        setUser({\n          id: existingUser.id,\n          email: existingUser.email,\n          full_name: existingUser.full_name || '',\n          is_active: existingUser.is_active,\n          created_at: existingUser.created_at,\n          role: existingUser.role || 'user',\n          email_verified: existingUser.email_verified\n        })\n      } else {\n        // User doesn't exist, create new user\n        const newUser = {\n          id: supabaseUser.id,\n          email: supabaseUser.email || '',\n          full_name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || '',\n          is_active: true,\n          created_at: new Date().toISOString(),\n          email_verified: supabaseUser.email_confirmed_at ? true : false,\n          role: 'user' as 'user' | 'admin'\n        }\n        \n        const { error: createError } = await supabase\n          .from('users')\n          .insert([newUser])\n        \n        if (!createError) {\n          setUser(newUser)\n        } else {\n          console.error('Error creating user:', createError)\n        }\n      }\n    } catch (error) {\n      console.error('Error fetching/creating user:', error)\n    }\n  }\n\n  const login = async (email: string, password: string) => {\n    try {\n      const { error } = await supabase.auth.signInWithPassword({\n        email,\n        password,\n      })\n      \n      if (error) throw error\n      \n      // Auth state change will be handled by onAuthStateChange\n    } catch (error: any) {\n      throw new Error(error.message || 'Login failed')\n    }\n  }\n\n  const register = async (email: string, password: string, fullName: string) => {\n    try {\n      const { error } = await supabase.auth.signUp({\n        email,\n        password,\n        options: {\n          data: {\n            full_name: fullName,\n            name: fullName,\n          },\n        },\n      })\n      \n      if (error) throw error\n      \n      // Auth state change will be handled by onAuthStateChange\n    } catch (error: any) {\n      throw new Error(error.message || 'Registration failed')\n    }\n  }\n\n  const loginWithGoogle = async () => {\n    try {\n      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'google',\n        options: {\n          redirectTo: `${window.location.origin}/auth/callback`,\n        },\n      })\n      \n      if (error) throw error\n    } catch (error: any) {\n      throw new Error(error.message || 'Google login failed')\n    }\n  }\n\n  const loginWithAzure = async () => {\n    try {\n      const { error } = await supabase.auth.signInWithOAuth({\n        provider: 'azure',\n        options: {\n          redirectTo: `${window.location.origin}/dashboard`,\n          scopes: 'email profile openid',\n        },\n      })\n      \n      if (error) throw error\n    } catch (error: any) {\n      throw new Error(error.message || 'Azure login failed')\n    }\n  }\n\n  const logout = async () => {\n    try {\n      const { error } = await supabase.auth.signOut()\n      \n      if (error) throw error\n      \n      router.push('/')\n    } catch (error: any) {\n      console.error('Logout error:', error)\n    }\n  }\n\n  const resetPassword = async (email: string) => {\n    try {\n      const { error } = await supabase.auth.resetPasswordForEmail(email, {\n        redirectTo: `${window.location.origin}/auth/reset-password`,\n      })\n      \n      if (error) throw error\n    } catch (error: any) {\n      throw new Error(error.message || 'Password reset failed')\n    }\n  }\n\n  const value = {\n    user,\n    supabaseUser,\n    session,\n    isLoading,\n    login,\n    register,\n    loginWithGoogle,\n    loginWithAzure,\n    logout,\n    resetPassword,\n  }\n\n  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>\n}\n\nexport function useAuth() {\n  const context = useContext(AuthContext)\n  if (context === undefined) {\n    throw new Error('useAuth must be used within an AuthProvider')\n  }\n  return context\n}\n",
+          "structuredPatch": [
+            {
+              "oldStart": 191,
+              "oldLines": 7,
+              "newStart": 191,
+              "newLines": 7,
+              "lines": [
+                "       const { error } = await supabase.auth.signInWithOAuth({",
+                "         provider: 'azure',",
+                "         options: {",
+                "-          redirectTo: `${window.location.origin}/dashboard`,",
+                "+          redirectTo: `${window.location.origin}/auth/callback`,",
+                "           scopes: 'email profile openid',",
+                "         },",
+                "       })"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:49.266Z",
+      "hookType": "PreToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/auth/callback/page.tsx",
+          "old_string": "        } else if (!code && !hashFragment) {",
+          "new_string": "        } else if (!code && !accessToken) {"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "timestamp": "2025-09-11T22:23:49.403Z",
+      "hookType": "PostToolUse",
+      "data": {
+        "session_id": "59fc835e-6c78-43e6-9a02-9fc923ab8569",
+        "transcript_path": "/Users/agentsy/.claude/projects/-Users-agentsy-Desktop-developer-travel-check/59fc835e-6c78-43e6-9a02-9fc923ab8569.jsonl",
+        "cwd": "/Users/agentsy/Desktop/developer/travel-check/frontend",
+        "permission_mode": "acceptEdits",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/auth/callback/page.tsx",
+          "old_string": "        } else if (!code && !hashFragment) {",
+          "new_string": "        } else if (!code && !accessToken) {"
+        },
+        "tool_response": {
+          "filePath": "/Users/agentsy/Desktop/developer/travel-check/frontend/app/auth/callback/page.tsx",
+          "oldString": "        } else if (!code && !hashFragment) {",
+          "newString": "        } else if (!code && !accessToken) {",
+          "originalFile": "\"use client\"\n\nimport React, { Suspense, useEffect, useState } from 'react'\nimport { useRouter, useSearchParams } from 'next/navigation'\nimport { OAuthCallback } from '@/components/auth/OAuthCallback'\nimport { useAuth } from '@/contexts/AuthContext'\nimport { supabase } from '@/lib/supabase'\n\nexport const dynamic = 'force-dynamic'\n\nfunction CallbackHandler() {\n  const router = useRouter()\n  const params = useSearchParams()\n  const { user, session } = useAuth()\n  const [handled, setHandled] = useState(false)\n\n  useEffect(() => {\n    if (handled) return\n\n    const handleAuthCallback = async () => {\n      try {\n        // Check if this is a Supabase OAuth callback (has access_token in URL)\n        const urlParams = new URLSearchParams(window.location.hash.substring(1))\n        const accessToken = urlParams.get('access_token')\n        \n        if (accessToken) {\n          // This is a Supabase OAuth callback\n          // Wait a moment for the auth state to update\n          await new Promise(resolve => setTimeout(resolve, 1000))\n          \n          const { data: { session } } = await supabase.auth.getSession()\n          \n          if (session) {\n            // Clean up the URL and redirect to dashboard\n            window.history.replaceState({}, document.title, '/dashboard')\n            router.replace('/dashboard')\n            return\n          } else {\n            // Session not found, redirect to login with error\n            router.replace('/auth/login?error=oauth_callback_failed')\n            return\n          }\n        }\n\n        // Handle email integration callbacks (Gmail/Office365)\n        const code = params?.get('code')\n        const state = params?.get('state')\n        const provider = params?.get('provider')\n\n        if (code && user) {\n          // This is an email integration callback\n          try {\n            if (provider === 'gmail') {\n              // Call Gmail integration API\n              const response = await fetch('/api/gmail/callback', {\n                method: 'POST',\n                headers: {\n                  'Content-Type': 'application/json',\n                  'Authorization': `Bearer ${session?.access_token}`\n                },\n                body: JSON.stringify({ code, state })\n              })\n              \n              if (response.ok) {\n                router.replace('/integrations?success=gmail_connected')\n              } else {\n                router.replace('/integrations?error=gmail_connection_failed')\n              }\n            } else if (provider === 'office365') {\n              // Call Office365 integration API\n              const response = await fetch('/api/office365/callback', {\n                method: 'POST',\n                headers: {\n                  'Content-Type': 'application/json',\n                  'Authorization': `Bearer ${session?.access_token}`\n                },\n                body: JSON.stringify({ code, state })\n              })\n              \n              if (response.ok) {\n                router.replace('/integrations?success=office365_connected')\n              } else {\n                router.replace('/integrations?error=office365_connection_failed')\n              }\n            }\n          } catch (error) {\n            console.error('Integration callback error:', error)\n            router.replace('/integrations?error=integration_failed')\n          }\n        } else if (!code && !hashFragment) {\n          // No callback parameters, redirect to login\n          router.replace('/auth/login')\n        }\n      } catch (error) {\n        console.error('Callback handler error:', error)\n        router.replace('/auth/login?error=callback_failed')\n      } finally {\n        setHandled(true)\n      }\n    }\n\n    handleAuthCallback()\n  }, [handled, router, params, user, session])\n\n  return (\n    <div className=\"min-h-screen bg-bg-secondary flex items-center justify-center\">\n      <div className=\"text-center\">\n        <div className=\"animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mx-auto mb-4\"></div>\n        <p className=\"text-text-secondary\">Processing authentication...</p>\n      </div>\n    </div>\n  )\n}\n\nexport default function AuthCallbackPage() {\n  return (\n    <Suspense fallback={<OAuthCallback />}>\n      <CallbackHandler />\n    </Suspense>\n  )\n}\n\n\n",
+          "structuredPatch": [
+            {
+              "oldStart": 87,
+              "oldLines": 7,
+              "newStart": 87,
+              "newLines": 7,
+              "lines": [
+                "             console.error('Integration callback error:', error)",
+                "             router.replace('/integrations?error=integration_failed')",
+                "           }",
+                "-        } else if (!code && !hashFragment) {",
+                "+        } else if (!code && !accessToken) {",
+                "           // No callback parameters, redirect to login",
+                "           router.replace('/auth/login')",
+                "         }"
+              ]
+            }
+          ],
+          "userModified": false,
+          "replaceAll": false
+        }
+      },
+      "warnings": []
     }
   ],
   "fileChanges": {},
   "toolUsage": {
     "undefined": {
-      "count": 29,
-      "success": 29,
+      "count": 33,
+      "success": 33,
       "failed": 0
     }
   },
@@ -1914,8 +2185,8 @@
   },
   "summary": {
     "sessionId": "022f22b3e4818cfb",
-    "duration": 9339,
-    "totalEvents": 28,
+    "duration": 10208,
+    "totalEvents": 55,
     "filesChanged": 0,
     "filesCreated": 0,
     "filesRead": 0,
@@ -1928,5 +2199,5 @@
     },
     "successRate": 1
   },
-  "endTime": "2025-09-11T22:02:21.668Z"
+  "endTime": "2025-09-11T22:16:50.748Z"
 }

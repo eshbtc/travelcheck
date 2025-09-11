@@ -19,19 +19,24 @@ function CallbackHandler() {
 
     const handleAuthCallback = async () => {
       try {
-        // Check if this is a Supabase OAuth callback
-        const hashFragment = window.location.hash
-        if (hashFragment) {
-          // For newer versions of Supabase, the session is automatically handled
-          // Just redirect to dashboard if we have a session
+        // Check if this is a Supabase OAuth callback (has access_token in URL)
+        const urlParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = urlParams.get('access_token')
+        
+        if (accessToken) {
+          // This is a Supabase OAuth callback
+          // Wait a moment for the auth state to update
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
           const { data: { session } } = await supabase.auth.getSession()
           
           if (session) {
-            // Successful OAuth login, redirect to dashboard
+            // Clean up the URL and redirect to dashboard
+            window.history.replaceState({}, document.title, '/dashboard')
             router.replace('/dashboard')
             return
           } else {
-            // No session found, redirect to login with error
+            // Session not found, redirect to login with error
             router.replace('/auth/login?error=oauth_callback_failed')
             return
           }
@@ -82,7 +87,7 @@ function CallbackHandler() {
             console.error('Integration callback error:', error)
             router.replace('/integrations?error=integration_failed')
           }
-        } else if (!code && !hashFragment) {
+        } else if (!code && !accessToken) {
           // No callback parameters, redirect to login
           router.replace('/auth/login')
         }
