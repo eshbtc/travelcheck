@@ -1,0 +1,34 @@
+{
+  "extends": ["next", "next/core-web-vitals"],
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Literal[value=/cloudfunctions\\.net/]",
+        "message": "Do not call cloudfunctions.net directly from the frontend. Use httpsCallable or same-origin /api via Hosting rewrites."
+      },
+      {
+        "selector": "TemplateElement[value.raw=/cloudfunctions\\.net/]",
+        "message": "Do not call cloudfunctions.net directly from the frontend. Use httpsCallable or same-origin /api via Hosting rewrites."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["app/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "next/router",
+                "message": "Use next/navigation in App Router components (useRouter/usePathname from 'next/navigation')."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

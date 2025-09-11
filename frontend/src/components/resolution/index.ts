@@ -1,0 +1,3 @@
+export { ResolutionCenter } from './ResolutionCenter'
+
+

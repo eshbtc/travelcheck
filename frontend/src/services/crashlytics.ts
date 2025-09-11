@@ -16,14 +16,14 @@ class CrashlyticsService {
   private initialize() {
     try {
       // Mock implementation since crashlytics is not available in web SDK
+      // Disabled verbose logging in production
       this.crashlytics = {
-        log: (message: string) => console.log('[Crashlytics]', message),
-        setUserId: (userId: string) => console.log('[Crashlytics] setUserId:', userId),
-        setCustomKey: (key: string, value: any) => console.log('[Crashlytics] setCustomKey:', key, value),
+        log: (message: string) => {}, // Silent
+        setUserId: (userId: string) => {}, // Silent  
+        setCustomKey: (key: string, value: any) => {}, // Silent
         recordError: (error: Error) => console.error('[Crashlytics] recordError:', error)
       }
       this.isInitialized = true
-      console.log('Crashlytics mock initialized successfully')
     } catch (error) {
       console.warn('Crashlytics initialization failed:', error)
       this.isInitialized = false

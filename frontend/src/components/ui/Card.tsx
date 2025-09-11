@@ -6,13 +6,15 @@ interface CardProps {
   className?: string;
   hover?: boolean;
   padding?: 'sm' | 'md' | 'lg';
+  onClick?: () => void;
 }
 
 const Card: React.FC<CardProps> = ({ 
   children, 
   className, 
   hover = false, 
-  padding = 'md' 
+  padding = 'md',
+  onClick 
 }) => {
   const paddingClasses = {
     sm: 'p-4',
@@ -23,15 +25,19 @@ const Card: React.FC<CardProps> = ({
   return (
     <div
       className={clsx(
-        'bg-bg-primary rounded-xl border border-border-light shadow-kaggle',
+        // Polished Kaggle-like card: subtle border, very soft shadow, rounded corners
+        'bg-bg-primary rounded-xl border border-border-light shadow-[0_1px_1px_rgba(0,0,0,0.02)]',
         paddingClasses[padding],
-        hover && 'hover:shadow-kaggle-lg transition-shadow duration-200',
+        hover && 'transition-shadow duration-150 hover:shadow-[0_2px_6px_rgba(0,0,0,0.04)]',
+        onClick && 'cursor-pointer',
         className
       )}
+      onClick={onClick}
     >
       {children}
     </div>
   );
 };
 
+export { Card };
 export default Card;

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
-import { aiService, PassportStampAnalysis, TravelHistoryEntry, USCISReportData } from '../services/aiService'
+import { aiService, PassportStampAnalysis, USCISReportData } from '../services/aiService'
+import type { PresenceDay } from '../types/universal'
 
 interface UseAIState {
   isLoading: boolean
@@ -12,19 +13,21 @@ interface UseAIResult {
   analyzePassportStamp: (imageData: string) => Promise<PassportStampAnalysis>
   
   // Travel history processing
-  processTravelHistory: (entries: TravelHistoryEntry[]) => Promise<TravelHistoryEntry[]>
+  processTravelHistory: (entries: PresenceDay[]) => Promise<PresenceDay[]>
   
   // USCIS report generation
-  generateUSCISReport: (entries: TravelHistoryEntry[]) => Promise<USCISReportData>
+  generateUSCISReport: (entries: PresenceDay[]) => Promise<USCISReportData>
+  // Presence calendar insights
+  generatePresenceInsights: (days: PresenceDay[]) => Promise<any>
   
   // Email analysis
-  analyzeEmailContent: (emailContent: string) => Promise<TravelHistoryEntry[]>
+  analyzeEmailContent: (emailContent: string) => Promise<PresenceDay[]>
   
   // Cross-reference data
   crossReferenceData: (
-    passportEntries: TravelHistoryEntry[],
-    emailEntries: TravelHistoryEntry[]
-  ) => Promise<TravelHistoryEntry[]>
+    passportEntries: PresenceDay[],
+    emailEntries: PresenceDay[]
+  ) => Promise<PresenceDay[]>
   
   // State
   isLoading: boolean
@@ -72,7 +75,7 @@ export const useAI = (): UseAIResult => {
     }
   }, [setLoading, setError, setResult])
 
-  const processTravelHistory = useCallback(async (entries: TravelHistoryEntry[]): Promise<TravelHistoryEntry[]> => {
+  const processTravelHistory = useCallback(async (entries: PresenceDay[]): Promise<PresenceDay[]> => {
     setLoading(true)
     setError(null)
     
@@ -89,7 +92,7 @@ export const useAI = (): UseAIResult => {
     }
   }, [setLoading, setError, setResult])
 
-  const generateUSCISReport = useCallback(async (entries: TravelHistoryEntry[]): Promise<USCISReportData> => {
+  const generateUSCISReport = useCallback(async (entries: PresenceDay[]): Promise<USCISReportData> => {
     setLoading(true)
     setError(null)
     
@@ -106,7 +109,23 @@ export const useAI = (): UseAIResult => {
     }
   }, [setLoading, setError, setResult])
 
-  const analyzeEmailContent = useCallback(async (emailContent: string): Promise<TravelHistoryEntry[]> => {
+  const generatePresenceInsights = useCallback(async (days: PresenceDay[]): Promise<any> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await aiService.generatePresenceInsights(days)
+      setResult(result)
+      return result
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate presence insights'
+      setError(errorMessage)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }, [setLoading, setError, setResult])
+
+  const analyzeEmailContent = useCallback(async (emailContent: string): Promise<PresenceDay[]> => {
     setLoading(true)
     setError(null)
     
@@ -124,9 +143,9 @@ export const useAI = (): UseAIResult => {
   }, [setLoading, setError, setResult])
 
   const crossReferenceData = useCallback(async (
-    passportEntries: TravelHistoryEntry[],
-    emailEntries: TravelHistoryEntry[]
-  ): Promise<TravelHistoryEntry[]> => {
+    passportEntries: PresenceDay[],
+    emailEntries: PresenceDay[]
+  ): Promise<PresenceDay[]> => {
     setLoading(true)
     setError(null)
     
@@ -147,6 +166,7 @@ export const useAI = (): UseAIResult => {
     analyzePassportStamp,
     processTravelHistory,
     generateUSCISReport,
+    generatePresenceInsights,
     analyzeEmailContent,
     crossReferenceData,
     isLoading: state.isLoading,
@@ -156,4 +176,3 @@ export const useAI = (): UseAIResult => {
 }
 
 export default useAI
-

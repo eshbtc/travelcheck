@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/router'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext'
 import { Logo } from './ui/Logo'
 import { Button } from './ui/Button'
@@ -30,6 +30,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const router = useRouter()
   const { user, logout } = useAuth()
+  const pathname = usePathname()
 
   const adminEmails = useMemo(() => (
     (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
@@ -45,18 +46,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [user, adminEmails])
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: router.pathname === '/dashboard' },
-    { name: 'Upload Passport', href: '/upload/passport', icon: PhotoIcon, current: router.pathname === '/upload/passport' },
-    { name: 'Gmail Integration', href: '/email/gmail', icon: EnvelopeIcon, current: router.pathname === '/email/gmail' },
-    { name: 'Office365 Integration', href: '/email/office365', icon: EnvelopeIcon, current: router.pathname === '/email/office365' },
-    { name: 'Travel History', href: '/travel/history', icon: DocumentTextIcon, current: router.pathname === '/travel/history' },
-    { name: 'Reports', href: '/reports', icon: ChartBarIcon, current: router.pathname === '/reports' },
-    { name: 'Settings', href: '/settings', icon: CogIcon, current: router.pathname === '/settings' },
+    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+    { name: 'Upload Passport', href: '/travel/evidence', icon: PhotoIcon },
+    { name: 'Gmail Integration', href: '/integrations', icon: EnvelopeIcon },
+    { name: 'Travel History', href: '/travel/timeline', icon: DocumentTextIcon },
+    { name: 'Reports', href: '/reports/generate', icon: ChartBarIcon },
+    { name: 'Settings', href: '/settings/profile', icon: CogIcon },
     ...(
       isAdmin
         ? [
-            { name: 'Admin Health', href: '/admin/health', icon: CogIcon, current: router.pathname === '/admin/health' },
-            { name: 'Users', href: '/admin/users', icon: UserIcon, current: router.pathname === '/admin/users' },
+            { name: 'Admin Health', href: '/dashboard', icon: CogIcon },
+            { name: 'Users', href: '/admin/users', icon: UserIcon },
           ]
         : []
     )
@@ -86,21 +86,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </button>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => (
+            {navigation.map((item) => {
+              const isActive = pathname === item.href
+              return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  item.current
-                    ? 'bg-brand-primary text-white'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
+                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${isActive ? 'bg-brand-primary text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                 onClick={() => setSidebarOpen(false)}
               >
                 <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                 {item.name}
               </Link>
-            ))}
+            )})}
           </nav>
         </div>
       </div>
@@ -114,27 +112,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <nav className="mt-8 flex flex-1 flex-col">
               <div className="space-y-1 px-2">
-                {navigation.map((item) => (
+                {navigation.map((item) => {
+                  const isActive = pathname === item.href
+                  return (
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      item.current
-                        ? 'bg-brand-primary text-white'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
+                    className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${isActive ? 'bg-brand-primary text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                   >
                     <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                     {item.name}
                   </Link>
-                ))}
+                )})}
               </div>
               <div className="mt-auto px-2">
                 <Button
                   variant="primary"
                   size="sm"
                   className="w-full"
-                  onClick={() => router.push('/upload/passport')}
+                  onClick={() => router.push('/travel/evidence')}
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
                   Quick Upload

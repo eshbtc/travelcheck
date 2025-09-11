@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="200" viewBox="0 0 720 200" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="180" viewBox="0 0 660 180" role="img" aria-labelledby="title desc">
   <title id="title">TravelCheck Logo Lockup</title>
   <desc id="desc">Enhanced TravelCheck logo with wordmark for headers and marketing materials.</desc>
   <style>
@@ -25,8 +25,8 @@
     .tagline{ font:400 16px/1.4 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; fill:var(--subtext);}
   </style>
 
-  <!-- ICON SECTION (scaled down version of main icon) -->
-  <g transform="translate(20,20)">
+  <!-- ICON SECTION (tighter crop: removed outer padding) -->
+  <g transform="translate(0,10)">
     <!-- soft drop shadow -->
     <ellipse class="shadow" cx="80" cy="122" rx="46" ry="9"/>
     
@@ -56,8 +56,8 @@
     </g>
   </g>
 
-  <!-- WORDMARK SECTION -->
-  <g transform="translate(160,0)">
+  <!-- WORDMARK SECTION (shifted left and slightly down to compensate crop) -->
+  <g transform="translate(140,0)">
     <text class="wordmark" x="0" y="80">TravelCheck</text>
     <text class="tagline" x="0" y="110">Email + passport intelligence for accurate, auditable travel history</text>
   </g>

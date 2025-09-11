@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  html { font-family: 'Inter', system-ui, sans-serif; }
+  body { @apply bg-bg-primary text-text-primary; }
+}
+
+/* Pull in project styles from src to keep parity */
+@import '../src/styles/globals.css';
+
+/* Slide-over animation */
+.animate-slide-in { animation: slideInRight 220ms ease-out; }
+@keyframes slideInRight {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Ensure navigation icons never inherit global SVG scaling */
+.nav-icon svg { width: 100% !important; height: 100% !important; display: block; }

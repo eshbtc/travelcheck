@@ -1,5 +1,7 @@
+"use client"
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { useRouter } from 'next/router'
+import { useRouter } from 'next/navigation'
 import { 
   User as FirebaseUser,
   signInWithEmailAndPassword,
@@ -13,6 +15,7 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
+import { signInWithRedirect, getRedirectResult } from 'firebase/auth'
 import { analytics } from '../services/analytics'
 import { crashlytics } from '../services/crashlytics'
 
@@ -51,6 +54,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setFirebaseUser(firebaseUser)
       
       if (firebaseUser) {
+        const redirectFromAuth = () => {
+          if (typeof window === 'undefined') return
+          const currentPath = window.location.pathname.replace(/\/+$/, '')
+          if (currentPath === '/auth' || currentPath.startsWith('/auth/')) {
+            try {
+              router.replace('/dashboard')
+            } catch (_) {}
+            // Hard fallback if router is stuck
+            setTimeout(() => {
+              const stillOnAuth = window.location.pathname.replace(/\/+$/, '').startsWith('/auth')
+              if (stillOnAuth) {
+                window.location.assign('/dashboard/')
+              }
+            }, 150)
+          }
+        }
         // Get Firebase ID token
         const idToken = await firebaseUser.getIdToken()
         setToken(idToken)
@@ -61,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Fetch or create user profile
         await fetchOrCreateUser(firebaseUser)
+        
+        // Redirect to dashboard if we're on any auth route
+        redirectFromAuth()
       } else {
         setUser(null)
         setToken(null)
@@ -73,6 +95,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return () => unsubscribe()
+  }, [router])
+
+  // Process redirect-based sign-in results (in case popup fallback was used)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    getRedirectResult(auth)
+      .then((result) => {
+        // Result will be processed by onAuthStateChanged
+      })
+      .catch((error) => {
+        // Non-fatal: auth state listener will still reflect real status
+        console.error('getRedirectResult failed:', error)
+      })
   }, [])
 
   const fetchOrCreateUser = async (firebaseUser: FirebaseUser) => {
@@ -166,7 +201,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider()
-      await signInWithPopup(auth, provider)
+      provider.setCustomParameters({ prompt: 'select_account' })
+
+      // Force redirect mode to avoid COOP popup issues
+      const forceRedirect = (process.env.NEXT_PUBLIC_AUTH_USE_REDIRECT || 'true').toLowerCase() === 'true'
+      if (forceRedirect) {
+        await signInWithRedirect(auth, provider)
+        return
+      }
+
+      try {
+        await signInWithPopup(auth, provider)
+      } catch (popupError: any) {
+        const code = popupError?.code || ''
+        const popupIssues = [
+          'auth/popup-blocked',
+          'auth/popup-closed-by-user',
+          'auth/cancelled-popup-request',
+        ]
+        // Fallback to redirect for environments that restrict popups/COOP
+        if (popupIssues.includes(code)) {
+          await signInWithRedirect(auth, provider)
+          return
+        }
+        throw popupError
+      }
       
       // Track successful Google login
       analytics.logLogin('google')

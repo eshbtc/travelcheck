@@ -1,4 +1,5 @@
 import { getGenerativeModel } from 'firebase/ai'
+import type { PresenceDay, UniversalResidenceRecord } from '../types/universal'
 import { ai } from '../lib/firebase'
 
 // AI Service for TravelCheck
@@ -14,16 +15,8 @@ export interface PassportStampAnalysis {
   rawText: string
 }
 
-export interface TravelHistoryEntry {
-  country: string
-  entryDate: string
-  exitDate?: string
-  duration: number // in days
-  purpose?: string
-  visaType?: string
-  source: 'passport' | 'email' | 'manual'
-  confidence: number
-}
+// Use PresenceDay from universal types instead of custom TravelHistoryEntry
+export type TravelHistoryEntry = PresenceDay
 
 export interface USCISReportData {
   totalTrips: number
@@ -33,7 +26,7 @@ export interface USCISReportData {
     start: string
     end: string
   }
-  entries: TravelHistoryEntry[]
+  entries: PresenceDay[]
   gaps: Array<{
     startDate: string
     endDate: string
@@ -102,17 +95,27 @@ class AIService {
       const response = result.response
       const text = response.text()
       
-      // Parse the JSON response
-      const analysis = JSON.parse(text)
+      // Parse the JSON response defensively (strip Markdown code fences)
+      const analysis = this.parseJsonSafely(text)
       
+      // Handle both single object and array responses
+      let stampData;
+      if (Array.isArray(analysis)) {
+        // If it's an array, take the first (most confident) entry
+        stampData = analysis[0] || {};
+      } else {
+        stampData = analysis;
+      }
+      
+      // Map field names from Gemini response to our interface
       return {
-        country: analysis.country || 'Unknown',
-        entryDate: analysis.entryDate || '',
-        exitDate: analysis.exitDate || undefined,
-        location: analysis.location || 'Unknown',
-        visaType: analysis.visaType || undefined,
-        confidence: analysis.confidence || 0,
-        rawText: analysis.rawText || ''
+        country: stampData.country_name || stampData.country || 'Unknown',
+        entryDate: stampData.entry_date || stampData.entryDate || '',
+        exitDate: stampData.exit_date || stampData.exitDate || undefined,
+        location: stampData.location_city || stampData.location || 'Unknown',
+        visaType: stampData.visa_type || stampData.visaType || undefined,
+        confidence: stampData.confidence_score || stampData.confidence || 0,
+        rawText: stampData.raw_text || stampData.rawText || ''
       }
     } catch (error) {
       console.error('Error analyzing passport stamp:', error)
@@ -121,9 +124,64 @@ class AIService {
   }
 
   /**
+   * Analyze passport stamp image and return all detected stamps
+   */
+  async analyzePassportStamps(imageData: string): Promise<PassportStampAnalysis[]> {
+    try {
+      const prompt = `Analyze this passport stamp image and extract ALL passport stamps visible. 
+      Return an array of objects, each containing:
+      
+      1. Country name
+      2. Entry date (YYYY-MM-DD format)
+      3. Exit date if visible (YYYY-MM-DD format)
+      4. Location/city
+      5. Visa type if applicable
+      6. Confidence score (0-100)
+      7. Raw text visible in the stamp
+      
+      Return as JSON array. If any information is unclear, use null for that field.`
+
+      const result = await this.passportModel.generateContent([
+        {
+          text: prompt,
+        },
+        {
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: imageData,
+          },
+        },
+      ])
+
+      const response = result.response
+      const text = response.text()
+      
+      // Parse the JSON response defensively
+      const analysis = this.parseJsonSafely(text)
+      
+      // Ensure we have an array
+      const stampsArray = Array.isArray(analysis) ? analysis : [analysis];
+      
+      // Map field names and return array
+      return stampsArray.map(stamp => ({
+        country: stamp.country_name || stamp.country || 'Unknown',
+        entryDate: stamp.entry_date || stamp.entryDate || '',
+        exitDate: stamp.exit_date || stamp.exitDate || undefined,
+        location: stamp.location_city || stamp.location || 'Unknown',
+        visaType: stamp.visa_type || stamp.visaType || undefined,
+        confidence: stamp.confidence_score || stamp.confidence || 0,
+        rawText: stamp.raw_text || stamp.rawText || ''
+      }));
+    } catch (error) {
+      console.error('Error analyzing passport stamps:', error)
+      throw new Error('Failed to analyze passport stamps')
+    }
+  }
+
+  /**
    * Process and validate travel history data
    */
-  async processTravelHistory(entries: TravelHistoryEntry[]): Promise<TravelHistoryEntry[]> {
+  async processTravelHistory(entries: PresenceDay[]): Promise<PresenceDay[]> {
     try {
       const prompt = `Process and validate this travel history data for USCIS citizenship application:
       
@@ -142,7 +200,7 @@ class AIService {
       const response = result.response
       const text = response.text()
       
-      return JSON.parse(text)
+      return this.parseJsonSafely(text)
     } catch (error) {
       console.error('Error processing travel history:', error)
       throw new Error('Failed to process travel history')
@@ -152,7 +210,7 @@ class AIService {
   /**
    * Generate USCIS-compliant travel history report
    */
-  async generateUSCISReport(entries: TravelHistoryEntry[]): Promise<USCISReportData> {
+  async generateUSCISReport(entries: PresenceDay[]): Promise<USCISReportData> {
     try {
       const prompt = `Generate a comprehensive USCIS travel history report from this data:
       
@@ -175,7 +233,7 @@ class AIService {
           "start": "YYYY-MM-DD",
           "end": "YYYY-MM-DD"
         },
-        "entries": TravelHistoryEntry[],
+        "entries": PresenceDay[],
         "gaps": [
           {
             "startDate": "YYYY-MM-DD",
@@ -189,7 +247,7 @@ class AIService {
       const response = result.response
       const text = response.text()
       
-      return JSON.parse(text)
+      return this.parseJsonSafely(text)
     } catch (error) {
       console.error('Error generating USCIS report:', error)
       throw new Error('Failed to generate USCIS report')
@@ -197,9 +255,38 @@ class AIService {
   }
 
   /**
+   * Generate insights directly from presence calendar days
+   */
+  async generatePresenceInsights(days: PresenceDay[]): Promise<any> {
+    try {
+      const prompt = `Analyze this presence calendar and summarize key insights for travel/residency:
+
+      ${JSON.stringify(days, null, 2)}
+
+      Provide:
+      - Total presence days by country
+      - Date range coverage
+      - Notable gaps/conflicts
+      - Any risks (e.g., approaching Schengen 90/180 limit)
+      - A concise recommendations list
+
+      Return JSON with: { summary: { totalDays, countries: Record<string, number>, dateRange: { start, end } },
+        risks: string[], recommendations: string[] }`
+
+      const result = await this.reportModel.generateContent(prompt)
+      const response = result.response
+      const text = response.text()
+      return this.parseJsonSafely(text)
+    } catch (error) {
+      console.error('Error generating presence insights:', error)
+      throw new Error('Failed to generate presence insights')
+    }
+  }
+
+  /**
    * Analyze email content for travel information
    */
-  async analyzeEmailContent(emailContent: string): Promise<TravelHistoryEntry[]> {
+  async analyzeEmailContent(emailContent: string): Promise<PresenceDay[]> {
     try {
       const prompt = `Analyze this email content and extract any travel information:
       
@@ -219,7 +306,7 @@ class AIService {
       const response = result.response
       const text = response.text()
       
-      return JSON.parse(text)
+      return this.parseJsonSafely(text)
     } catch (error) {
       console.error('Error analyzing email content:', error)
       throw new Error('Failed to analyze email content')
@@ -230,9 +317,9 @@ class AIService {
    * Cross-reference passport and email data
    */
   async crossReferenceData(
-    passportEntries: TravelHistoryEntry[],
-    emailEntries: TravelHistoryEntry[]
-  ): Promise<TravelHistoryEntry[]> {
+    passportEntries: PresenceDay[],
+    emailEntries: PresenceDay[]
+  ): Promise<PresenceDay[]> {
     try {
       const prompt = `Cross-reference and merge these travel history entries from different sources:
       
@@ -264,3 +351,36 @@ class AIService {
 export const aiService = new AIService()
 export default aiService
 
+// Extend class with helper method without changing export shape
+interface AIService {
+  parseJsonSafely(text: string): any
+}
+
+AIService.prototype.parseJsonSafely = function (text: string): any {
+  try {
+    return JSON.parse(text)
+  } catch (_) {
+    // Try to extract content inside ```json ... ``` or ``` ... ``` fences
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+    if (fenceMatch && fenceMatch[1]) {
+      const inner = fenceMatch[1].trim()
+      try {
+        return JSON.parse(inner)
+      } catch (_) {
+        // fall through
+      }
+    }
+    // Fallback: try to find first JSON object or array
+    const matches = Array.from(text.matchAll(/[\[{]/g))
+    const start = Math.min(
+      ...matches.map((m) => m.index ?? text.length).concat([text.length])
+    )
+    const candidate = start < text.length ? text.slice(start).trim() : text
+    try {
+      return JSON.parse(candidate)
+    } catch (err) {
+      console.error('Failed to parse JSON from model text:', { textSnippet: text.slice(0, 200) })
+      throw err
+    }
+  }
+}
