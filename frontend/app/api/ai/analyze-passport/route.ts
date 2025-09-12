@@ -63,7 +63,7 @@ function extractStampsFromText(text: string): any[] {
   ]
   
   // Find dates
-  const foundDates = []
+  const foundDates: any[] = []
   datePatterns.forEach(pattern => {
     let match
     while ((match = pattern.exec(text)) !== null) {
@@ -98,7 +98,7 @@ function extractStampsFromText(text: string): any[] {
   })
   
   // Find locations
-  const foundLocations = []
+  const foundLocations: any[] = []
   locationPatterns.forEach(pattern => {
     let match
     while ((match = pattern.exec(text)) !== null) {
@@ -112,7 +112,7 @@ function extractStampsFromText(text: string): any[] {
   })
   
   // Find entry/exit indicators
-  const foundTypes = []
+  const foundTypes: any[] = []
   entryExitPatterns.forEach(pattern => {
     let match
     while ((match = pattern.exec(text)) !== null) {
@@ -162,8 +162,8 @@ function extractStampsFromText(text: string): any[] {
 }
 
 // Validate and deduplicate stamps
-function validateAndDeduplicateStamps(stamps: any[]) {
-  const validated = []
+function validateAndDeduplicateStamps(stamps: any[]): any[] {
+  const validated: any[] = []
   const seen = new Set()
   
   stamps.forEach(stamp => {
