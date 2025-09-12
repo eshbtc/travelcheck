@@ -33,6 +33,39 @@ function planFromVariant(v?: number | null): string | null {
   return map[v] || null
 }
 
+async function findUserIdByEmail(email: string | null): Promise<string | null> {
+  if (!email) return null
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+  return user?.id || null
+}
+
+async function upsertEntitlements(userId: string, updates: Partial<{ plan_code: string; status: string; report_credits_balance: number; report_credits_monthly_quota: number; seats_limit: number; api_minimum_cents: number }>) {
+  // Try update; if missing, insert
+  const { data: existing } = await supabase
+    .from('billing_entitlements')
+    .select('id, report_credits_balance')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (existing) {
+    const inc = updates.report_credits_balance
+    const newBalance = typeof inc === 'number' ? (existing.report_credits_balance || 0) + inc : undefined
+    const patch: any = { ...updates }
+    if (typeof newBalance === 'number') patch.report_credits_balance = newBalance
+    await supabase
+      .from('billing_entitlements')
+      .update(patch)
+      .eq('id', existing.id)
+  } else {
+    await supabase
+      .from('billing_entitlements')
+      .insert({ user_id: userId, status: 'active', ...updates } as any)
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const secret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET
@@ -90,40 +123,6 @@ export async function POST(request: NextRequest) {
       customer_email: customerEmail,
       raw: payload
     } as any)
-
-
-    async function findUserIdByEmail(email: string | null): Promise<string | null> {
-      if (!email) return null
-      const { data: user } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle()
-      return user?.id || null
-    }
-
-    async function upsertEntitlements(userId: string, updates: Partial<{ plan_code: string; status: string; report_credits_balance: number; report_credits_monthly_quota: number; seats_limit: number; api_minimum_cents: number }>) {
-      // Try update; if missing, insert
-      const { data: existing } = await supabase
-        .from('billing_entitlements')
-        .select('id, report_credits_balance')
-        .eq('user_id', userId)
-        .maybeSingle()
-      if (existing) {
-        const inc = updates.report_credits_balance
-        const newBalance = typeof inc === 'number' ? (existing.report_credits_balance || 0) + inc : undefined
-        const patch: any = { ...updates }
-        if (typeof newBalance === 'number') patch.report_credits_balance = newBalance
-        await supabase
-          .from('billing_entitlements')
-          .update(patch)
-          .eq('id', existing.id)
-      } else {
-        await supabase
-          .from('billing_entitlements')
-          .insert({ user_id: userId, status: 'active', ...updates } as any)
-      }
-    }
 
     // Minimal event routing for MVP
     const plan = planFromVariant(variantId)
