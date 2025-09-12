@@ -40,29 +40,40 @@ export interface SchedulePreferences {
   evening: boolean
 }
 
-// Callable function wrappers
-const callFunction = async <TRequest, TResponse>(
-  functionName: string,
-  data: TRequest,
+// HTTP client wrapper for API calls
+const apiCall = async <TResponse>(
+  endpoint: string,
+  options: RequestInit = {},
   timeout = 30000
 ): Promise<TResponse> => {
   try {
-    // Mock function call for development
-    console.log(`Mock function call: ${functionName}`, data)
-    // Return mock response
-    return { success: true, data: {} } as TResponse
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+    const response = await fetch(endpoint, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Request failed' }))
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    return await response.json()
   } catch (error: any) {
-    console.error(`Error calling ${functionName}:`, error)
+    console.error(`Error calling ${endpoint}:`, error)
     
-    // Map common Firebase errors to user-friendly messages
-    if (error.code === 'functions/unauthenticated') {
-      throw new Error('Please log in to continue')
-    } else if (error.code === 'functions/permission-denied') {
-      throw new Error('You do not have permission to perform this action')
-    } else if (error.code === 'functions/resource-exhausted') {
-      throw new Error('Service temporarily unavailable. Please try again later.')
-    } else if (error.message?.includes('timeout')) {
+    if (error.name === 'AbortError') {
       throw new Error('Request timed out. Please try again.')
+    } else if (error.message?.includes('Failed to fetch')) {
+      throw new Error('Network error. Please check your connection.')
     } else {
       throw new Error(error.message || 'An unexpected error occurred')
     }
@@ -71,71 +82,188 @@ const callFunction = async <TRequest, TResponse>(
 
 // OAuth Management
 export const getGmailAuthUrl = async (): Promise<string> => {
-  return callFunction<{}, { authUrl: string }>('getGmailAuthUrl', {})
-    .then(result => result.authUrl)
+  const result = await apiCall<{ success: boolean; authUrl: string }>('/api/gmail/auth', {
+    method: 'POST',
+  })
+  return result.authUrl
 }
 
 export const handleGmailCallback = async (code: string): Promise<IntegrationStatus> => {
-  return callFunction<{ code: string }, IntegrationStatus>('handleGmailCallback', { code })
+  const result = await apiCall<{ success: boolean; connected: boolean; provider: string; email: string; connectedAt: string }>('/api/gmail/callback', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+  
+  return {
+    provider: 'gmail',
+    isConnected: result.connected,
+    lastConnected: result.connectedAt,
+  }
 }
 
 export const getOffice365AuthUrl = async (): Promise<string> => {
-  return callFunction<{}, { authUrl: string }>('getOffice365AuthUrl', {})
-    .then(result => result.authUrl)
+  const result = await apiCall<{ success: boolean; authUrl: string }>('/api/office365/auth', {
+    method: 'POST',
+  })
+  return result.authUrl
 }
 
 export const handleOffice365Callback = async (code: string): Promise<IntegrationStatus> => {
-  return callFunction<{ code: string }, IntegrationStatus>('handleOffice365Callback', { code })
+  const result = await apiCall<{ success: boolean; connected: boolean; provider: string; email: string; connectedAt: string }>('/api/office365/callback', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+  
+  return {
+    provider: 'office365',
+    isConnected: result.connected,
+    lastConnected: result.connectedAt,
+  }
 }
 
 export const revokeGmailAccess = async (): Promise<void> => {
-  return callFunction<{}, void>('revokeGmailAccess', {})
+  await apiCall<{ success: boolean }>('/api/gmail/disconnect', {
+    method: 'POST',
+  })
 }
 
 export const revokeOffice365Access = async (): Promise<void> => {
-  return callFunction<{}, void>('revokeOffice365Access', {})
+  await apiCall<{ success: boolean }>('/api/office365/disconnect', {
+    method: 'POST',
+  })
 }
 
 // Integration Status
 export const getIntegrationStatus = async (): Promise<IntegrationStatus[]> => {
-  const result = await callFunction<{}, { data: IntegrationStatus[] }>('getIntegrationStatus', {})
-  return result.data
+  const result = await apiCall<{ success: boolean; integrations: any }>('/api/integration/status')
+  
+  // Transform the response to match our expected format
+  const emailAccounts = result.integrations.emailAccounts || []
+  return emailAccounts.map((account: any) => ({
+    provider: account.provider as 'gmail' | 'office365',
+    isConnected: account.is_active,
+    lastConnected: account.created_at,
+    scopes: [], // Not provided by current API
+    expiresAt: undefined, // Not provided by current API
+  }))
 }
 
 // Booking Ingestion
 export const ingestGmailBookings = async (params: IngestParams): Promise<IngestResult> => {
-  return callFunction<IngestParams, IngestResult>('ingestGmailBookings', params)
+  const result = await apiCall<{ success: boolean; count: number; emails: any[] }>('/api/gmail/sync', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+  
+  return {
+    provider: 'gmail',
+    emailsProcessed: result.count,
+    bookingsFound: result.emails.filter(e => e.flight_data && Object.keys(e.flight_data).length > 0).length,
+    duplicates: 0, // Not tracked in current API
+    errors: 0, // Not tracked in current API  
+    duration: 0, // Not tracked in current API
+    lastProcessed: new Date().toISOString(),
+  }
 }
 
 export const ingestOffice365Bookings = async (params: IngestParams): Promise<IngestResult> => {
-  return callFunction<IngestParams, IngestResult>('ingestOffice365Bookings', params)
+  const result = await apiCall<{ success: boolean; count: number; emails: any[] }>('/api/office365/sync', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+  
+  return {
+    provider: 'office365',
+    emailsProcessed: result.count,
+    bookingsFound: result.emails.filter(e => e.flight_data && Object.keys(e.flight_data).length > 0).length,
+    duplicates: 0, // Not tracked in current API
+    errors: 0, // Not tracked in current API
+    duration: 0, // Not tracked in current API
+    lastProcessed: new Date().toISOString(),
+  }
 }
 
 export const getBookingIngestionStatus = async (): Promise<IngestStatus[]> => {
-  // The backend returns { success, data: { lastIngestedAt, emailsIngested, totalParsedBookings, providers: [...] } }
-  const raw: any = await callFunction<{}, any>('getBookingIngestionStatus', {})
-  const data = raw?.data || raw || {}
-  const last = data.lastIngestedAt || null
-  const providers = Array.isArray(data.providers) ? data.providers : []
-  const rows: IngestStatus[] = providers.map((p: any) => ({
-    provider: String(p.provider || 'unknown'),
-    lastIngested: last || undefined,
-    totalEmails: Number(p.emails || 0),
-    totalBookings: Number(p.parsedBookings || 0),
-    lastError: undefined,
-    isIngesting: false,
-  }))
-  return rows
+  const result = await apiCall<{ success: boolean; ingestionStatus: any }>('/api/booking/status')
+  
+  const ingestionStatus = result.ingestionStatus
+  if (!ingestionStatus) {
+    return []
+  }
+  
+  // Extract rich booking ingestion data from the detailed status
+  const flightEmails = ingestionStatus.flightEmails || {}
+  const passportScans = ingestionStatus.passportScans || {}
+  const travelEntries = ingestionStatus.travelEntries || {}
+  
+  // Create unified status entries based on different data sources
+  const statuses: IngestStatus[] = []
+  
+  if (flightEmails.total > 0) {
+    statuses.push({
+      provider: 'email_processing',
+      lastIngested: ingestionStatus.lastUpdated,
+      totalEmails: flightEmails.total,
+      totalBookings: flightEmails.processed,
+      lastError: flightEmails.failed > 0 ? `${flightEmails.failed} emails failed processing` : undefined,
+      isIngesting: ingestionStatus.processingQueues?.emailSync?.status === 'running',
+    })
+  }
+  
+  if (passportScans.total > 0) {
+    statuses.push({
+      provider: 'passport_processing',
+      lastIngested: ingestionStatus.lastUpdated,
+      totalEmails: 0, // Not applicable for passport scans
+      totalBookings: passportScans.processed,
+      lastError: passportScans.failed > 0 ? `${passportScans.failed} passport scans failed` : undefined,
+      isIngesting: ingestionStatus.processingQueues?.ocrProcessing?.status === 'running',
+    })
+  }
+  
+  if (travelEntries.total > 0) {
+    statuses.push({
+      provider: 'travel_entry_processing',
+      lastIngested: ingestionStatus.lastUpdated,
+      totalEmails: 0, // Not applicable for travel entries
+      totalBookings: travelEntries.confirmed,
+      lastError: travelEntries.disputed > 0 ? `${travelEntries.disputed} entries are disputed` : undefined,
+      isIngesting: false, // Travel entries are typically processed immediately
+    })
+  }
+  
+  // If no data processed yet, return a basic status
+  if (statuses.length === 0) {
+    statuses.push({
+      provider: 'system',
+      lastIngested: null,
+      totalEmails: 0,
+      totalBookings: 0,
+      lastError: undefined,
+      isIngesting: false,
+    })
+  }
+  
+  return statuses
 }
 
-// Schedule Management
+// Schedule Management  
 export const getSchedulePreferences = async (): Promise<SchedulePreferences> => {
-  const result = await callFunction<{}, { data: SchedulePreferences }>('getSchedulePreferences', {})
-  return result.data
+  // Schedule preferences are handled by dedicated schedule API
+  try {
+    const result = await apiCall<{ success: boolean; data: SchedulePreferences }>('/api/schedule')
+    return result.data
+  } catch (error) {
+    // Return defaults if API not available
+    return { daily: false, evening: false }
+  }
 }
 
 export const updateSchedulePreferences = async (preferences: SchedulePreferences): Promise<void> => {
-  return callFunction<SchedulePreferences, void>('updateSchedulePreferences', preferences)
+  await apiCall<{ success: boolean }>('/api/schedule', {
+    method: 'POST',
+    body: JSON.stringify(preferences),
+  })
 }
 
 // Service class for easier usage

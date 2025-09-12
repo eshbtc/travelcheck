@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get the user's Office365 OAuth tokens
     const { data: tokenData, error: tokenError } = await supabase
-      .from('oauth_tokens')
+      .from('email_accounts')
       .select('*')
       .eq('user_id', user.id)
       .eq('provider', 'office365')
@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Decrypt tokens
-    const accessToken = decrypt(tokenData.encrypted_access_token)
-    const refreshToken = tokenData.encrypted_refresh_token ? decrypt(tokenData.encrypted_refresh_token) : null
+    const accessToken = decrypt(tokenData.access_token)
+    const refreshToken = tokenData.refresh_token ? decrypt(tokenData.refresh_token) : null
 
     try {
       // Revoke token with Microsoft
@@ -85,10 +85,14 @@ export async function POST(request: NextRequest) {
       // Continue with local cleanup even if Microsoft revocation fails
     }
 
-    // Remove tokens from database
+    // Remove tokens from database (or mark as inactive)
     const { error: deleteError } = await supabase
-      .from('oauth_tokens')
-      .delete()
+      .from('email_accounts')
+      .update({
+        access_token: null,
+        refresh_token: null,
+        is_active: false
+      })
       .eq('user_id', user.id)
       .eq('provider', 'office365')
 

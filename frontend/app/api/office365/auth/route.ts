@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Build Microsoft OAuth URL
     const clientId = process.env.OFFICE365_CLIENT_ID
     const redirectUri = process.env.OFFICE365_REDIRECT_URI
-    const scopes = 'offline_access Mail.ReadWrite'
+    const scopes = 'offline_access Mail.Read'
     const responseType = 'code'
     const state = user.id
 

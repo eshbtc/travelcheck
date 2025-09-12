@@ -16,15 +16,15 @@ interface TravelEntry {
 
 interface PassportScan {
   id: string
-  extracted_text: string
-  structured_data: any
+  ocr_text: string
+  passport_info: any
   confidence_score?: number
   created_at: string
 }
 
 interface FlightEmail {
   id: string
-  extracted_data: any
+  parsed_data: any
   confidence_score?: number
   created_at: string
 }
@@ -38,7 +38,7 @@ async function crossReferenceTravelData(
   // Process passport data
   for (const passport of passportData) {
     try {
-      const text = passport.extracted_text || ''
+      const text = passport.ocr_text || ''
       
       // Extract dates from passport text
       const dateMatches = text.match(/\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}/g) || []
@@ -64,7 +64,7 @@ async function crossReferenceTravelData(
   // Process flight data
   for (const flight of flightData) {
     try {
-      const extracted = flight.extracted_data || {}
+      const extracted = flight.parsed_data || {}
       
       if (extracted.dates && extracted.airports) {
         for (let i = 0; i < Math.min(extracted.dates.length, extracted.airports.length); i++) {

@@ -32,26 +32,132 @@ function decrypt(obj: any) {
   return dec.toString('utf8')
 }
 
-// Mock flight extraction
-async function extractFlightInfo(emailContent: string) {
+// Enhanced flight extraction
+async function extractFlightInfo(emailContent: string, subject: string) {
+  const combinedText = `${subject} ${emailContent}`
+  
   const flightPatterns = {
-    airline: /(?:airline|carrier)[:\s]+([a-z\s]+)/i,
-    flightNumber: /flight[:\s#]*([a-z]{2}\d{3,4})/i,
-    confirmation: /confirmation[:\s#]*([a-z0-9]{6,})/i,
-    departure: /(?:depart|from)[:\s]*([a-z]{3})/i,
-    arrival: /(?:arrive|to)[:\s]*([a-z]{3})/i,
-    date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/
+    airline: /(?:airline|carrier)[:\s]+([a-z\s]+)|^([a-z\s]{2,20})\s+flight|(\b(?:american|delta|united|southwest|jetblue|alaska|spirit|frontier)\b)/i,
+    flightNumber: /flight[:\s#]*([a-z]{2}\d{3,4})|(\b[a-z]{2}\s*\d{3,4}\b)/i,
+    confirmation: /confirmation[:\s#]*([a-z0-9]{6,})|booking[:\s#]*([a-z0-9]{6,})/i,
+    departure: /(?:depart|from)[:\s]*([a-z]{3})|(\b[A-Z]{3}\b)\s*(?:to|→)|departing\s*([a-z]{3})/i,
+    arrival: /(?:arrive|to|arriving)[:\s]*([a-z]{3})|(?:to|→)\s*(\b[A-Z]{3}\b)/i,
+    date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w{3}\s+\d{1,2},?\s+\d{4})/
   }
 
   const extracted: any = {}
   Object.entries(flightPatterns).forEach(([key, pattern]) => {
-    const match = emailContent.match(pattern)
+    const match = combinedText.match(pattern)
     if (match) {
-      extracted[key] = match[1]
+      // Get first non-undefined capture group
+      extracted[key] = match.find((m, i) => i > 0 && m !== undefined)?.trim()
     }
   })
 
   return extracted
+}
+
+// Airport code to country mapping (basic set)
+const AIRPORT_COUNTRIES: Record<string, string> = {
+  'JFK': 'US', 'LAX': 'US', 'ORD': 'US', 'DFW': 'US', 'DEN': 'US', 'SFO': 'US', 'SEA': 'US', 'LAS': 'US', 'PHX': 'US', 'ATL': 'US',
+  'LHR': 'GB', 'LGW': 'GB', 'STN': 'GB', 'MAN': 'GB', 'EDI': 'GB',
+  'CDG': 'FR', 'ORY': 'FR', 'NCE': 'FR', 'LYS': 'FR',
+  'FRA': 'DE', 'MUC': 'DE', 'TXL': 'DE', 'DUS': 'DE',
+  'NRT': 'JP', 'HND': 'JP', 'KIX': 'JP',
+  'PEK': 'CN', 'PVG': 'CN', 'CAN': 'CN',
+  'SYD': 'AU', 'MEL': 'AU', 'BNE': 'AU', 'PER': 'AU',
+  'YYZ': 'CA', 'YVR': 'CA', 'YUL': 'CA',
+  'AMS': 'NL', 'BCN': 'ES', 'MAD': 'ES', 'FCO': 'IT', 'MXP': 'IT', 'ZUR': 'CH', 'VIE': 'AT', 'BRU': 'BE', 'CPH': 'DK', 'ARN': 'SE', 'OSL': 'NO',
+  'DXB': 'AE', 'DOH': 'QA', 'SIN': 'SG', 'ICN': 'KR', 'BOM': 'IN', 'DEL': 'IN'
+}
+
+// Create travel entries from extracted flight data
+async function createTravelEntries(userId: string, flightEmailId: string, flightData: any, emailDate: string) {
+  const entries = []
+  
+  if (flightData.departure && flightData.arrival && flightData.date) {
+    // Parse date
+    let entryDate: Date
+    try {
+      if (flightData.date.includes('/') || flightData.date.includes('-')) {
+        entryDate = new Date(flightData.date)
+      } else {
+        entryDate = new Date(flightData.date)
+      }
+      if (isNaN(entryDate.getTime())) {
+        entryDate = new Date(emailDate)
+      }
+    } catch {
+      entryDate = new Date(emailDate)
+    }
+
+    // Extract country codes from airport codes
+    const departureCountry = AIRPORT_COUNTRIES[flightData.departure.toUpperCase()] || 'UNKNOWN'
+    const arrivalCountry = AIRPORT_COUNTRIES[flightData.arrival.toUpperCase()] || 'UNKNOWN'
+
+    // Create departure entry (exit from departure country)
+    if (departureCountry !== 'UNKNOWN') {
+      entries.push({
+        user_id: userId,
+        entry_type: 'email',
+        source_id: flightEmailId,
+        source_type: 'flight_email',
+        country_code: departureCountry,
+        country_name: departureCountry,
+        airport_code: flightData.departure.toUpperCase(),
+        entry_date: entryDate.toISOString().split('T')[0],
+        exit_date: entryDate.toISOString().split('T')[0],
+        transport_type: 'flight',
+        carrier: flightData.airline,
+        flight_number: flightData.flightNumber,
+        confirmation_number: flightData.confirmation,
+        status: 'pending',
+        confidence_score: 0.7,
+        is_verified: false,
+        manual_override: false,
+        notes: `Extracted from email - departure from ${flightData.departure}`,
+        metadata: { 
+          email_extracted: true,
+          flight_type: 'departure',
+          raw_data: flightData
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+    }
+
+    // Create arrival entry (entry to arrival country) 
+    if (arrivalCountry !== 'UNKNOWN' && arrivalCountry !== departureCountry) {
+      entries.push({
+        user_id: userId,
+        entry_type: 'email',
+        source_id: flightEmailId,
+        source_type: 'flight_email',
+        country_code: arrivalCountry,
+        country_name: arrivalCountry,
+        airport_code: flightData.arrival.toUpperCase(),
+        entry_date: entryDate.toISOString().split('T')[0],
+        transport_type: 'flight',
+        carrier: flightData.airline,
+        flight_number: flightData.flightNumber,
+        confirmation_number: flightData.confirmation,
+        status: 'pending',
+        confidence_score: 0.7,
+        is_verified: false,
+        manual_override: false,
+        notes: `Extracted from email - arrival in ${flightData.arrival}`,
+        metadata: { 
+          email_extracted: true,
+          flight_type: 'arrival',
+          raw_data: flightData
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+    }
+  }
+
+  return entries
 }
 
 export async function POST(request: NextRequest) {
@@ -96,11 +202,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch messages from Microsoft Graph API
-    const response = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=50', {
+    // Fetch messages from Microsoft Graph API with server-side filtering
+    const searchQuery = encodeURIComponent('(subject:flight OR subject:booking OR subject:confirmation OR subject:ticket) AND (body:airline OR body:travel)')
+    const filterQuery = `$search="${searchQuery}"&$top=50&$orderby=receivedDateTime desc`
+    
+    const response = await fetch(`https://graph.microsoft.com/v1.0/me/messages?${filterQuery}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        // Required for $search in Microsoft Graph
+        'ConsistencyLevel': 'eventual',
+        // Prefer text body content for easier parsing
+        'Prefer': 'outlook.body-content-type="text"',
       },
     })
 
@@ -118,16 +231,8 @@ export async function POST(request: NextRequest) {
       const from = item.from?.emailAddress?.address || ''
       const date = item.receivedDateTime || item.sentDateTime || ''
       const content = item.body?.content || ''
-      
-      // Only process emails that might be flight-related
-      if (!subject.toLowerCase().includes('flight') && 
-          !subject.toLowerCase().includes('booking') && 
-          !subject.toLowerCase().includes('confirmation') &&
-          !content.toLowerCase().includes('airline')) {
-        continue
-      }
 
-      const extractedFlights = await extractFlightInfo(content)
+      const extractedFlights = await extractFlightInfo(content, subject)
       
       const flightData = {
         user_id: user.id,
@@ -153,15 +258,46 @@ export async function POST(request: NextRequest) {
 
     // Save to Supabase
     if (flightEmails.length > 0) {
-      const { error: insertError } = await supabase
+      const { data: insertedEmails, error: insertError } = await supabase
         .from('flight_emails')
         .upsert(flightEmails, {
           onConflict: 'user_id,message_id',
           ignoreDuplicates: false
         })
+        .select('id, flight_data, date_received')
 
       if (insertError) {
         console.error('Error saving flight emails:', insertError)
+      } else if (insertedEmails && insertedEmails.length > 0) {
+        // Create travel entries from flight emails
+        const travelEntries = []
+        for (const email of insertedEmails) {
+          if (email.flight_data) {
+            const entries = await createTravelEntries(
+              user.id, 
+              email.id, 
+              email.flight_data, 
+              email.date_received
+            )
+            travelEntries.push(...entries)
+          }
+        }
+
+        // Save travel entries
+        if (travelEntries.length > 0) {
+          const { error: entriesError } = await supabase
+            .from('travel_entries')
+            .upsert(travelEntries, {
+              onConflict: 'user_id,source_id,entry_type,country_code,entry_date',
+              ignoreDuplicates: true
+            })
+
+          if (entriesError) {
+            console.error('Error saving travel entries:', entriesError)
+          } else {
+            console.log(`Created ${travelEntries.length} travel entries from ${insertedEmails.length} flight emails`)
+          }
+        }
       }
     }
 

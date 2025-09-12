@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
       try {
         // Mock OCR processing (in production, use Google Vision API)
         const mockExtraction = {
-          extractedText: `PASSPORT ${i + 1}\nUSA\nDOE, JOHN\n01 JAN 1980\nPassport No: 12345${i}`,
-          structuredData: {
+          ocrText: `PASSPORT ${i + 1}\nUSA\nDOE, JOHN\n01 JAN 1980\nPassport No: 12345${i}`,
+          passportInfo: {
             passportNumber: `12345${i}`,
             name: 'JOHN DOE',
             nationality: 'USA',
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
           .from('passport_scans')
           .insert({
             user_id: user.id,
-            filename: imageFile.filename || `batch_${batchId}_${i + 1}.jpg`,
-            extracted_text: mockExtraction.extractedText,
-            structured_data: mockExtraction.structuredData,
+            file_name: imageFile.filename || `batch_${batchId}_${i + 1}.jpg`,
+            ocr_text: mockExtraction.ocrText,
+            passport_info: mockExtraction.passportInfo,
             confidence_score: mockExtraction.confidence,
             processing_status: 'completed',
             batch_id: batchId,

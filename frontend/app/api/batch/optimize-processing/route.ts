@@ -8,11 +8,11 @@ async function isAdmin(user: any): Promise<boolean> {
   
   const { data: userDoc } = await supabase
     .from('users')
-    .select('role, is_admin')
+    .select('role')
     .eq('id', user.id)
     .single()
   
-  return userDoc?.role === 'admin' || userDoc?.is_admin === true
+  return userDoc?.role === 'admin'
 }
 
 export async function POST(request: NextRequest) {

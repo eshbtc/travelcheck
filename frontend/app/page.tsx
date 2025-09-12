@@ -21,6 +21,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between">
           <Logo variant="lockup" size="md" className="scale-125" />
           <nav className="space-x-4">
+            <Link href="/pricing" className="text-sm text-gray-700 hover:text-gray-900">Pricing</Link>
             <Link href="/auth/login" className="text-sm text-gray-700 hover:text-gray-900">Sign in</Link>
             <Link href="/auth/register" className="text-sm text-brand-primary hover:text-brand-primary/90">Create account</Link>
           </nav>

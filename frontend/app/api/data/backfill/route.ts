@@ -8,11 +8,11 @@ async function isAdmin(user: any): Promise<boolean> {
   
   const { data: userDoc } = await supabase
     .from('users')
-    .select('role, is_admin')
+    .select('role')
     .eq('id', user.id)
     .single()
   
-  return userDoc?.role === 'admin' || userDoc?.is_admin === true
+  return userDoc?.role === 'admin'
 }
 
 export async function POST(request: NextRequest) {
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         // Backfill missing confidence scores
         const { data: scansWithoutScores } = await supabase
           .from('passport_scans')
-          .select('id, structured_data')
+          .select('id, passport_info')
           .is('confidence_score', null)
 
         if (scansWithoutScores) {
@@ -120,46 +120,41 @@ export async function POST(request: NextRequest) {
         }
         break
 
-      case 'user_profiles':
-        // Backfill missing user profile records
-        const { data: usersWithoutProfiles } = await supabase
+      case 'user_settings':
+        // Backfill missing user settings
+        const { data: usersWithoutSettings } = await supabase
           .from('users')
-          .select('id, email')
+          .select('id, settings')
+          .is('settings', null)
 
-        if (usersWithoutProfiles) {
-          for (const user of usersWithoutProfiles) {
-            // Check if profile exists
-            const { data: existingProfile } = await supabase
-              .from('user_profiles')
-              .select('id')
-              .eq('user_id', user.id)
-              .single()
+        if (usersWithoutSettings) {
+          for (const userRecord of usersWithoutSettings) {
+            const defaultSettings = {
+              notifications: true,
+              theme: 'light',
+              timezone: 'UTC'
+            }
 
-            if (!existingProfile) {
-              if (!dryRun) {
-                const { error } = await supabase
-                  .from('user_profiles')
-                  .insert({
-                    user_id: user.id,
-                    email: user.email,
-                    created_at: new Date().toISOString()
-                  })
+            if (!dryRun) {
+              const { error } = await supabase
+                .from('users')
+                .update({ settings: defaultSettings })
+                .eq('id', userRecord.id)
 
-                if (error) {
-                  results.errors++
-                } else {
-                  results.updated++
-                }
+              if (error) {
+                results.errors++
               } else {
                 results.updated++
               }
-
-              results.operations.push({
-                type: 'profile_backfill',
-                user_id: user.id,
-                action: dryRun ? 'would_create' : 'created'
-              })
+            } else {
+              results.updated++
             }
+
+            results.operations.push({
+              type: 'settings_backfill',
+              user_id: userRecord.id,
+              action: dryRun ? 'would_update' : 'updated'
+            })
           }
         }
         break
@@ -199,7 +194,7 @@ export async function POST(request: NextRequest) {
 
       default:
         return NextResponse.json(
-          { success: false, error: 'Invalid operation. Use: timestamps, confidence_scores, user_profiles, processing_status' },
+          { success: false, error: 'Invalid operation. Use: timestamps, confidence_scores, user_settings, processing_status' },
           { status: 400 }
         )
     }

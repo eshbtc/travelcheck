@@ -60,7 +60,12 @@ function CallbackHandler() {
         // Handle email integration callbacks (Gmail/Office365)
         const code = params?.get('code')
         const state = params?.get('state')
-        const provider = params?.get('provider')
+        // Support provider via query (?provider=...) or path (/auth/callback/<provider>)
+        let provider = params?.get('provider') as string | null
+        if (!provider && typeof window !== 'undefined') {
+          const match = window.location.pathname.match(/\/auth\/callback\/(gmail|office365)$/)
+          provider = match ? match[1] : null
+        }
 
         if (code && user) {
           // This is an email integration callback
@@ -134,5 +139,4 @@ export default function AuthCallbackPage() {
     </Suspense>
   )
 }
-
 

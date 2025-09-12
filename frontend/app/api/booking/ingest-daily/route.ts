@@ -8,11 +8,11 @@ async function isAdmin(user: any): Promise<boolean> {
   
   const { data: userDoc } = await supabase
     .from('users')
-    .select('role, is_admin')
+    .select('role')
     .eq('id', user.id)
     .single()
   
-  return userDoc?.role === 'admin' || userDoc?.is_admin === true
+  return userDoc?.role === 'admin'
 }
 
 export async function POST(request: NextRequest) {
@@ -41,11 +41,12 @@ export async function POST(request: NextRequest) {
     const now = new Date()
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
-    // Get all users with active OAuth tokens for batch ingestion
+    // Get all users with active email accounts for batch ingestion
     const { data: users, error: usersError } = await supabase
-      .from('oauth_tokens')
-      .select('user_id, provider, encrypted_access_token')
-      .gte('expires_at', now.toISOString())
+      .from('email_accounts')
+      .select('user_id, provider, access_token')
+      .eq('is_active', true)
+      .not('access_token', 'is', null)
 
     if (usersError) {
       return NextResponse.json(
@@ -96,15 +97,15 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Trigger email sync for this user
-        const syncResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/${userToken.provider}/sync`, {
+        // Use unified sync/daily route instead of provider-specific routes
+        const syncResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/sync/daily`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userToken.encrypted_access_token}`
+            'Authorization': `Bearer ${process.env.CRON_SECRET || 'local-dev-secret'}`
           },
           body: JSON.stringify({
-            userId: userToken.user_id,
+            singleUser: userToken.user_id, // Process only this user
             batchJobId: batchJob[0].id,
             timeRange: {
               startDate: yesterday.toISOString(),

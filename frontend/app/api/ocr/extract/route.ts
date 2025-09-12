@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { imageData, filename } = body
+    const { imageData, file_name } = body
 
     if (!imageData) {
       return NextResponse.json(
@@ -92,12 +92,11 @@ export async function POST(request: NextRequest) {
       .from('passport_scans')
       .insert({
         user_id: user.id,
-        filename: filename || 'passport_scan.jpg',
-        extracted_text: ocrResult.extractedText,
-        structured_data: ocrResult.structuredData,
+        file_name: file_name || 'passport_scan.jpg',
+        ocr_text: ocrResult.extractedText,
+        passport_info: ocrResult.structuredData,
         confidence_score: ocrResult.confidence,
-        processing_status: 'completed',
-        created_at: new Date().toISOString(),
+        processing_status: 'completed'
       })
       .select()
 
@@ -116,7 +115,7 @@ export async function POST(request: NextRequest) {
         extractedText: ocrResult.extractedText,
         structuredData: ocrResult.structuredData,
         confidence: ocrResult.confidence,
-        filename: filename || 'passport_scan.jpg'
+        file_name: file_name || 'passport_scan.jpg'
       }
     })
   } catch (error) {

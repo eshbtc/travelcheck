@@ -18,7 +18,7 @@ import {
   ingestOffice365Bookings,
   getIntegrationStatus
 } from '@/services/integrationService'
-import { supabaseService, generateUniversalReport } from '@/services/supabaseService'
+import { universalTravelService } from '@/services/universalService'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
 
@@ -66,16 +66,19 @@ export function QuickActions() {
 
   // Generate report mutation
   const generateReportMutation = useMutation({
-    mutationFn: () => generateUniversalReport({
-      reportType: { category: 'citizenship', purpose: 'US Naturalization' },
-      country: 'United States',
-      dateRange: { 
-        start: '2020-01-01', 
-        end: new Date().toISOString().split('T')[0] 
+    mutationFn: () => universalTravelService.generateUniversalReport(
+      { category: 'citizenship', purpose: 'US Naturalization', requirements: [] },
+      'United States',
+      {
+        start: '2020-01-01',
+        end: new Date().toISOString().split('T')[0]
       },
-      includeEvidence: true,
-      includeConflicts: true
-    }),
+      {
+        includeEvidence: true,
+        includeConflicts: true,
+        userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      }
+    ),
     onSuccess: () => {
       toast.success('Report generated successfully!')
       router.push('/reports/history')

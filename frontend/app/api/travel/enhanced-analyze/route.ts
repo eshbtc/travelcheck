@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
 
     // Analyze flight emails for airline patterns
     emails.forEach((email: any) => {
-      if (email.extracted_data?.flights) {
-        email.extracted_data.flights.forEach((flight: string) => {
+      if (email.parsed_data?.flights) {
+        email.parsed_data.flights.forEach((flight: string) => {
           const airline = flight.substring(0, 2)
           patterns.airlines[airline] = (patterns.airlines[airline] || 0) + 1
         })

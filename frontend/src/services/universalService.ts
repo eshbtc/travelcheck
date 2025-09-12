@@ -34,7 +34,7 @@ export class UniversalTravelService {
         throw new Error('Failed to generate report');
       }
       
-      return result.data as any;
+      return result.report as any;
     } catch (error) {
       console.error('Error generating universal report:', error);
       throw error;

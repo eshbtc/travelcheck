@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         lighting: Math.random() * 0.2 + 0.8, // 0.8-1.0
         distortion: Math.random() * 0.1 // 0.0-0.1
       },
-      extractedData: scan.structured_data || {},
+      extractedData: scan.passport_info || {},
       confidence: {
         overall: scan.confidence_score || 0.8,
         fields: {
@@ -82,9 +82,9 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('passport_scans')
       .update({
-        enhanced_analysis: enhancedAnalysis,
-        analysis_completed_at: new Date().toISOString(),
-        confidence_score: enhancedAnalysis.confidence.overall
+        analysis_results: enhancedAnalysis,
+        confidence_score: enhancedAnalysis.confidence.overall,
+        processing_status: 'completed'
       })
       .eq('id', scanId)
 

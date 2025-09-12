@@ -8,11 +8,14 @@ import type { User as SupabaseUser, Session, AuthError } from '@supabase/supabas
 interface User {
   id: string
   email: string
-  full_name: string
-  is_active: boolean
+  display_name?: string
+  photo_url?: string
+  provider?: string
   created_at: string
+  updated_at: string
+  last_login?: string
+  settings?: any
   role?: 'admin' | 'user'
-  email_verified?: boolean
 }
 
 interface AuthContextType {
@@ -21,7 +24,7 @@ interface AuthContextType {
   session: Session | null
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, fullName: string) => Promise<void>
+  register: (email: string, password: string, displayName: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
   loginWithAzure: () => Promise<void>
   logout: () => Promise<void>
@@ -107,33 +110,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: existingUser.id,
           email: existingUser.email,
-          full_name: existingUser.full_name || '',
-          is_active: existingUser.is_active,
+          display_name: existingUser.display_name,
+          photo_url: existingUser.photo_url,
+          provider: existingUser.provider,
           created_at: existingUser.created_at,
-          role: existingUser.role || 'user',
-          email_verified: existingUser.email_verified
+          updated_at: existingUser.updated_at,
+          last_login: existingUser.last_login,
+          settings: existingUser.settings,
+          role: existingUser.role || 'user'
         })
       } else {
-        // User doesn't exist, create new user
-        const newUser = {
+        // User doesn't exist - but the trigger should auto-create it, so this shouldn't happen
+        // Just set user data from what we have
+        setUser({
           id: supabaseUser.id,
           email: supabaseUser.email || '',
-          full_name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || '',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          email_verified: supabaseUser.email_confirmed_at ? true : false,
+          display_name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.display_name || '',
+          photo_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
+          provider: supabaseUser.app_metadata?.provider,
+          created_at: supabaseUser.created_at,
+          updated_at: supabaseUser.updated_at || supabaseUser.created_at,
           role: 'user' as 'user' | 'admin'
-        }
-        
-        const { error: createError } = await supabase
-          .from('users')
-          .insert([newUser])
-        
-        if (!createError) {
-          setUser(newUser)
-        } else {
-          console.error('Error creating user:', createError)
-        }
+        })
       }
     } catch (error) {
       console.error('Error fetching/creating user:', error)
@@ -155,15 +153,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (email: string, password: string, fullName: string) => {
+  const register = async (email: string, password: string, displayName: string) => {
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: fullName,
-            name: fullName,
+            display_name: displayName,
+            full_name: displayName,
+            name: displayName,
           },
         },
       })

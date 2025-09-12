@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       code: code,
       grant_type: 'authorization_code',
       redirect_uri: process.env.OFFICE365_REDIRECT_URI!,
-      scope: 'offline_access Mail.ReadWrite',
+      scope: 'offline_access Mail.Read',
     })
 
     const tokenResponse = await fetch(tokenUrl, {
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         refresh_token: JSON.stringify(encrypt(tokens.refresh_token || '')),
         token_expires_at: tokens.expires_in ? 
           new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
-        scope: 'Mail.ReadWrite',
+        scope: 'Mail.Read',
         is_active: true,
         last_sync: null,
         sync_status: 'ready',

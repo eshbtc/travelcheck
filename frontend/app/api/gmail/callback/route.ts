@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         access_token: JSON.stringify(encrypt(tokens.access_token || '')),
         refresh_token: JSON.stringify(encrypt(tokens.refresh_token || '')),
         token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
-        scope: 'gmail.modify',
+        scope: 'gmail.readonly',
         is_active: true,
         last_sync: null,
         sync_status: 'ready',

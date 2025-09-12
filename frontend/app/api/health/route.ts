@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     // Simple health check - test database connection
     const { data, error } = await supabase
       .from('users')
-      .select('count')
+      .select('id')
       .limit(1)
 
     if (error) {

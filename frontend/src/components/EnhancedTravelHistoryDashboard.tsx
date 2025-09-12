@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  analyzeEnhancedTravelHistory,
-  generateUniversalReport,
-  getAvailableCountries
-} from '@/services/supabaseService';
+import { analyzeEnhancedTravelHistory } from '@/services/supabaseService';
+import { universalTravelService } from '@/services/universalService';
 import type { 
   AvailableCountriesResult 
 } from '@/types/universal';
@@ -61,10 +58,8 @@ export const EnhancedTravelHistoryDashboard: React.FC<EnhancedTravelHistoryDashb
 
   const loadAvailableCountries = async () => {
     try {
-      const result = await getAvailableCountries();
-      if (result.success) {
-        setAvailableCountries(result);
-      }
+      const countries = await universalTravelService.getAvailableCountries();
+      setAvailableCountries({ success: true, data: countries } as any);
     } catch (error) {
       console.error('Error loading available countries:', error);
     }
@@ -73,15 +68,23 @@ export const EnhancedTravelHistoryDashboard: React.FC<EnhancedTravelHistoryDashb
   const generateReport = async (reportType: string) => {
     try {
       setGeneratingReport(true);
-      const result = await generateUniversalReport(reportType);
-      if (result.success && result.data) {
-        const reportData = result.data as { id: string };
-        if (onReportGenerated) {
-          onReportGenerated(reportData.id);
+      const report = await universalTravelService.generateUniversalReport(
+        { category: 'travel_summary', purpose: 'Enhanced Dashboard', requirements: [] },
+        'Global',
+        {
+          start: new Date(new Date().getFullYear() - 3, 0, 1).toISOString().split('T')[0],
+          end: new Date().toISOString().split('T')[0]
+        },
+        {
+          includeEvidence: true,
+          includeConflicts: true,
+          userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         }
-        // Show success message or redirect
-        alert(`Report generated successfully! Report ID: ${reportData.id}`);
+      );
+      if (onReportGenerated) {
+        onReportGenerated((report as any).id);
       }
+      alert(`Report generated successfully! Report ID: ${(report as any).id}`);
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Error generating report. Please try again.');

@@ -124,6 +124,35 @@ export async function POST(request: NextRequest) {
 
   try {
     const parameters: ReportParameters = await request.json()
+
+    // Check entitlements unless admin
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, email')
+      .eq('id', user.id)
+      .maybeSingle()
+    const isAdmin = (profile?.role || 'user') === 'admin'
+
+    if (!isAdmin) {
+      const { data: ent } = await supabase
+        .from('billing_entitlements')
+        .select('status, report_credits_balance')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const hasCredit = (ent?.report_credits_balance || 0) > 0
+      if (!hasCredit) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'payment_required',
+            message: 'You need a report credit to generate a report. Visit pricing to buy a one‑time report or start a plan that includes credits.',
+            links: { pricing: '/pricing' }
+          },
+          { status: 402 }
+        )
+      }
+    }
     
     if (!parameters.reportType || !parameters.title || !parameters.startDate || !parameters.endDate) {
       return NextResponse.json(
@@ -204,6 +233,23 @@ export async function POST(request: NextRequest) {
     if (saveError) {
       console.error('Error saving report:', saveError)
       // Still return the report data even if save fails
+    }
+
+    // Optional: decrement one-time report credit if available
+    try {
+      const { data: ent } = await supabase
+        .from('billing_entitlements')
+        .select('id, report_credits_balance')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (ent && typeof ent.report_credits_balance === 'number' && ent.report_credits_balance > 0) {
+        await supabase
+          .from('billing_entitlements')
+          .update({ report_credits_balance: ent.report_credits_balance - 1 })
+          .eq('id', ent.id)
+      }
+    } catch (e) {
+      console.warn('Credit decrement skipped:', (e as Error).message)
     }
 
     return NextResponse.json({

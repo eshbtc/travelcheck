@@ -13,12 +13,12 @@ async function isAdmin(user: any): Promise<boolean> {
     // Check user role in database
     const { data: userDoc, error } = await supabase
       .from('users')
-      .select('role, is_admin')
+      .select('role')
       .eq('id', user.id)
       .single()
 
     if (!error && userDoc) {
-      return userDoc.role === 'admin' || userDoc.is_admin === true
+      return userDoc.role === 'admin'
     }
   } catch (error) {
     console.error('Error checking admin status:', error)
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
         gmailEnabled: !!process.env.GMAIL_CLIENT_ID,
         office365Enabled: !!process.env.OFFICE365_CLIENT_ID,
         ocrEnabled: !!process.env.GOOGLE_CLOUD_PROJECT_ID,
-        supabaseConnected: !!process.env.SUPABASE_URL,
+        supabaseConnected: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       }
     }
 

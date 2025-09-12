@@ -14,13 +14,10 @@ import {
   ChartBarIcon
 } from '@heroicons/react/24/outline'
 import { 
-  generateUniversalReport
-} from '@/services/supabaseService'
-import { 
   getBookingIngestionStatus, 
   getIntegrationStatus
 } from '@/services/integrationService'
-import { UniversalTravelService } from '@/services/universalService'
+import { universalTravelService } from '@/services/universalService'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface StatusTile {
@@ -59,22 +56,29 @@ export function StatusTiles({ className = '', loading = false }: StatusTilesProp
 
   const { data: reports, isLoading: reportsLoading } = useQuery({
     queryKey: ['reports'],
-    queryFn: () => new UniversalTravelService().listUniversalReports(10),
+    queryFn: () => universalTravelService.listUniversalReports(10),
     enabled: !!user
   })
 
   const { data: travelData, isLoading: travelLoading } = useQuery({
     queryKey: ['travelData'],
-    queryFn: () => generateUniversalReport({
-      reportType: { category: 'citizenship', purpose: 'US Naturalization' },
-      country: 'United States',
-      dateRange: { 
+    queryFn: () => universalTravelService.generateUniversalReport(
+      {
+        category: 'travel_summary',
+        purpose: 'Dashboard Status',
+        requirements: []
+      },
+      'Global',
+      { 
         start: '2020-01-01', 
         end: new Date().toISOString().split('T')[0] 
       },
-      includeEvidence: false,
-      includeConflicts: false
-    }),
+      {
+        includeEvidence: false,
+        includeConflicts: false,
+        userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      }
+    ),
     enabled: !!user
   })
 
@@ -91,9 +95,9 @@ export function StatusTiles({ className = '', loading = false }: StatusTilesProp
   }
 
   // Calculate real metrics from backend data
-  const travelSummary = (travelData?.data as any)?.summary
-  const totalPresenceDays = travelSummary?.totalPresenceDays || 0
-  const totalCountries = travelSummary?.totalCountries || 0
+  const travelSummary = travelData?.summary
+  const totalPresenceDays = travelSummary?.totalDays || 0
+  const totalCountries = travelSummary?.uniqueCountries || 0
   const totalReports = Array.isArray(reports) ? reports.length : 0
   const connectedIntegrations = Array.isArray(integrationStatus) ? integrationStatus.filter(i => i.isConnected).length : 0
   const totalIntegrations = Array.isArray(integrationStatus) ? integrationStatus.length : 0

@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "smoke": "bash ../scripts/clean-room-smoke.sh",
+    "token": "node ./scripts/get-bearer.js"
   },
   "dependencies": {
     "@google-cloud/aiplatform": "^5.7.0",

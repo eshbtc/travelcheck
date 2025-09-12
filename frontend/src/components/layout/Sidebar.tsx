@@ -65,6 +65,7 @@ export function Sidebar({ onClose, collapsed = false, onToggleCollapse }: Sideba
 
   const mainNav = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+    { name: 'Pricing', href: '/pricing', icon: DocumentTextIcon },
     { name: 'Travel Timeline', href: '/travel/timeline', icon: DocumentTextIcon },
     { name: 'Travel Calendar', href: '/travel/calendar', icon: ChartBarIcon },
     { name: 'Travel History', href: '/travel/history', icon: DocumentTextIcon },
@@ -77,7 +78,10 @@ export function Sidebar({ onClose, collapsed = false, onToggleCollapse }: Sideba
     { name: 'Generate Report', href: '/reports/generate', icon: ChartBarIcon },
     { name: 'Report History', href: '/reports/history', icon: DocumentTextIcon },
   ]
-  const adminNav = isAdmin ? [{ name: 'Admin • Users', href: '/admin/users', icon: DocumentTextIcon }] : []
+  const adminNav = isAdmin ? [
+    { name: 'Admin • Users', href: '/admin/users', icon: DocumentTextIcon },
+    { name: 'Admin • Cost Calculator', href: '/admin/cost-calculator', icon: ChartBarIcon },
+  ] : []
 
   return (
     <>

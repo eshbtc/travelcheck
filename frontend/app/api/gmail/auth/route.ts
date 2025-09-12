@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     )
 
     const scopes = [
-      'https://www.googleapis.com/auth/gmail.modify',
+      'https://www.googleapis.com/auth/gmail.readonly',
     ]
 
     const authUrl = oauth2Client.generateAuthUrl({

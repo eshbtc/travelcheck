@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getPassportScans } from '@/services/supabaseService'
+import { getOrCreateSignedUrl } from '@/services/signedUrlCache'
 import { toast } from 'react-hot-toast'
 import type { PassportScan } from '@/types/universal'
 
@@ -37,6 +38,48 @@ export function PassportScanCarousel({
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedScan, setSelectedScan] = useState<PassportScan | null>(null)
   const [showFullView, setShowFullView] = useState(false)
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({})
+
+  const extractPathFromUrl = (url: string): string | null => {
+    try {
+      if (!url) return null
+      // If this looks like a Supabase public URL, extract bucket/path segment
+      // Expected: .../storage/v1/object/public/<bucket>/<path>
+      const marker = '/object/public/'
+      const idx = url.indexOf(marker)
+      if (idx >= 0) {
+        const after = url.substring(idx + marker.length)
+        const slash = after.indexOf('/')
+        if (slash > 0) {
+          // const bucket = after.substring(0, slash)
+          const path = after.substring(slash + 1)
+          return path
+        }
+      }
+      // If it isn't an http URL, assume it's already a storage path
+      if (!/^https?:/i.test(url)) {
+        return url
+      }
+    } catch (_) {}
+    return null
+  }
+
+  const buildSignedUrls = async (items: PassportScan[]) => {
+    const entries: Array<[string, string]> = []
+    for (const scan of items) {
+      const raw = scan.file_url
+      const path = raw ? extractPathFromUrl(raw) : null
+      if (path) {
+        try {
+          const signed = await getOrCreateSignedUrl(path, 60 * 60)
+          if (signed) entries.push([scan.id, signed])
+        } catch (_) {}
+      }
+    }
+    if (entries.length) {
+      setSignedUrls(prev => ({ ...prev, ...Object.fromEntries(entries) }))
+    }
+  }
 
   const loadPassportScans = useCallback(async () => {
     setIsLoading(true)
@@ -47,6 +90,8 @@ export function PassportScanCarousel({
         if (result.data.length > 0) {
           setSelectedScan(result.data[0])
         }
+        // Pre-compute signed URLs for display if possible
+        void buildSignedUrls(result.data)
       }
     } catch (error) {
       console.error('Error loading passport scans:', error)
@@ -83,12 +128,15 @@ export function PassportScanCarousel({
   }
 
   const handleDownload = () => {
-    if (selectedScan?.file_url) {
-      const link = document.createElement('a')
-      link.href = selectedScan.file_url
-      link.download = selectedScan.file_name || 'passport-scan.jpg'
-      link.click()
-      toast.success('Download started')
+    if (selectedScan) {
+      const url = signedUrls[selectedScan.id] || selectedScan.file_url || ''
+      if (url) {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = selectedScan.file_name || 'passport-scan.jpg'
+        link.click()
+        toast.success('Download started')
+      }
     }
   }
 
@@ -195,10 +243,10 @@ export function PassportScanCarousel({
           <div className="flex-shrink-0">
             <div className="relative">
               <div className="w-80 h-64 bg-gray-100 rounded-lg overflow-hidden">
-                {selectedScan?.file_url ? (
+                {selectedScan && (signedUrls[selectedScan.id] || selectedScan.file_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`${selectedScan.file_url}`}
+                    src={`${signedUrls[selectedScan.id] || selectedScan.file_url}`}
                     alt={selectedScan.file_name || 'Passport scan'}
                     className="w-full h-full object-contain"
                   />
@@ -322,10 +370,10 @@ export function PassportScanCarousel({
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                {scan.file_url ? (
+                {scan && (signedUrls[scan.id] || scan.file_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`${scan.file_url}`}
+                    src={`${signedUrls[scan.id] || scan.file_url}`}
                     alt={scan.file_name || 'Scan'}
                     className="w-full h-full object-cover"
                   />
@@ -359,7 +407,7 @@ export function PassportScanCarousel({
             <div className="p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`${selectedScan.file_url}`}
+                src={`${signedUrls[selectedScan.id] || selectedScan.file_url || ''}`}
                 alt={selectedScan.file_name || 'Passport scan'}
                 className="max-w-full max-h-96 object-contain mx-auto"
               />

@@ -6,7 +6,7 @@ import { CommandPalette } from './CommandPalette'
 import { SearchBar } from '../ui/SearchBar'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { BellIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { BellIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, UserIcon, XMarkIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -20,6 +20,7 @@ export function AppShell({ children }: AppShellProps) {
   const [profileOpen, setProfileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { user, logout } = useAuth()
+  const billingPortalUrl = process.env.NEXT_PUBLIC_LEMON_CUSTOMER_PORTAL_URL
   useEffect(() => setMounted(true), [])
 
   return (
@@ -93,6 +94,12 @@ export function AppShell({ children }: AppShellProps) {
             </div>
             <div className="divide-y divide-border-light">
               <div className="p-2">
+                {billingPortalUrl && (
+                  <a href={billingPortalUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-3 h-12 rounded-lg hover:bg-bg-secondary w-full text-left">
+                    <CreditCardIcon className="h-5 w-5 text-text-secondary" />
+                    <span>Manage Billing</span>
+                  </a>
+                )}
                 <button onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 h-12 rounded-lg hover:bg-bg-secondary w-full text-left">
                   <UserIcon className="h-5 w-5 text-text-secondary" />
                   <span>Your Profile</span>

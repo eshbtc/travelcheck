@@ -17,7 +17,7 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
       return { success: false, count: 0, error: 'Gmail account not found' }
     }
 
-    const refreshToken = decrypt(emailAccount.encrypted_refresh_token)
+    const refreshToken = decrypt(emailAccount.refresh_token)
     if (!refreshToken) {
       return { success: false, count: 0, error: 'Invalid refresh token' }
     }
@@ -101,10 +101,10 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
             user_id: userId,
             message_id: message.id,
             subject,
-            from_email: from,
+            sender: from,
             date_received: date,
-            raw_content: content,
-            extracted_data: { flights, extractedAt: new Date().toISOString() },
+            body_text: content,
+            parsed_data: { flights, extractedAt: new Date().toISOString() },
             processing_status: 'completed',
             confidence_score: flights.length > 0 ? 0.8 : 0.3,
             created_at: new Date().toISOString()
@@ -137,7 +137,7 @@ async function syncUserOffice365(userId: string): Promise<{ success: boolean; co
       return { success: false, count: 0, error: 'Office365 account not found' }
     }
 
-    const accessToken = decrypt(emailAccount.encrypted_access_token)
+    const accessToken = decrypt(emailAccount.access_token)
     if (!accessToken) {
       return { success: false, count: 0, error: 'Invalid access token' }
     }
@@ -186,10 +186,10 @@ async function syncUserOffice365(userId: string): Promise<{ success: boolean; co
           user_id: userId,
           message_id: message.id,
           subject,
-          from_email: from,
+          sender: from,
           date_received: message.receivedDateTime,
-          raw_content: content,
-          extracted_data: { source: 'office365', extractedAt: new Date().toISOString() },
+          body_text: content,
+          parsed_data: { source: 'office365', extractedAt: new Date().toISOString() },
           processing_status: 'completed',
           confidence_score: 0.6,
           created_at: new Date().toISOString()
@@ -217,11 +217,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all users with email accounts
-    const { data: emailAccounts, error } = await supabase
+    // Parse request body for single user processing
+    const body = await request.json().catch(() => ({}))
+    const singleUserId = body.singleUser
+
+    // Get email accounts - either for all users or specific user
+    let query = supabase
       .from('email_accounts')
       .select('user_id, provider, is_active')
       .eq('is_active', true)
+    
+    if (singleUserId) {
+      query = query.eq('user_id', singleUserId)
+    }
+
+    const { data: emailAccounts, error } = await query
 
     if (error) {
       return NextResponse.json(
@@ -273,10 +283,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Daily email sync completed',
+      message: singleUserId ? `Email sync completed for user ${singleUserId}` : 'Daily email sync completed',
       summary: {
         usersProcessed: results.length,
         totalEmailsSynced: totalSynced,
+        singleUserMode: !!singleUserId,
         timestamp: new Date().toISOString()
       },
       results

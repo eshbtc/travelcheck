@@ -137,23 +137,22 @@ export async function POST(request: NextRequest) {
         }
 
         // Text similarity
-        if (scan1.extracted_text && scan2.extracted_text) {
-          similarities.text = calculateTextSimilarity(scan1.extracted_text, scan2.extracted_text)
+        if (scan1.ocr_text && scan2.ocr_text) {
+          similarities.text = calculateTextSimilarity(scan1.ocr_text, scan2.ocr_text)
         }
 
         // Structured data similarity
-        if (scan1.structured_data && scan2.structured_data) {
+        if (scan1.passport_info && scan2.passport_info) {
           similarities.structured = calculateStructuredDataSimilarity(
-            scan1.structured_data, 
-            scan2.structured_data
+            scan1.passport_info, 
+            scan2.passport_info
           )
         }
 
-        // Image similarity (if image data is available)
-        if (scan1.image_data && scan2.image_data) {
-          const hash1 = calculateImageHash(scan1.image_data)
-          const hash2 = calculateImageHash(scan2.image_data)
-          similarities.image = hash1 === hash2 ? 1 : 0
+        // Image similarity (comparing file URLs)
+        if (scan1.file_url && scan2.file_url) {
+          // Simple URL comparison - in practice you'd fetch and compare actual images
+          similarities.image = scan1.file_url === scan2.file_url ? 1 : 0
         }
 
         // Temporal proximity (scans within 1 hour of each other are more likely duplicates)

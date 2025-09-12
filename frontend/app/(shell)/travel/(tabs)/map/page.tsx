@@ -1,35 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import React, { useEffect } from 'react'
 import { PresenceMap } from '@/components/travel/PresenceMap'
-import { universalTravelService } from '@/services/universalService'
-import { MockDataService } from '@/services/mockDataService'
+import { useTravelData } from '@/hooks/useTravelData'
 import { toast } from 'react-hot-toast'
-import type { PresenceDay } from '@/types/universal'
 
 export default function TravelMapPage() {
-  const { user } = useAuth()
-  const [presenceDays, setPresenceDays] = useState<PresenceDay[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { presenceDays, isLoading, loadTravelData } = useTravelData()
 
-  const loadTravelData = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      // Load mock data immediately for development
-      const mockData = await MockDataService.getPresenceDays()
-      setPresenceDays(mockData)
-      toast.success('Loaded sample travel data for demonstration')
-      
-      // Skip real API calls for now to avoid 500 errors
-      // TODO: Re-enable when backend is properly configured
-    } catch (error) {
-      console.error('Error loading travel data:', error)
-      toast.error('Failed to load travel data')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
 
   useEffect(() => {
     loadTravelData()

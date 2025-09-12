@@ -39,8 +39,7 @@ const PROVIDER_CONFIG = {
     color: 'red',
     connectUrl: '/auth/gmail',
     scopes: [
-      'https://www.googleapis.com/auth/gmail.readonly',
-      'https://www.googleapis.com/auth/gmail.labels'
+      'https://www.googleapis.com/auth/gmail.readonly'
     ]
   },
   office365: {
