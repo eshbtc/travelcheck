@@ -126,8 +126,8 @@ function extractStampsFromText(text: string): any[] {
   // Try to associate dates with locations and types based on proximity
   foundDates.forEach(dateInfo => {
     // Find closest location and type
-    let closestLocation = null
-    let closestType = null
+    let closestLocation: any = null
+    let closestType: any = null
     let minLocationDistance = Infinity
     let minTypeDistance = Infinity
     
