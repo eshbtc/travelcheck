@@ -236,7 +236,7 @@ export const getBookingIngestionStatus = async (): Promise<IngestStatus[]> => {
   if (statuses.length === 0) {
     statuses.push({
       provider: 'system',
-      lastIngested: null,
+      lastIngested: undefined,
       totalEmails: 0,
       totalBookings: 0,
       lastError: undefined,
