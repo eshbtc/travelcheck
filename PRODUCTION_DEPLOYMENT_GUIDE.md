@@ -7,15 +7,16 @@ This guide covers setting up all the required services and API keys for deployin
 
 ### Database Schema
 Run the database migrations in your Supabase SQL editor:
-```sql
--- Copy and run the contents of supabase-schema.sql
+Use the canonical schema at the repository root:
+
+```text
+comprehensive-supabase-schema.sql
 ```
+Apply in Supabase SQL editor or via CLI.
 
 ### Storage Setup
 Run the storage setup commands in your Supabase SQL editor:
-```sql
--- Copy and run the contents of supabase-storage-setup.sql
-```
+See docs/SUPABASE_SETUP.md for storage bucket policy setup.
 
 ### Environment Variables for Supabase
 Add these to your deployment environment (Vercel/Netlify):

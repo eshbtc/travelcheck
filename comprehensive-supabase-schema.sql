@@ -224,6 +224,26 @@ CREATE INDEX IF NOT EXISTS idx_reports_user_id ON public.reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports(report_type);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);
 
+-- Report Templates table
+CREATE TABLE IF NOT EXISTS public.report_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    country TEXT NOT NULL,
+    template JSONB NOT NULL,
+    preview TEXT,
+    is_public BOOLEAN DEFAULT FALSE,
+    usage_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_report_templates_user_id ON public.report_templates(user_id);
+CREATE INDEX IF NOT EXISTS idx_report_templates_category ON public.report_templates(category);
+CREATE INDEX IF NOT EXISTS idx_report_templates_created_at ON public.report_templates(created_at DESC);
+
 -- Row Level Security (RLS) Policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.email_accounts ENABLE ROW LEVEL SECURITY;
@@ -235,6 +255,7 @@ ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.duplicate_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.duplicate_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.health_check ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.report_templates ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
 CREATE POLICY "Users can view own data" ON public.users
@@ -320,6 +341,19 @@ CREATE POLICY "Admins can view all reports" ON public.reports
         )
     );
 
+-- Report templates policies
+CREATE POLICY "Users can view own or public templates" ON public.report_templates
+    FOR SELECT USING (auth.uid() = user_id OR is_public = true);
+
+CREATE POLICY "Users can insert own templates" ON public.report_templates
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own templates" ON public.report_templates
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own templates" ON public.report_templates
+    FOR DELETE USING (auth.uid() = user_id);
+
 -- Duplicate detection policies
 CREATE POLICY "Users can manage own duplicates" ON public.duplicate_groups
     FOR ALL USING (auth.uid() = user_id);
@@ -390,7 +424,97 @@ CREATE TRIGGER update_reports_updated_at
     BEFORE UPDATE ON public.reports
     FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
 
+CREATE TRIGGER update_report_templates_updated_at
+    BEFORE UPDATE ON public.report_templates
+    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
 -- Insert initial health check record
 INSERT INTO public.health_check (status, metadata) 
 VALUES ('healthy', '{"initialized": true, "version": "1.0.0"}'::jsonb)
 ON CONFLICT DO NOTHING;
+
+-- =============================================
+-- Storage: Buckets and RLS Policies
+-- =============================================
+
+-- Create storage buckets if they do not exist
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'passport-scans',
+    'passport-scans',
+    FALSE,
+    10485760, -- 10MB
+    ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'processed-documents',
+    'processed-documents',
+    FALSE,
+    52428800, -- 50MB
+    ARRAY['application/pdf', 'application/json', 'text/plain']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Ensure RLS is enabled on storage objects
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for passport-scans bucket
+CREATE POLICY "Users can upload passport scans" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'passport-scans'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can view own passport scans" ON storage.objects
+  FOR SELECT USING (
+    bucket_id = 'passport-scans'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can update own passport scans" ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'passport-scans'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can delete own passport scans" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'passport-scans'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- RLS policies for processed-documents bucket
+CREATE POLICY "Users can upload processed documents" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'processed-documents'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can view own processed documents" ON storage.objects
+  FOR SELECT USING (
+    bucket_id = 'processed-documents'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can update own processed documents" ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'processed-documents'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can delete own processed documents" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'processed-documents'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );

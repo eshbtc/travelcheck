@@ -1,4 +1,6 @@
-# TravelCheck - Production Setup Guide
+# TravelCheck - Production Setup Guide (Deprecated)
+
+This guide described the prior Firebase-based stack and is kept for reference. The project now uses Supabase + Next.js API routes. For current production setup, see docs/SUPABASE_SETUP.md.
 
 ## 🚀 **Production Environment Configuration**
 

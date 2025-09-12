@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 function CallbackHandler() {
   const router = useRouter()
   const params = useSearchParams()
-  const { user, session } = useAuth()
+  const { user, session, isLoading } = useAuth()
   const [handled, setHandled] = useState(false)
 
   useEffect(() => {
@@ -25,13 +25,28 @@ function CallbackHandler() {
         
         if (accessToken) {
           // This is a Supabase OAuth callback
-          // Wait a moment for the auth state to update
-          await new Promise(resolve => setTimeout(resolve, 1000))
+          // Wait for the auth state to update and user to be fetched
+          await new Promise(resolve => setTimeout(resolve, 2000))
           
           const { data: { session } } = await supabase.auth.getSession()
           
           if (session) {
-            // Clean up the URL and redirect to dashboard
+            // Wait for AuthContext to process the user
+            let attempts = 0
+            const maxAttempts = 10
+            
+            while (attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 500))
+              if (user && !isLoading) {
+                // User is loaded, safe to redirect
+                window.history.replaceState({}, document.title, '/dashboard')
+                router.replace('/dashboard')
+                return
+              }
+              attempts++
+            }
+            
+            // Fallback: redirect anyway after timeout
             window.history.replaceState({}, document.title, '/dashboard')
             router.replace('/dashboard')
             return
@@ -100,7 +115,7 @@ function CallbackHandler() {
     }
 
     handleAuthCallback()
-  }, [handled, router, params, user, session])
+  }, [handled, router, params, user, session, isLoading])
 
   return (
     <div className="min-h-screen bg-bg-secondary flex items-center justify-center">

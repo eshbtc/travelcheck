@@ -35,55 +35,64 @@ USCIS requires applicants to list all international trips lasting 24+ hours over
    - Report generation and export
 
 4. **Data Storage**
-   - Encrypted user data storage (Firestore + Storage)
+   - Encrypted user data storage (Supabase Postgres + Storage)
+   - Row-level security (RLS) for data isolation
    - Audit logs for compliance
-   - Backup and recovery
+   - Automated backup and recovery
+
+5. **Security & Monitoring**
+   - Rate limiting with exponential backoff
+   - Content Security Policy (CSP) headers
+   - AI cost controls and payload validation
+   - Synthetic health checks for availability SLOs
+   - Sentry integration for error monitoring
 
 ### Technology Stack
 
-- Backend: Firebase Functions (Node.js callable functions)
-- Frontend: React/Next.js with Tailwind CSS
-- Database: Firestore with security rules; Storage for files
-- OCR: Google Cloud Vision + Document AI
-- APIs: Gmail API, Microsoft Graph API
-- Cloud: Google Cloud Platform (Firebase)
-- Security: Firebase Auth, App Check, OAuth2; tokens encrypted at rest
+**Current Architecture (Production-Ready):**
+- **Backend:** Next.js 14 App Router + Supabase
+- **Frontend:** React/Next.js with Tailwind CSS and shadcn/ui
+- **Database:** Supabase Postgres with Row Level Security (RLS)
+- **Storage:** Supabase Storage with encryption
+- **Authentication:** Supabase Auth (JWT) + OAuth2 (Gmail/Office365)
+- **AI/OCR:** Google Cloud Document AI (via server-side API routes)
+- **APIs:** Gmail API, Microsoft Graph API  
+- **Hosting:** Vercel (recommended) or Node.js hosting
+- **Monitoring:** Sentry for errors, synthetic checks for availability
+- **Security:** CSP headers, rate limiting, encrypted OAuth tokens
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- Firebase CLI
-- Gmail API credentials
-- Microsoft Graph API credentials
-- Document AI processor IDs
+- Supabase project (URL + anon/service keys)
+- Gmail + Microsoft OAuth credentials
+- Document AI processor IDs + service account JSON
 
-### Installation (Firebase-only)
+### Installation (Supabase + Next.js)
 
 ```bash
 # Clone repository
 git clone <repository-url>
 cd travel-check
 
-# Install dependencies
-cd functions && npm install && cd ..
+# Install frontend dependencies
 cd frontend && npm install && cd ..
 
-# Configure environment
+# Configure environment (root)
 cp env.example .env
-cp functions/env.example functions/.env  # optional for local emulators
+# Set at minimum: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, ENCRYPTION_KEY,
+# DOCUMENT_AI_* (or GOOGLE_APPLICATION_CREDENTIALS_JSON)
 
-# Run frontend locally
+# Apply Supabase schema (see docs/SUPABASE_SETUP.md)
+#  - comprehensive-supabase-schema.sql
+#  - storage bucket policies
+
+# Run locally
 cd frontend && npm run dev
-
-# Optionally run Firebase emulators (Auth/Firestore/Storage)
-# firebase emulators:start
-
-# Deploy (requires Firebase project configured)
-# firebase deploy --only functions,hosting,firestore:rules,storage
 ```
 
-Note: The previous FastAPI backend has been removed. Legacy backend steps are no longer required.
+Note: The project has migrated from Firebase Functions/Firestore to Supabase + Next.js API routes. Firebase artifacts are deprecated and removed.
 
 ## 📋 Features
 
@@ -164,15 +173,28 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
 
+## 📚 Documentation
+
+### Production Operations
+- **[API Incident Runbook](frontend/docs/runbooks/api-incidents.md)** - Step-by-step incident response procedures
+- **[Secrets Rotation Schedule](frontend/docs/ops/secrets-rotation.md)** - Security key rotation procedures and schedule
+- **[Synthetic Health Checks](frontend/docs/monitoring/synthetic-checks.md)** - Availability monitoring and SLO tracking
+- **[Privacy Policy](frontend/docs/PRIVACY.md)** - Comprehensive data protection and user rights documentation
+
+### Development
+- **[Production Setup Guide](PRODUCTION_SETUP_GUIDE.md)** - Deployment and configuration guide
+- **[API Documentation](frontend/docs/api-docs.md)** - Complete API reference with examples
+- **[Test Documentation](frontend/docs/testing.md)** - Testing strategies and boundary case coverage
+
+### Archived Documentation  
+- **[Deprecated Firebase Migration Docs](docs/archive/)** - Historical migration documentation
+
 ## 🆘 Support
 
-- **Documentation**: [docs.travelcheck.com](https://docs.travelcheck.com)
 - **Issues**: [GitHub Issues](https://github.com/travel-check/issues)
 - **Email**: support@travelcheck.com
+- **Security**: security@traveltrack.com
 
 ---
 
 **Note**: This tool is designed to assist with travel history compilation but should not replace professional legal advice for immigration matters.
-# Test commit for CI/CD pipeline
-# CI/CD Pipeline Test - Mon Sep  8 21:23:22 CDT 2025
-# Final CI/CD Test - Mon Sep  8 21:30:08 CDT 2025

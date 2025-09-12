@@ -60,20 +60,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         await fetchOrCreateUser(session.user)
         
-        // Redirect to dashboard if we're on any auth route
+        // Redirect to dashboard if we're on any auth route (except callback)
         const redirectFromAuth = () => {
           if (typeof window === 'undefined') return
           const currentPath = window.location.pathname.replace(/\/+$/, '')
-          if (currentPath === '/auth' || currentPath.startsWith('/auth/')) {
+          const isOnAuthRoute = currentPath === '/auth' || currentPath.startsWith('/auth/')
+          const isOnCallback = currentPath.includes('/auth/callback')
+          
+          // Don't redirect if we're on the callback page - let it handle its own redirect
+          if (isOnAuthRoute && !isOnCallback) {
             try {
               router.replace('/dashboard')
             } catch (_) {}
             setTimeout(() => {
-              const stillOnAuth = window.location.pathname.replace(/\/+$/, '').startsWith('/auth')
+              const stillOnAuth = window.location.pathname.replace(/\/+$/, '').startsWith('/auth') && 
+                                !window.location.pathname.includes('/callback')
               if (stillOnAuth) {
                 window.location.assign('/dashboard/')
               }
-            }, 150)
+            }, 200)
           }
         }
         redirectFromAuth()
