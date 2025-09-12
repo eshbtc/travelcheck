@@ -56,7 +56,7 @@ export function useTravelData() {
       if (presenceData.length > 0) {
         toast.success(`Loaded ${presenceData.length} travel records`)
       } else {
-        toast.info('No travel data found. Upload passport scans or connect email accounts to get started.')
+        toast('No travel data found. Upload passport scans or connect email accounts to get started.')
       }
     } catch (error) {
       console.error('Error loading travel data:', error)
