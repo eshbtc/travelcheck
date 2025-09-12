@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin as supabase } from '@/lib/supabase-server'
 import { requireAuth } from '../../auth/middleware'
+import { TravelHistorySchema, validateInput, sanitizeForLogging } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -62,7 +63,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+    console.log('Travel history save request:', sanitizeForLogging(body))
+    
     const { passportData, flightData } = body
+    
+    // Validate input data
+    const validation = validateInput(TravelHistorySchema, { passportData, flightData })
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: validation.error },
+        { status: 400 }
+      )
+    }
 
     // Upsert travel history
     const { data, error } = await supabase
@@ -77,7 +89,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Supabase error:', error)
+      console.error('Supabase error:', sanitizeForLogging(error))
       return NextResponse.json(
         { success: false, error: 'Failed to save travel history' },
         { status: 500 }

@@ -1,10 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai'
 
-// Configuration
-const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT_ID || 'travel-check-8532'
-const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
-const PROCESSOR_ID = process.env.DOCUMENT_AI_PROCESSOR_ID || ''
+// Configuration with fallbacks
+const PROJECT_ID =
+  process.env.DOCUMENT_AI_PROJECT_ID ||
+  process.env.GOOGLE_CLOUD_DOCUMENT_AI_PROJECT_ID ||
+  process.env.GOOGLE_CLOUD_PROJECT_ID ||
+  ''
+const LOCATION =
+  process.env.DOCUMENT_AI_LOCATION ||
+  process.env.GOOGLE_CLOUD_DOCUMENT_AI_LOCATION ||
+  process.env.GOOGLE_CLOUD_LOCATION ||
+  'us-central1'
+const PROCESSOR_ID =
+  process.env.DOCUMENT_AI_PROCESSOR_ID ||
+  process.env.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID ||
+  ''
+
+function createDocAiClient() {
+  const credsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
+  if (credsJson) {
+    try {
+      const creds = JSON.parse(credsJson)
+      const client = new DocumentProcessorServiceClient({
+        projectId: PROJECT_ID || creds.project_id,
+        credentials: {
+          client_email: creds.client_email,
+          private_key: creds.private_key,
+        },
+      })
+      return client
+    } catch (e) {
+      // Fall through to ADC if JSON is malformed
+    }
+  }
+  // Default to ADC or env file path via GOOGLE_APPLICATION_CREDENTIALS
+  return new DocumentProcessorServiceClient()
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +46,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No image data provided' }, { status: 400 })
     }
 
+    if (!PROJECT_ID) {
+      return NextResponse.json({ success: false, error: 'DOCUMENT_AI_PROJECT_ID not configured' }, { status: 500 })
+    }
+    if (!PROCESSOR_ID) {
+      return NextResponse.json({ success: false, error: 'DOCUMENT_AI_PROCESSOR_ID not configured' }, { status: 500 })
+    }
+
     // Initialize Document AI client
-    const documentClient = new DocumentProcessorServiceClient()
+    const documentClient = createDocAiClient()
     
     // Process document with Document AI
     const processRequest = {

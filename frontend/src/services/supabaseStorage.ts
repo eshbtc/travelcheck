@@ -27,8 +27,6 @@ export class SupabaseStorageService {
       const bucket = options?.bucket || this.bucket
       const contentType = options?.contentType || 'image/jpeg'
 
-      // Ensure bucket exists
-      await this.ensureBucket(bucket)
 
       let fileData: any
       if (file instanceof File) {
@@ -243,31 +241,7 @@ export class SupabaseStorageService {
     }
   }
 
-  /**
-   * Ensure bucket exists, create if not
-   */
-  private async ensureBucket(bucketName: string): Promise<void> {
-    try {
-      // Try to get bucket info
-      const { data, error } = await supabase.storage.getBucket(bucketName)
-      
-      if (error && error.message.includes('not found')) {
-        // Bucket doesn't exist, create it
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
-          public: false,
-          allowedMimeTypes: ['image/*', 'application/pdf'],
-          fileSizeLimit: 10485760 // 10MB
-        })
-        
-        if (createError) {
-          console.warn('Could not create bucket (may already exist):', createError.message)
-        }
-      }
-    } catch (error) {
-      console.warn('Bucket check/creation warning:', error)
-      // Don't throw - bucket might exist with different permissions
-    }
-  }
+  // Bucket provisioning is handled by database migrations; client assumes buckets exist
 
   /**
    * Upload multiple files in batch

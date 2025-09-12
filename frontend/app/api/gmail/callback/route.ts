@@ -6,7 +6,10 @@ import crypto from 'crypto'
 
 // Simple AES encryption for tokens
 function getKey() {
-  const raw = process.env.ENCRYPTION_KEY || 'default-key'
+  const raw = process.env.ENCRYPTION_KEY
+  if (!raw) {
+    throw new Error('Server misconfiguration: ENCRYPTION_KEY is not set')
+  }
   return crypto.createHash('sha256').update(raw).digest()
 }
 

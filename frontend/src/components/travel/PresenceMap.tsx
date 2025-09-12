@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { PresenceDay } from '@/types/universal'
+import { MapboxTravelMap } from './MapboxTravelMap'
 
 interface PresenceMapProps {
   presenceDays: PresenceDay[]
@@ -69,6 +70,9 @@ export function PresenceMap({
   const [selectedCountry, setSelectedCountry] = useState<string>('all')
   const [showConflictsOnly, setShowConflictsOnly] = useState(false)
   const [mapView, setMapView] = useState<'countries' | 'timeline'>('countries')
+  const [mapStyle, setMapStyle] = useState<'light' | 'dark' | 'streets' | 'satellite' | 'outdoors'>('light')
+  const [showRoutes, setShowRoutes] = useState(true)
+  const [animateRoutes, setAnimateRoutes] = useState(true)
 
   // Group presence days by country
   const mapLocations = useMemo(() => {
@@ -128,6 +132,26 @@ export function PresenceMap({
   const countries = useMemo(() => {
     return mapLocations.map(location => location.country).sort()
   }, [mapLocations])
+
+  // Build simple routes between consecutive country changes
+  const routeSegments = useMemo(() => {
+    const sorted = [...presenceDays].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const segs: Array<{ id: string; from: { lat: number; lng: number }; to: { lat: number; lng: number } }> = []
+    let lastCountry: string | null = null
+    for (let i = 0; i < sorted.length; i++) {
+      const c = sorted[i].country
+      if (!lastCountry) { lastCountry = c; continue }
+      if (c !== lastCountry) {
+        const from = COUNTRY_COORDINATES[lastCountry]
+        const to = COUNTRY_COORDINATES[c]
+        if (from && to) {
+          segs.push({ id: `${lastCountry}-${c}-${i}`, from, to })
+        }
+        lastCountry = c
+      }
+    }
+    return segs
+  }, [presenceDays])
 
   const getLocationColor = (location: MapLocation) => {
     if (location.hasConflicts) return 'text-orange-600 bg-orange-100 border-orange-300'
@@ -219,45 +243,52 @@ export function PresenceMap({
             <ExclamationTriangleIcon className="h-4 w-4" />
             <span>Conflicts Only</span>
           </Button>
+
+          <div className="ml-auto flex items-center space-x-3">
+            <select
+              value={mapStyle}
+              onChange={(e) => setMapStyle(e.target.value as any)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Map Style"
+            >
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="streets">Streets</option>
+              <option value="outdoors">Outdoors</option>
+              <option value="satellite">Satellite</option>
+            </select>
+            <label className="flex items-center space-x-2 text-sm text-gray-700">
+              <input type="checkbox" checked={showRoutes} onChange={(e) => setShowRoutes(e.target.checked)} />
+              <span>Routes</span>
+            </label>
+            <label className="flex items-center space-x-2 text-sm text-gray-700">
+              <input type="checkbox" checked={animateRoutes} onChange={(e) => setAnimateRoutes(e.target.checked)} />
+              <span>Animate</span>
+            </label>
+          </div>
         </div>
       </Card>
 
       {/* Map Container */}
-    <Card className="p-6">
-        <div className="space-y-4">
-          {/* Map placeholder - in a real app, you'd integrate with Google Maps, Mapbox, etc. */}
-          <div className="relative bg-gray-100 rounded-lg h-96 overflow-hidden">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <MapIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Interactive map would be displayed here</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Integration with Google Maps or Mapbox required
-                </p>
-              </div>
-            </div>
-            
-            {/* Simulated map markers */}
-            <div className="absolute inset-0 p-4">
-              {filteredLocations.map((location, index) => {
-                const x = 20 + (index * 15) % 60
-                const y = 20 + (index * 20) % 60
-                
-                return (
-                  <button
-                    key={location.id}
-                    onClick={() => onLocationClick?.(location)}
-                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${getLocationColor(location)} ${getLocationSize(location)} flex items-center justify-center text-xs font-bold hover:scale-110 transition-transform`}
-                    style={{ left: `${x}%`, top: `${y}%` }}
-                    title={`${location.country}: ${location.totalDays} days`}
-                  >
-                    {location.totalDays}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+      <Card className="p-6">
+        <MapboxTravelMap
+          locations={filteredLocations.map(l => ({
+            id: l.id,
+            country: l.country,
+            coordinates: l.coordinates,
+            totalDays: l.totalDays,
+            hasConflicts: l.hasConflicts,
+            confidence: l.confidence,
+          }))}
+          styleId={mapStyle}
+          routes={routeSegments}
+          showRoutes={showRoutes}
+          animateRoutes={animateRoutes}
+          onLocationClick={(id) => {
+            const loc = filteredLocations.find(l => l.id === id)
+            if (loc) onLocationClick?.(loc)
+          }}
+        />
       </Card>
 
       {/* Location List */}

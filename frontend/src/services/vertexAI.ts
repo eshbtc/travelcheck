@@ -7,7 +7,7 @@ export class VertexAIService {
   /**
    * Process passport image using Document AI API
    */
-  async processPassportImage(imageData: Buffer | string): Promise<{
+  async processPassportImage(imageData: File | Blob | ArrayBuffer | string): Promise<{
     success: boolean
     data?: {
       personalInfo: {
@@ -30,10 +30,25 @@ export class VertexAIService {
     error?: string
   }> {
     try {
-      // Convert image data to base64 if it's a Buffer
-      const imageContent = Buffer.isBuffer(imageData) 
-        ? imageData.toString('base64')
-        : imageData
+      // Convert different input types to base64 string
+      let imageContent: string
+      
+      if (typeof imageData === 'string') {
+        imageContent = imageData
+      } else if (imageData instanceof File || imageData instanceof Blob) {
+        // Convert File/Blob to base64
+        const buffer = await imageData.arrayBuffer()
+        const uint8Array = new Uint8Array(buffer)
+        const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('')
+        imageContent = btoa(binaryString)
+      } else if (imageData instanceof ArrayBuffer) {
+        // Convert ArrayBuffer to base64
+        const uint8Array = new Uint8Array(imageData)
+        const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('')
+        imageContent = btoa(binaryString)
+      } else {
+        throw new Error('Unsupported image data type')
+      }
 
       // Make API call to our Next.js API route
       const response = await fetch('/api/ai/analyze-passport', {
@@ -247,7 +262,7 @@ export class VertexAIService {
    */
   async processBatchPassportImages(images: Array<{
     id: string
-    data: Buffer | string
+    data: File | Blob | ArrayBuffer | string
     fileName: string
   }>): Promise<{
     success: boolean
