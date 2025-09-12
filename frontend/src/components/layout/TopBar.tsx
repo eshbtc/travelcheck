@@ -125,7 +125,7 @@ export function TopBar({ onMenuClick, onSearchClick }: TopBarProps) {
               </div>
               <span className="hidden lg:flex lg:items-center">
                 <span className="ml-4 text-sm font-semibold leading-6 text-text-primary">
-                  {user?.full_name || user?.email || 'User'}
+                  {user?.email || 'User'}
                 </span>
               </span>
             </button>
@@ -140,8 +140,8 @@ export function TopBar({ onMenuClick, onSearchClick }: TopBarProps) {
           <div className="fixed right-0 top-0 h-full w-[420px] max-w-[90vw] bg-bg-primary shadow-2xl ring-1 ring-border-light overflow-y-auto animate-slide-in">
             <div className="flex items-center justify-between p-4 border-b border-border-light">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-brand-primary grid place-items-center text-white">{(user?.full_name || 'U')[0]}</div>
-                <div className="font-semibold">{user?.full_name || user?.email || 'User'}</div>
+                <div className="h-10 w-10 rounded-full bg-brand-primary grid place-items-center text-white">{(user?.email || 'U')[0].toUpperCase()}</div>
+                <div className="font-semibold">{user?.email || 'User'}</div>
               </div>
               <button className="p-2 rounded-full hover:bg-bg-secondary" onClick={() => setProfilePanelOpen(false)}>
                 <XMarkIcon className="h-5 w-5 text-text-secondary" />
