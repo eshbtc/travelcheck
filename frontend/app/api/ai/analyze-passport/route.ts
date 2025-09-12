@@ -39,8 +39,8 @@ function createDocAiClient() {
 }
 
 // Extract stamps from OCR text using pattern matching
-function extractStampsFromText(text: string) {
-  const stamps = []
+function extractStampsFromText(text: string): any[] {
+  const stamps: any[] = []
   
   // Common date patterns for passport stamps
   const datePatterns = [
