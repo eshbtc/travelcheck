@@ -246,8 +246,16 @@ export function ResolutionCenter({
         setShowResolutionModal(false)
         setSelectedItem(null)
       } else {
-        const errorData = await response?.json?.()
-        throw new Error(errorData?.error || 'Resolution failed')
+        let errorMessage = 'Resolution failed'
+        try {
+          if (response && 'json' in response) {
+            const errorData = await response.json()
+            errorMessage = errorData?.error || errorMessage
+          }
+        } catch {
+          // Ignore JSON parsing errors
+        }
+        throw new Error(errorMessage)
       }
     } catch (error) {
       console.error('Error resolving conflict:', error)
