@@ -40,7 +40,7 @@ export function useTravelData() {
       )
       
       // Transform detailed entries to PresenceDay format
-      const presenceData: PresenceDay[] = (report.detailedEntries || []).map((entry: any) => ({
+      const presenceData: PresenceDay[] = ((report as any).detailedEntries || []).map((entry: any) => ({
         date: entry.date,
         country: entry.country || 'Unknown',
         attribution: entry.transportType || 'manual_entry',
