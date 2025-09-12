@@ -2,11 +2,11 @@ import React, { useState, useRef, useCallback } from 'react';
 import { 
   processBatchPassportImages, 
   optimizeBatchProcessing 
-} from '../services/firebaseFunctions';
+} from '@/services/supabaseService';
 import type { 
   BatchProcessingResult, 
   OptimizationResult 
-} from '../types/firebase';
+} from '@/types/universal';
 import { Button } from './ui/Button';
 import Card from './ui/Card';
 
@@ -116,17 +116,10 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
       setProcessing(true);
       
       // Convert images to base64
-      const imageDataArray = await Promise.all(
-        images.map(async (img) => {
-          const base64 = await compressImageToBase64(img.file, 2000, 0.8).catch(() => fileToBase64(img.file));
-          return {
-            imageData: base64,
-            fileName: img.file.name,
-            size: img.file.size,
-            type: img.file.type
-          };
-        })
-      );
+      const imageDataArray = images.map((img) => ({
+        file: img.file,
+        fileName: img.file.name
+      }));
 
       const result = await processBatchPassportImages(imageDataArray);
       if (result.success) {
@@ -319,29 +312,29 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">
-                {optimization.data.batchSize}
+                {optimization.data?.batchSize || 0}
               </div>
               <div className="text-sm text-blue-600">Images</div>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-green-600">
-                ${optimization.data.estimatedCost.toFixed(2)}
+                ${optimization.data?.estimatedCost?.toFixed(2) || '0.00'}
               </div>
               <div className="text-sm text-green-600">Estimated Cost</div>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-purple-600">
-                {optimization.data.suggestedBatchSize}
+                {optimization.data?.suggestedBatchSize || 0}
               </div>
               <div className="text-sm text-purple-600">Suggested Batch Size</div>
             </div>
           </div>
 
-          {optimization.data.optimizations.length > 0 && (
+          {optimization.data?.optimizations && optimization.data.optimizations.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-900 mb-2">Recommendations:</h4>
               <div className="space-y-2">
-                {optimization.data.optimizations.map((opt, index) => (
+                {optimization.data?.optimizations?.map((opt, index) => (
                   <div key={index} className="flex items-start space-x-2 p-3 bg-yellow-50 rounded-lg">
                     <div className="text-yellow-600 mt-0.5">
                       {opt.impact === 'performance' ? '⚡' : '💰'}
@@ -372,31 +365,31 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-blue-50 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {processingResult.data.total}
+                {processingResult.data?.total || 0}
               </div>
               <div className="text-sm text-blue-600">Total</div>
             </div>
             <div className="bg-green-50 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-green-600">
-                {processingResult.data.processed}
+                {processingResult.data?.processed || 0}
               </div>
               <div className="text-sm text-green-600">Processed</div>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {processingResult.data.cached}
+                {processingResult.data?.cached || 0}
               </div>
               <div className="text-sm text-purple-600">Cached</div>
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-yellow-600">
-                {processingResult.data.duplicateCount}
+                {processingResult.data?.duplicateCount || 0}
               </div>
               <div className="text-sm text-yellow-600">Duplicates</div>
             </div>
             <div className="bg-red-50 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-red-600">
-                {processingResult.data.errorCount}
+                {processingResult.data?.errorCount || 0}
               </div>
               <div className="text-sm text-red-600">Errors</div>
             </div>
@@ -406,7 +399,7 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-gray-900">Processed Images:</h4>
             <div className="space-y-2">
-              {processingResult.data.scans.map((scan, index) => (
+              {processingResult.data?.scans?.map((scan, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="text-sm font-medium text-gray-900">
@@ -425,11 +418,11 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
               ))}
             </div>
 
-            {processingResult.data.errors.length > 0 && (
+            {processingResult.data?.errors && processingResult.data.errors.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Errors:</h4>
                 <div className="space-y-2">
-                  {processingResult.data.errors.map((error, index) => (
+                  {processingResult.data?.errors?.map((error, index) => (
                     <div key={index} className="p-3 bg-red-50 rounded-lg">
                       <div className="text-sm font-medium text-red-800">
                         {error.fileName}

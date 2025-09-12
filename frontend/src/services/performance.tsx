@@ -1,152 +1,111 @@
-// Firebase Performance Monitoring service for tracking app performance metrics
+// Mock Performance Monitoring service - Firebase removed, keeping interface for compatibility
 
 import React from 'react';
-import { getPerformance, trace } from 'firebase/performance'
-import { getApp } from 'firebase/app'
 
-// Performance service class
+// Mock Performance service class
 class PerformanceService {
   private performance: any = null
-  private isInitialized = false
+  private isInitialized = true // Always true for mock
   private activeTraces: Map<string, any> = new Map()
 
   constructor() {
-    this.initialize()
-  }
-
-  private initialize() {
-    try {
-      // Only initialize in browser environment
-      if (typeof window !== 'undefined') {
-        const app = getApp()
-        this.performance = getPerformance(app)
-        this.isInitialized = true
-        console.log('Performance monitoring initialized successfully')
-      }
-    } catch (error) {
-      console.warn('Performance monitoring initialization failed:', error)
-    }
+    console.log('Mock Performance monitoring initialized')
   }
 
   // Check if performance monitoring is available
   isAvailable(): boolean {
-    return this.isInitialized && this.performance !== null
+    return this.isInitialized
   }
 
   // Start a custom trace
   startTrace(traceName: string): any | null {
-    if (!this.isAvailable()) return null
-
-    try {
-      const traceInstance = trace(this.performance, traceName)
-      traceInstance.start()
-      this.activeTraces.set(traceName, traceInstance)
-      return traceInstance
-    } catch (error) {
-      console.warn('Failed to start trace:', error)
-      return null
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Start trace', traceName)
     }
+    
+    const mockTrace = {
+      name: traceName,
+      startTime: performance.now(),
+      attributes: new Map<string, string>(),
+      metrics: new Map<string, number>()
+    }
+    
+    this.activeTraces.set(traceName, mockTrace)
+    return mockTrace
   }
 
   // Stop a custom trace
   stopTrace(traceName: string): void {
-    if (!this.isAvailable()) return
-
-    try {
-      const traceInstance = this.activeTraces.get(traceName)
-      if (traceInstance) {
-        traceInstance.stop()
-        this.activeTraces.delete(traceName)
-      }
-    } catch (error) {
-      console.warn('Failed to stop trace:', error)
+    const traceInstance = this.activeTraces.get(traceName)
+    if (traceInstance && process.env.NODE_ENV === 'development') {
+      const duration = performance.now() - traceInstance.startTime
+      console.log('Mock Performance: Stop trace', traceName, `${duration.toFixed(2)}ms`)
     }
+    this.activeTraces.delete(traceName)
   }
 
   // Add metric to a trace
   addMetric(traceName: string, metricName: string, value: number): void {
-    if (!this.isAvailable()) return
-
-    try {
-      const traceInstance = this.activeTraces.get(traceName)
-      if (traceInstance) {
-        traceInstance.putMetric(metricName, value)
+    const traceInstance = this.activeTraces.get(traceName)
+    if (traceInstance) {
+      traceInstance.metrics.set(metricName, value)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Mock Performance: Add metric', traceName, metricName, value)
       }
-    } catch (error) {
-      console.warn('Failed to add metric:', error)
     }
   }
 
   // Add attribute to a trace
   addAttribute(traceName: string, attributeName: string, value: string): void {
-    if (!this.isAvailable()) return
-
-    try {
-      const traceInstance = this.activeTraces.get(traceName)
-      if (traceInstance) {
-        traceInstance.putAttribute(attributeName, value)
+    const traceInstance = this.activeTraces.get(traceName)
+    if (traceInstance) {
+      traceInstance.attributes.set(attributeName, value)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Mock Performance: Add attribute', traceName, attributeName, value)
       }
-    } catch (error) {
-      console.warn('Failed to add attribute:', error)
     }
   }
 
   // Track page load performance
   trackPageLoad(pageName: string): void {
-    if (!this.isAvailable()) return
-
-    try {
-      const traceInstance = this.startTrace(`page_load_${pageName}`)
-      if (traceInstance) {
-        traceInstance.putAttribute('page_name', pageName)
-        
-        // Track when page is fully loaded
-        if (typeof window !== 'undefined') {
-          window.addEventListener('load', () => {
-            this.stopTrace(`page_load_${pageName}`)
-          })
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to track page load:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Track page load', pageName)
+    }
+    
+    const traceInstance = this.startTrace(`page_load_${pageName}`)
+    if (traceInstance) {
+      this.addAttribute(`page_load_${pageName}`, 'page_name', pageName)
+      
+      // Mock completion after a short delay
+      setTimeout(() => {
+        this.stopTrace(`page_load_${pageName}`)
+      }, 100)
     }
   }
 
   // Track API call performance
   trackApiCall(endpoint: string, method: string): { stop: (success: boolean, responseTime?: number) => void } {
-    if (!this.isAvailable()) {
-      return { stop: () => {} }
-    }
-
     const traceName = `api_call_${method}_${endpoint.replace(/[^a-zA-Z0-9]/g, '_')}`
     const startTime = performance.now()
     
-    try {
-      const traceInstance = this.startTrace(traceName)
-      if (traceInstance) {
-        traceInstance.putAttribute('endpoint', endpoint)
-        traceInstance.putAttribute('method', method)
-      }
-    } catch (error) {
-      console.warn('Failed to start API trace:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Track API call', method, endpoint)
+    }
+    
+    const traceInstance = this.startTrace(traceName)
+    if (traceInstance) {
+      this.addAttribute(traceName, 'endpoint', endpoint)
+      this.addAttribute(traceName, 'method', method)
     }
 
     return {
       stop: (success: boolean, responseTime?: number) => {
-        try {
-          const actualResponseTime = responseTime || (performance.now() - startTime)
-          
-          if (this.activeTraces.has(traceName)) {
-            const traceInstance = this.activeTraces.get(traceName)
-            if (traceInstance) {
-              traceInstance.putAttribute('success', success.toString())
-              traceInstance.putMetric('response_time', actualResponseTime)
-              traceInstance.stop()
-              this.activeTraces.delete(traceName)
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to stop API trace:', error)
+        const actualResponseTime = responseTime || (performance.now() - startTime)
+        
+        if (this.activeTraces.has(traceName)) {
+          this.addAttribute(traceName, 'success', success.toString())
+          this.addMetric(traceName, 'response_time', actualResponseTime)
+          this.stopTrace(traceName)
         }
       }
     }
@@ -154,46 +113,34 @@ class PerformanceService {
 
   // Track function call performance
   trackFunctionCall(functionName: string): { stop: (success: boolean, result?: any) => void } {
-    if (!this.isAvailable()) {
-      return { stop: () => {} }
-    }
-
     const traceName = `function_call_${functionName}`
     const startTime = performance.now()
     
-    try {
-      const traceInstance = this.startTrace(traceName)
-      if (traceInstance) {
-        traceInstance.putAttribute('function_name', functionName)
-      }
-    } catch (error) {
-      console.warn('Failed to start function trace:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Track function call', functionName)
+    }
+    
+    const traceInstance = this.startTrace(traceName)
+    if (traceInstance) {
+      this.addAttribute(traceName, 'function_name', functionName)
     }
 
     return {
       stop: (success: boolean, result?: any) => {
-        try {
-          const executionTime = performance.now() - startTime
+        const executionTime = performance.now() - startTime
+        
+        if (this.activeTraces.has(traceName)) {
+          this.addAttribute(traceName, 'success', success.toString())
+          this.addMetric(traceName, 'execution_time', executionTime)
           
-          if (this.activeTraces.has(traceName)) {
-            const traceInstance = this.activeTraces.get(traceName)
-            if (traceInstance) {
-              traceInstance.putAttribute('success', success.toString())
-              traceInstance.putMetric('execution_time', executionTime)
-              
-              if (result && typeof result === 'object') {
-                traceInstance.putAttribute('result_type', typeof result)
-                if (result.size) {
-                  traceInstance.putMetric('result_size', result.size)
-                }
-              }
-              
-              traceInstance.stop()
-              this.activeTraces.delete(traceName)
+          if (result && typeof result === 'object') {
+            this.addAttribute(traceName, 'result_type', typeof result)
+            if (result.size) {
+              this.addMetric(traceName, 'result_size', result.size)
             }
           }
-        } catch (error) {
-          console.warn('Failed to stop function trace:', error)
+          
+          this.stopTrace(traceName)
         }
       }
     }
@@ -201,39 +148,27 @@ class PerformanceService {
 
   // Track image processing performance
   trackImageProcessing(imageSize: number, processingType: 'ocr' | 'upload' | 'resize'): { stop: (success: boolean, processingTime?: number) => void } {
-    if (!this.isAvailable()) {
-      return { stop: () => {} }
-    }
-
     const traceName = `image_processing_${processingType}`
     const startTime = performance.now()
     
-    try {
-      const traceInstance = this.startTrace(traceName)
-      if (traceInstance) {
-        traceInstance.putAttribute('processing_type', processingType)
-        traceInstance.putMetric('image_size', imageSize)
-      }
-    } catch (error) {
-      console.warn('Failed to start image processing trace:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Track image processing', processingType, `${imageSize} bytes`)
+    }
+    
+    const traceInstance = this.startTrace(traceName)
+    if (traceInstance) {
+      this.addAttribute(traceName, 'processing_type', processingType)
+      this.addMetric(traceName, 'image_size', imageSize)
     }
 
     return {
       stop: (success: boolean, processingTime?: number) => {
-        try {
-          const actualProcessingTime = processingTime || (performance.now() - startTime)
-          
-          if (this.activeTraces.has(traceName)) {
-            const traceInstance = this.activeTraces.get(traceName)
-            if (traceInstance) {
-              traceInstance.putAttribute('success', success.toString())
-              traceInstance.putMetric('processing_time', actualProcessingTime)
-              traceInstance.stop()
-              this.activeTraces.delete(traceName)
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to stop image processing trace:', error)
+        const actualProcessingTime = processingTime || (performance.now() - startTime)
+        
+        if (this.activeTraces.has(traceName)) {
+          this.addAttribute(traceName, 'success', success.toString())
+          this.addMetric(traceName, 'processing_time', actualProcessingTime)
+          this.stopTrace(traceName)
         }
       }
     }
@@ -241,39 +176,27 @@ class PerformanceService {
 
   // Track file upload performance
   trackFileUpload(fileName: string, fileSize: number): { stop: (success: boolean, uploadTime?: number) => void } {
-    if (!this.isAvailable()) {
-      return { stop: () => {} }
-    }
-
     const traceName = `file_upload_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`
     const startTime = performance.now()
     
-    try {
-      const traceInstance = this.startTrace(traceName)
-      if (traceInstance) {
-        traceInstance.putAttribute('file_name', fileName)
-        traceInstance.putMetric('file_size', fileSize)
-      }
-    } catch (error) {
-      console.warn('Failed to start file upload trace:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Track file upload', fileName, `${fileSize} bytes`)
+    }
+    
+    const traceInstance = this.startTrace(traceName)
+    if (traceInstance) {
+      this.addAttribute(traceName, 'file_name', fileName)
+      this.addMetric(traceName, 'file_size', fileSize)
     }
 
     return {
       stop: (success: boolean, uploadTime?: number) => {
-        try {
-          const actualUploadTime = uploadTime || (performance.now() - startTime)
-          
-          if (this.activeTraces.has(traceName)) {
-            const traceInstance = this.activeTraces.get(traceName)
-            if (traceInstance) {
-              traceInstance.putAttribute('success', success.toString())
-              traceInstance.putMetric('upload_time', actualUploadTime)
-              traceInstance.stop()
-              this.activeTraces.delete(traceName)
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to stop file upload trace:', error)
+        const actualUploadTime = uploadTime || (performance.now() - startTime)
+        
+        if (this.activeTraces.has(traceName)) {
+          this.addAttribute(traceName, 'success', success.toString())
+          this.addMetric(traceName, 'upload_time', actualUploadTime)
+          this.stopTrace(traceName)
         }
       }
     }
@@ -281,43 +204,31 @@ class PerformanceService {
 
   // Track email sync performance
   trackEmailSync(provider: 'gmail' | 'office365'): { stop: (success: boolean, emailCount?: number, syncTime?: number) => void } {
-    if (!this.isAvailable()) {
-      return { stop: () => {} }
-    }
-
     const traceName = `email_sync_${provider}`
     const startTime = performance.now()
     
-    try {
-      const traceInstance = this.startTrace(traceName)
-      if (traceInstance) {
-        traceInstance.putAttribute('provider', provider)
-      }
-    } catch (error) {
-      console.warn('Failed to start email sync trace:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Track email sync', provider)
+    }
+    
+    const traceInstance = this.startTrace(traceName)
+    if (traceInstance) {
+      this.addAttribute(traceName, 'provider', provider)
     }
 
     return {
       stop: (success: boolean, emailCount?: number, syncTime?: number) => {
-        try {
-          const actualSyncTime = syncTime || (performance.now() - startTime)
+        const actualSyncTime = syncTime || (performance.now() - startTime)
+        
+        if (this.activeTraces.has(traceName)) {
+          this.addAttribute(traceName, 'success', success.toString())
+          this.addMetric(traceName, 'sync_time', actualSyncTime)
           
-          if (this.activeTraces.has(traceName)) {
-            const traceInstance = this.activeTraces.get(traceName)
-            if (traceInstance) {
-              traceInstance.putAttribute('success', success.toString())
-              traceInstance.putMetric('sync_time', actualSyncTime)
-              
-              if (emailCount !== undefined) {
-                traceInstance.putMetric('email_count', emailCount)
-              }
-              
-              traceInstance.stop()
-              this.activeTraces.delete(traceName)
-            }
+          if (emailCount !== undefined) {
+            this.addMetric(traceName, 'email_count', emailCount)
           }
-        } catch (error) {
-          console.warn('Failed to stop email sync trace:', error)
+          
+          this.stopTrace(traceName)
         }
       }
     }
@@ -325,43 +236,31 @@ class PerformanceService {
 
   // Track report generation performance
   trackReportGeneration(reportType: 'uscis' | 'summary'): { stop: (success: boolean, entryCount?: number, generationTime?: number) => void } {
-    if (!this.isAvailable()) {
-      return { stop: () => {} }
-    }
-
     const traceName = `report_generation_${reportType}`
     const startTime = performance.now()
     
-    try {
-      const traceInstance = this.startTrace(traceName)
-      if (traceInstance) {
-        traceInstance.putAttribute('report_type', reportType)
-      }
-    } catch (error) {
-      console.warn('Failed to start report generation trace:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Track report generation', reportType)
+    }
+    
+    const traceInstance = this.startTrace(traceName)
+    if (traceInstance) {
+      this.addAttribute(traceName, 'report_type', reportType)
     }
 
     return {
       stop: (success: boolean, entryCount?: number, generationTime?: number) => {
-        try {
-          const actualGenerationTime = generationTime || (performance.now() - startTime)
+        const actualGenerationTime = generationTime || (performance.now() - startTime)
+        
+        if (this.activeTraces.has(traceName)) {
+          this.addAttribute(traceName, 'success', success.toString())
+          this.addMetric(traceName, 'generation_time', actualGenerationTime)
           
-          if (this.activeTraces.has(traceName)) {
-            const traceInstance = this.activeTraces.get(traceName)
-            if (traceInstance) {
-              traceInstance.putAttribute('success', success.toString())
-              traceInstance.putMetric('generation_time', actualGenerationTime)
-              
-              if (entryCount !== undefined) {
-                traceInstance.putMetric('entry_count', entryCount)
-              }
-              
-              traceInstance.stop()
-              this.activeTraces.delete(traceName)
-            }
+          if (entryCount !== undefined) {
+            this.addMetric(traceName, 'entry_count', entryCount)
           }
-        } catch (error) {
-          console.warn('Failed to stop report generation trace:', error)
+          
+          this.stopTrace(traceName)
         }
       }
     }
@@ -369,35 +268,18 @@ class PerformanceService {
 
   // Get performance metrics
   getPerformanceMetrics(): Record<string, any> {
-    if (!this.isAvailable()) return {}
-
-    try {
-      // This would typically involve querying Firebase Performance data
-      // For now, we'll return basic information
-      return {
-        active_traces: this.activeTraces.size,
-        is_available: this.isAvailable()
-      }
-    } catch (error) {
-      console.warn('Failed to get performance metrics:', error)
-      return {}
+    return {
+      active_traces: this.activeTraces.size,
+      is_available: this.isAvailable()
     }
   }
 
   // Clear all active traces
   clearActiveTraces(): void {
-    try {
-      this.activeTraces.forEach((trace, name) => {
-        try {
-          trace.stop()
-        } catch (error) {
-          console.warn(`Failed to stop trace ${name}:`, error)
-        }
-      })
-      this.activeTraces.clear()
-    } catch (error) {
-      console.warn('Failed to clear active traces:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Performance: Clear active traces', this.activeTraces.size)
     }
+    this.activeTraces.clear()
   }
 }
 

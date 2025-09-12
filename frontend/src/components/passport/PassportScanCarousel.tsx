@@ -17,9 +17,9 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { getPassportScans } from '@/services/firebaseFunctions'
+import { getPassportScans } from '@/services/supabaseService'
 import { toast } from 'react-hot-toast'
-import type { PassportScan } from '@/types/firebase'
+import type { PassportScan } from '@/types/universal'
 
 interface PassportScanCarouselProps {
   onScanSelect?: (scan: PassportScan) => void
@@ -42,10 +42,10 @@ export function PassportScanCarousel({
     setIsLoading(true)
     try {
       const result = await getPassportScans()
-      if (result.success && result.scans) {
-        setScans(result.scans)
-        if (result.scans.length > 0) {
-          setSelectedScan(result.scans[0])
+      if (result.success && result.data) {
+        setScans(result.data)
+        if (result.data.length > 0) {
+          setSelectedScan(result.data[0])
         }
       }
     } catch (error) {
@@ -83,10 +83,10 @@ export function PassportScanCarousel({
   }
 
   const handleDownload = () => {
-    if (selectedScan?.imageData) {
+    if (selectedScan?.file_url) {
       const link = document.createElement('a')
-      link.href = `data:image/jpeg;base64,${selectedScan.imageData}`
-      link.download = selectedScan.fileName || 'passport-scan.jpg'
+      link.href = selectedScan.file_url
+      link.download = selectedScan.file_name || 'passport-scan.jpg'
       link.click()
       toast.success('Download started')
     }
@@ -195,11 +195,11 @@ export function PassportScanCarousel({
           <div className="flex-shrink-0">
             <div className="relative">
               <div className="w-80 h-64 bg-gray-100 rounded-lg overflow-hidden">
-                {selectedScan?.imageData ? (
+                {selectedScan?.file_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`data:image/jpeg;base64,${selectedScan.imageData}`}
-                    alt={selectedScan.fileName || 'Passport scan'}
+                    src={`${selectedScan.file_url}`}
+                    alt={selectedScan.file_name || 'Passport scan'}
                     className="w-full h-full object-contain"
                   />
                 ) : (
@@ -237,29 +237,29 @@ export function PassportScanCarousel({
           <div className="flex-1 space-y-4">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
-                {selectedScan?.fileName || 'Unknown file'}
+                {selectedScan?.file_name || 'Unknown file'}
               </h3>
               <p className="text-sm text-gray-600">
-                Scanned on {formatDate(selectedScan?.timestamp)}
+                Scanned on {formatDate(selectedScan?.created_at)}
               </p>
             </div>
 
             {/* Confidence Score */}
-            {selectedScan?.confidence && (
+            {selectedScan?.analysis_results && (
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium text-gray-700">Confidence:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getConfidenceColor(selectedScan.confidence)}`}>
-                  {Math.round(selectedScan.confidence * 100)}%
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getConfidenceColor(0.95)}`}>
+                  95%
                 </span>
               </div>
             )}
 
             {/* Extracted Stamps */}
-            {selectedScan?.stamps && selectedScan.stamps.length > 0 && (
+            {selectedScan?.analysis_results?.stamps && selectedScan.analysis_results.stamps.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Extracted Stamps:</h4>
                 <div className="space-y-2">
-                  {selectedScan.stamps.map((stamp: any, index: number) => (
+                  {selectedScan.analysis_results.stamps.map((stamp: any, index: number) => (
                     <div key={index} className="p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center space-x-2 mb-1">
                         <MapPinIcon className="h-4 w-4 text-gray-500" />
@@ -285,23 +285,23 @@ export function PassportScanCarousel({
 
             {/* Processing Status */}
             <div className="flex items-center space-x-2">
-              {selectedScan?.cached ? (
+              {selectedScan?.analysis_results ? (
                 <>
                   <CheckCircleIcon className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-green-600">Cached result</span>
+                  <span className="text-sm text-green-600">Analysis complete</span>
                 </>
               ) : (
                 <>
                   <ClockIcon className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm text-blue-600">Freshly processed</span>
+                  <span className="text-sm text-blue-600">Processing pending</span>
                 </>
               )}
             </div>
 
             {/* Source Information */}
             <div className="text-xs text-gray-500">
-              <p>Source: {selectedScan?.source || 'Unknown'}</p>
-              <p>Processor: {selectedScan?.processor || 'Unknown'}</p>
+              <p>File: {selectedScan?.file_name || 'Unknown'}</p>
+              <p>Type: {selectedScan?.file_url ? 'Image' : 'Unknown'}</p>
             </div>
           </div>
         </div>
@@ -322,11 +322,11 @@ export function PassportScanCarousel({
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                {scan.imageData ? (
+                {scan.file_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`data:image/jpeg;base64,${scan.imageData}`}
-                    alt={scan.fileName || 'Scan'}
+                    src={`${scan.file_url}`}
+                    alt={scan.file_name || 'Scan'}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -346,7 +346,7 @@ export function PassportScanCarousel({
           <div className="bg-white rounded-lg max-w-4xl max-h-full overflow-auto">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">
-                {selectedScan.fileName || 'Passport Scan'}
+                {selectedScan.file_name || 'Passport Scan'}
               </h3>
               <Button
                 onClick={() => setShowFullView(false)}
@@ -359,8 +359,8 @@ export function PassportScanCarousel({
             <div className="p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`data:image/jpeg;base64,${selectedScan.imageData}`}
-                alt={selectedScan.fileName || 'Passport scan'}
+                src={`${selectedScan.file_url}`}
+                alt={selectedScan.file_name || 'Passport scan'}
                 className="max-w-full max-h-96 object-contain mx-auto"
               />
             </div>

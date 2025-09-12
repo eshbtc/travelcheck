@@ -1,9 +1,9 @@
-// Firebase Analytics service for tracking user interactions and app performance
+// Mock Analytics service - Firebase removed, keeping interface for compatibility
 
 import React from 'react';
-import { getAnalytics, logEvent, setUserId, setUserProperties, Analytics } from 'firebase/analytics'
-import { getApp } from 'firebase/app'
-import { User } from 'firebase/auth'
+
+// Mock user type for compatibility
+type User = { id: string; email?: string; [key: string]: any }
 
 // Analytics event names
 export const AnalyticsEvents = {
@@ -50,63 +50,30 @@ export const AnalyticsEvents = {
   PASSPORT_DATA_EXTRACTED: 'passport_data_extracted'
 }
 
-// Analytics service class
+// Mock Analytics service class
 class AnalyticsService {
-  private analytics: Analytics | null = null
-  private isInitialized = false
+  private isInitialized = true // Always true for mock
 
   constructor() {
-    this.initialize()
-  }
-
-  private initialize() {
-    try {
-      // Only initialize in browser environment
-      if (typeof window !== 'undefined') {
-        const app = getApp()
-        this.analytics = getAnalytics(app)
-        this.isInitialized = true
-        console.log('Analytics initialized successfully')
-      }
-    } catch (error) {
-      console.warn('Analytics initialization failed:', error)
-      this.isInitialized = false
-    }
+    console.log('Mock Analytics service initialized')
   }
 
   // Check if analytics is available
   isAvailable(): boolean {
-    return this.isInitialized && this.analytics !== null
+    return this.isInitialized
   }
 
   // Set user ID for analytics
   setUser(user: User | null) {
-    if (!this.isAvailable() || !user) return
-
-    try {
-      setUserId(this.analytics!, user.uid)
-      setUserProperties(this.analytics!, {
-        email: user.email,
-        email_verified: user.emailVerified,
-        created_at: user.metadata.creationTime,
-        last_sign_in: user.metadata.lastSignInTime
-      })
-    } catch (error) {
-      console.warn('Failed to set user analytics:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Analytics: Set user', user?.id)
     }
   }
 
   // Log custom event
   logEvent(eventName: string, parameters?: Record<string, any>) {
-    if (!this.isAvailable()) return
-
-    try {
-      logEvent(this.analytics!, eventName, {
-        timestamp: new Date().toISOString(),
-        ...parameters
-      })
-    } catch (error) {
-      console.warn('Failed to log analytics event:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Analytics Event:', eventName, parameters)
     }
   }
 

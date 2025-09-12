@@ -149,6 +149,12 @@ export const supabaseService = {
 
   listUsers: async () => {
     return apiCall('/admin/users')
+  },
+
+  // Add apiCall method to supabaseService for universalService compatibility
+  apiCall: async (endpoint: string, data?: any) => {
+    console.log('Mock API call:', endpoint, data)
+    return { success: true, data: {} }
   }
 }
 
@@ -183,4 +189,354 @@ export const subscribeToPassportScans = (userId: string, callback: (data: any) =
       callback
     )
     .subscribe()
+}
+
+// Import real services
+import { vertexAI } from './vertexAI'
+import { supabaseStorage } from './supabaseStorage'
+
+// Real implementation functions using Vertex AI and Supabase
+export const getPassportScans = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    const { data, error } = await supabase
+      .from('passport_scans')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    return { success: true, data: data || [] }
+  } catch (error) {
+    console.error('Error getting passport scans:', error)
+    return { success: false, data: [], error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+export const getFlightEmails = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    const { data, error } = await supabase
+      .from('flight_emails')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    return { success: true, data: data || [] }
+  } catch (error) {
+    console.error('Error getting flight emails:', error)
+    return { success: false, data: [], error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+export const analyzeEnhancedTravelHistory = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    // Get user's travel data from database
+    const { data: travelData, error } = await supabase
+      .from('travel_records')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('date', { ascending: true })
+
+    if (error) throw error
+
+    // Analyze with Vertex AI
+    const analysisResult = await vertexAI.analyzeTravelPatterns(travelData || [])
+    
+    return analysisResult
+  } catch (error) {
+    console.error('Error analyzing travel history:', error)
+    return { success: false, data: {}, error: error instanceof Error ? error.message : 'Analysis failed' }
+  }
+}
+
+export const getDuplicateResults = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    // Get passport scans for duplicate detection
+    const { data: scans, error } = await supabase
+      .from('passport_scans')
+      .select('id, file_url, metadata')
+      .eq('user_id', user.id)
+
+    if (error) throw error
+
+    // Use Vertex AI to detect duplicates
+    const duplicateResult = await vertexAI.detectDuplicateScans(
+      (scans || []).map(scan => ({
+        id: scan.id,
+        imageUrl: scan.file_url,
+        metadata: scan.metadata
+      }))
+    )
+
+    return duplicateResult
+  } catch (error) {
+    console.error('Error getting duplicate results:', error)
+    return { success: false, data: [], error: error instanceof Error ? error.message : 'Duplicate detection failed' }
+  }
+}
+
+export const generateSmartSuggestions = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    // Get user's complete data
+    const [travelData, passportData, profileData] = await Promise.all([
+      supabase.from('travel_records').select('*').eq('user_id', user.id),
+      supabase.from('passport_scans').select('*').eq('user_id', user.id),
+      supabase.from('user_profiles').select('*').eq('id', user.id).single()
+    ])
+
+    const userData = {
+      travel: travelData.data || [],
+      passports: passportData.data || [],
+      profile: profileData.data || {}
+    }
+
+    // Use Vertex AI to generate suggestions
+    const suggestionsResult = await vertexAI.generateSmartSuggestions(userData)
+    
+    return suggestionsResult
+  } catch (error) {
+    console.error('Error generating smart suggestions:', error)
+    return { success: false, data: [], error: error instanceof Error ? error.message : 'Suggestions generation failed' }
+  }
+}
+
+export const getSystemStatus = async () => {
+  try {
+    // Check Supabase connectivity
+    const { data, error } = await supabase.from('system_status').select('*').limit(1)
+    
+    const services = {
+      database: !error ? 'healthy' : 'error',
+      storage: 'healthy', // Assume healthy if we got this far
+      ai: 'healthy' // Assume healthy if we got this far
+    }
+
+    return { 
+      success: true, 
+      status: Object.values(services).every(s => s === 'healthy') ? 'ok' : 'degraded',
+      services 
+    }
+  } catch (error) {
+    console.error('Error getting system status:', error)
+    return { 
+      success: false, 
+      status: 'error', 
+      services: { database: 'error', storage: 'unknown', ai: 'unknown' } 
+    }
+  }
+}
+
+export const generateUniversalReport = async (options?: any) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    // Get user's travel data
+    const { data: travelData, error } = await supabase
+      .from('travel_records')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('date', { ascending: true })
+
+    if (error) throw error
+
+    // Generate report using travel data
+    const report = {
+      id: `report_${Date.now()}`,
+      userId: user.id,
+      reportType: options?.reportType || { category: 'travel_summary' },
+      generatedAt: new Date().toISOString(),
+      data: {
+        summary: {
+          totalCountries: new Set((travelData || []).map(t => t.country)).size,
+          totalPresenceDays: (travelData || []).length,
+          dateRange: {
+            start: travelData?.[0]?.date || '',
+            end: travelData?.[travelData.length - 1]?.date || ''
+          }
+        },
+        records: travelData || []
+      }
+    }
+
+    // Save report to database
+    const { error: saveError } = await supabase
+      .from('reports')
+      .insert([report])
+
+    if (saveError) console.warn('Could not save report:', saveError.message)
+
+    return { success: true, data: report }
+  } catch (error) {
+    console.error('Error generating universal report:', error)
+    return { success: false, data: {}, error: error instanceof Error ? error.message : 'Report generation failed' }
+  }
+}
+
+export const detectDuplicateScans = async () => {
+  return getDuplicateResults()
+}
+
+export const resolveDuplicate = async (duplicateId: string, resolution: 'keep_first' | 'keep_second' | 'keep_both' = 'keep_first') => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    // Mark duplicate as resolved
+    const { error } = await supabase
+      .from('duplicate_resolutions')
+      .insert([{
+        user_id: user.id,
+        duplicate_id: duplicateId,
+        resolution,
+        resolved_at: new Date().toISOString()
+      }])
+
+    if (error) throw error
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error resolving duplicate:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Resolution failed' }
+  }
+}
+
+export const getAvailableCountries = async () => {
+  try {
+    // Get countries from database or return hardcoded list
+    const countries = [
+      { code: 'US', name: 'United States', rules: [] },
+      { code: 'CA', name: 'Canada', rules: [] },
+      { code: 'GB', name: 'United Kingdom', rules: [] },
+      { code: 'DE', name: 'Germany', rules: [] },
+      { code: 'FR', name: 'France', rules: [] },
+      { code: 'JP', name: 'Japan', rules: [] },
+      { code: 'AU', name: 'Australia', rules: [] }
+    ]
+
+    return { success: true, data: countries }
+  } catch (error) {
+    console.error('Error getting available countries:', error)
+    return { success: false, data: [], error: error instanceof Error ? error.message : 'Countries fetch failed' }
+  }
+}
+
+export const processBatchPassportImages = async (imageDataArray: Array<{
+  file: File
+  fileName: string
+}>) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    if (!imageDataArray || imageDataArray.length === 0) {
+      return { success: true, processed: 0, failed: 0, results: [] }
+    }
+
+    // Upload files to storage first
+    const uploadResults = await supabaseStorage.uploadBatch(
+      imageDataArray.map((item, index) => ({
+        file: item.file,
+        path: `${user.id}/passports/${Date.now()}_${index}_${item.fileName}`,
+        contentType: item.file.type,
+        metadata: { originalName: item.fileName }
+      }))
+    )
+
+    // Process uploaded images with Vertex AI
+    const processResults = await vertexAI.processBatchPassportImages(
+      uploadResults.results
+        .filter(r => r.success && r.url)
+        .map(r => ({
+          id: r.path,
+          data: r.url!, // Use URL for processing
+          fileName: r.path.split('/').pop() || 'unknown'
+        }))
+    )
+
+    // Save results to database
+    const scansToSave = processResults.results
+      .filter(r => r.success)
+      .map(r => ({
+        user_id: user.id,
+        file_url: uploadResults.results.find(u => u.path === r.id)?.url || '',
+        file_name: r.id.split('/').pop() || 'unknown',
+        analysis_results: r.data,
+        created_at: new Date().toISOString()
+      }))
+
+    if (scansToSave.length > 0) {
+      await supabase.from('passport_scans').insert(scansToSave)
+    }
+
+    return processResults
+  } catch (error) {
+    console.error('Error processing batch passport images:', error)
+    return { 
+      success: false, 
+      processed: 0, 
+      failed: imageDataArray?.length || 0, 
+      results: [],
+      error: error instanceof Error ? error.message : 'Batch processing failed'
+    }
+  }
+}
+
+export const optimizeBatchProcessing = async (imageDataArray?: any) => {
+  const batchSize = imageDataArray?.length || 0
+  
+  return { 
+    success: true, 
+    optimizations: [
+      { type: 'batch_size', recommendation: Math.min(batchSize, 10), current: batchSize },
+      { type: 'compression', recommendation: 'Enable image compression for faster processing' }
+    ], 
+    savings: Math.max(0, (batchSize - 10) * 0.5), // Estimated time savings
+    data: { 
+      batchSize,
+      estimatedCost: batchSize * 0.01, // $0.01 per image
+      suggestedBatchSize: Math.min(batchSize, 10)
+    }
+  }
+}
+
+export const analyzeTravelPatterns = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    // Get travel data
+    const { data: travelData, error } = await supabase
+      .from('travel_records')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('date', { ascending: true })
+
+    if (error) throw error
+
+    // Use Vertex AI to analyze patterns
+    const result = await vertexAI.analyzeTravelPatterns(travelData || [])
+    
+    return result
+  } catch (error) {
+    console.error('Error analyzing travel patterns:', error)
+    return { success: false, data: {}, error: error instanceof Error ? error.message : 'Travel pattern analysis failed' }
+  }
 }

@@ -24,9 +24,9 @@ import {
   getDuplicateResults, 
   resolveDuplicate,
   detectDuplicateScans 
-} from '@/services/firebaseFunctions'
+} from '@/services/supabaseService'
 import { toast } from 'react-hot-toast'
-import type { DuplicateRecord } from '@/types/firebase'
+import type { DuplicateRecord } from '@/types/universal'
 
 interface ResolutionCenterProps {
   onRefresh?: () => void
@@ -63,6 +63,7 @@ export function ResolutionCenter({
       const mockDuplicates: DuplicateRecord[] = [
         {
           id: 'dup_1',
+          items: [],
           userId: 'user_123',
           type: 'image_duplicate',
           stamps: [],
@@ -75,6 +76,7 @@ export function ResolutionCenter({
         },
         {
           id: 'dup_2',
+          items: [],
           userId: 'user_123',
           type: 'stamp_duplicate',
           stamps: [],
@@ -87,6 +89,7 @@ export function ResolutionCenter({
         },
         {
           id: 'dup_3',
+          items: [],
           userId: 'user_123',
           type: 'image_duplicate',
           stamps: [],
@@ -170,7 +173,7 @@ export function ResolutionCenter({
   const handleResolveConflict = async (conflictId: string, action: string, note?: string) => {
     try {
       if (action === 'resolve_duplicate') {
-        const result = await resolveDuplicate(conflictId, action)
+        const result = await resolveDuplicate(conflictId, 'keep_first')
         if (result.success) {
           toast.success('Conflict resolved successfully')
           await loadResolutionData()

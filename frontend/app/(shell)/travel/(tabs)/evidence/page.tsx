@@ -93,7 +93,7 @@ export default function TravelEvidencePage() {
       {/* Passport Scan Carousel */}
       <PassportScanCarousel
         onScanSelect={(scan) => {
-          toast.success(`Selected scan: ${scan.fileName || 'Unknown'}`)
+          toast.success(`Selected scan: ${scan.file_name || 'Unknown'}`)
         }}
         onScanDelete={(scanId) => {
           toast.success(`Deleted scan: ${scanId}`)

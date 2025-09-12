@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { 
   generateUniversalReport
-} from '@/services/firebaseFunctions'
+} from '@/services/supabaseService'
 import { 
   getBookingIngestionStatus, 
   getIntegrationStatus
@@ -91,8 +91,9 @@ export function StatusTiles({ className = '', loading = false }: StatusTilesProp
   }
 
   // Calculate real metrics from backend data
-  const totalPresenceDays = travelData?.data?.summary?.totalPresenceDays || 0
-  const totalCountries = travelData?.data?.summary?.totalCountries || 0
+  const travelSummary = (travelData?.data as any)?.summary
+  const totalPresenceDays = travelSummary?.totalPresenceDays || 0
+  const totalCountries = travelSummary?.totalCountries || 0
   const totalReports = Array.isArray(reports) ? reports.length : 0
   const connectedIntegrations = Array.isArray(integrationStatus) ? integrationStatus.filter(i => i.isConnected).length : 0
   const totalIntegrations = Array.isArray(integrationStatus) ? integrationStatus.length : 0

@@ -5,27 +5,15 @@ const nextConfig = {
   trailingSlash: true,
   output: 'standalone',
   env: {
-    // Firebase Configuration
-    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCz_VGAx0W2Xkbt3krHDKqma7EkmjlqmwE',
-    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCz_VGAx0W2Xkbt3krHDKqma7EkmjlqmwE',
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'travelcheck-app.web.app',
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travelcheck-app',
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'travelcheck-app.firebasestorage.app',
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '981756606771',
-    NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:981756606771:web:4b2bffe7f62d446561e646',
-    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-N265JCR2HG',
-    
-    // App Check
-    NEXT_PUBLIC_RECAPTCHA_SITE_KEY: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcM6sIrAAAAAOV54k9O85aKNfRVt96Dzhs2wRu4',
+    // Supabase Configuration (replacing Firebase)
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     
     // API Configuration
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://us-central1-travelcheck-app.cloudfunctions.net',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api',
     
     // Application
     NEXT_PUBLIC_APP_NAME: 'Travel History Tracker',
-    
-    // Try popup-based auth instead of redirect
-    NEXT_PUBLIC_AUTH_USE_REDIRECT: 'false',
   },
   images: {
     unoptimized: true,

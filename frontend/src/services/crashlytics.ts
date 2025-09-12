@@ -1,290 +1,133 @@
-// Firebase Crashlytics service for error tracking and crash reporting
-// Note: Crashlytics is not available in web SDK, using console logging as fallback
+// Mock Crashlytics service - Firebase removed, keeping interface for compatibility
 
-import { getApp } from 'firebase/app'
-import { User } from 'firebase/auth'
+import type { User } from '@supabase/supabase-js'
 
-// Crashlytics service class
+// Mock user type for compatibility
+type MockUser = { id: string; email?: string; [key: string]: any }
+
+// Crashlytics service class - now a mock implementation
 class CrashlyticsService {
   private crashlytics: any = null
-  private isInitialized = false
+  private isInitialized = true // Always true for mock
 
   constructor() {
-    this.initialize()
-  }
-
-  private initialize() {
-    try {
-      // Mock implementation since crashlytics is not available in web SDK
-      // Disabled verbose logging in production
-      this.crashlytics = {
-        log: (message: string) => {}, // Silent
-        setUserId: (userId: string) => {}, // Silent  
-        setCustomKey: (key: string, value: any) => {}, // Silent
-        recordError: (error: Error) => console.error('[Crashlytics] recordError:', error)
-      }
-      this.isInitialized = true
-    } catch (error) {
-      console.warn('Crashlytics initialization failed:', error)
-      this.isInitialized = false
-    }
+    console.log('Mock Crashlytics service initialized')
   }
 
   // Check if crashlytics is available
   isAvailable(): boolean {
-    return this.isInitialized && this.crashlytics !== null
+    return this.isInitialized
   }
 
   // Set user ID for crash reporting
-  setUser(user: User | null) {
-    if (!this.isAvailable() || !user) return
-
-    try {
-      this.crashlytics.setUserId(user.uid)
-      this.crashlytics.setCustomKey('user_email', user.email || '')
-      this.crashlytics.setCustomKey('email_verified', user.emailVerified)
-      this.crashlytics.setCustomKey('created_at', user.metadata.creationTime || '')
-      this.crashlytics.setCustomKey('last_sign_in', user.metadata.lastSignInTime || '')
-    } catch (error) {
-      console.warn('Failed to set user crashlytics:', error)
+  setUser(user: User | MockUser | null) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics: Set user', user?.id)
     }
   }
 
   // Log custom message
   log(message: string) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.crashlytics.log(message)
-    } catch (error) {
-      console.warn('Failed to log crashlytics message:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics Log:', message)
     }
   }
 
   // Set custom key-value pair
   setCustomKey(key: string, value: any) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.crashlytics.setCustomKey(key, value)
-    } catch (error) {
-      console.warn('Failed to set custom key:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics Custom Key:', key, value)
     }
   }
 
   // Record error
   recordError(error: Error, context?: string) {
-    if (!this.isAvailable()) return
-
-    try {
-      // Add context information
-      if (context) {
-        this.setCustomKey('error_context', context)
-      }
-      
-      // Add timestamp
-      this.setCustomKey('error_timestamp', new Date().toISOString())
-      
-      // Record the error
-      this.crashlytics.recordError(error)
-    } catch (crashlyticsError) {
-      console.warn('Failed to record error in crashlytics:', crashlyticsError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Mock Crashlytics Error:', error, context ? `Context: ${context}` : '')
     }
   }
 
   // Record non-fatal error
   recordNonFatalError(error: Error, context?: string) {
-    if (!this.isAvailable()) return
-
-    try {
-      // Add context information
-      if (context) {
-        this.setCustomKey('non_fatal_error_context', context)
-      }
-      
-      // Add timestamp
-      this.setCustomKey('non_fatal_error_timestamp', new Date().toISOString())
-      
-      // Record the error
-      this.crashlytics.recordError(error)
-    } catch (crashlyticsError) {
-      console.warn('Failed to record non-fatal error in crashlytics:', crashlyticsError)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Mock Crashlytics Non-Fatal Error:', error, context ? `Context: ${context}` : '')
     }
   }
 
   // Log user action
   logUserAction(action: string, details?: Record<string, any>) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`User action: ${action}`)
-      
-      if (details) {
-        Object.entries(details).forEach(([key, value]) => {
-          this.setCustomKey(`action_${key}`, value)
-        })
-      }
-    } catch (error) {
-      console.warn('Failed to log user action:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics User Action:', action, details)
     }
   }
 
   // Log feature usage
   logFeatureUsage(feature: string, success: boolean, details?: Record<string, any>) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`Feature usage: ${feature} - ${success ? 'success' : 'failed'}`)
-      this.setCustomKey('feature_name', feature)
-      this.setCustomKey('feature_success', success)
-      
-      if (details) {
-        Object.entries(details).forEach(([key, value]) => {
-          this.setCustomKey(`feature_${key}`, value)
-        })
-      }
-    } catch (error) {
-      console.warn('Failed to log feature usage:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics Feature Usage:', feature, success ? 'success' : 'failed', details)
     }
   }
 
   // Log performance metrics
   logPerformance(metric: string, value: number, unit: string = 'ms') {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`Performance: ${metric} = ${value}${unit}`)
-      this.setCustomKey(`perf_${metric}`, value)
-      this.setCustomKey(`perf_${metric}_unit`, unit)
-    } catch (error) {
-      console.warn('Failed to log performance metric:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics Performance:', `${metric} = ${value}${unit}`)
     }
   }
 
   // Log authentication events
   logAuthEvent(event: string, success: boolean, method?: string) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`Auth event: ${event} - ${success ? 'success' : 'failed'}`)
-      this.setCustomKey('auth_event', event)
-      this.setCustomKey('auth_success', success)
-      
-      if (method) {
-        this.setCustomKey('auth_method', method)
-      }
-    } catch (error) {
-      console.warn('Failed to log auth event:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics Auth Event:', event, success ? 'success' : 'failed', method ? `Method: ${method}` : '')
     }
   }
 
   // Log API calls
   logApiCall(endpoint: string, method: string, success: boolean, responseTime?: number) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`API call: ${method} ${endpoint} - ${success ? 'success' : 'failed'}`)
-      this.setCustomKey('api_endpoint', endpoint)
-      this.setCustomKey('api_method', method)
-      this.setCustomKey('api_success', success)
-      
-      if (responseTime !== undefined) {
-        this.setCustomKey('api_response_time', responseTime)
-      }
-    } catch (error) {
-      console.warn('Failed to log API call:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics API Call:', `${method} ${endpoint}`, success ? 'success' : 'failed', responseTime ? `${responseTime}ms` : '')
     }
   }
 
   // Log file operations
   logFileOperation(operation: string, fileName: string, success: boolean, fileSize?: number) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`File operation: ${operation} ${fileName} - ${success ? 'success' : 'failed'}`)
-      this.setCustomKey('file_operation', operation)
-      this.setCustomKey('file_name', fileName)
-      this.setCustomKey('file_success', success)
-      
-      if (fileSize !== undefined) {
-        this.setCustomKey('file_size', fileSize)
-      }
-    } catch (error) {
-      console.warn('Failed to log file operation:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics File Operation:', `${operation} ${fileName}`, success ? 'success' : 'failed', fileSize ? `${fileSize} bytes` : '')
     }
   }
 
   // Log OCR operations
   logOcrOperation(success: boolean, imageSize?: number, processingTime?: number, textFound?: boolean) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`OCR operation - ${success ? 'success' : 'failed'}`)
-      this.setCustomKey('ocr_success', success)
-      
-      if (imageSize !== undefined) {
-        this.setCustomKey('ocr_image_size', imageSize)
-      }
-      
-      if (processingTime !== undefined) {
-        this.setCustomKey('ocr_processing_time', processingTime)
-      }
-      
-      if (textFound !== undefined) {
-        this.setCustomKey('ocr_text_found', textFound)
-      }
-    } catch (error) {
-      console.warn('Failed to log OCR operation:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics OCR:', success ? 'success' : 'failed', {
+        imageSize,
+        processingTime,
+        textFound
+      })
     }
   }
 
   // Log email operations
   logEmailOperation(provider: 'gmail' | 'office365', operation: string, success: boolean, emailCount?: number) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`Email operation: ${provider} ${operation} - ${success ? 'success' : 'failed'}`)
-      this.setCustomKey('email_provider', provider)
-      this.setCustomKey('email_operation', operation)
-      this.setCustomKey('email_success', success)
-      
-      if (emailCount !== undefined) {
-        this.setCustomKey('email_count', emailCount)
-      }
-    } catch (error) {
-      console.warn('Failed to log email operation:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics Email Operation:', `${provider} ${operation}`, success ? 'success' : 'failed', emailCount ? `${emailCount} emails` : '')
     }
   }
 
   // Log report generation
   logReportGeneration(reportType: 'uscis' | 'summary', success: boolean, entryCount?: number, processingTime?: number) {
-    if (!this.isAvailable()) return
-
-    try {
-      this.log(`Report generation: ${reportType} - ${success ? 'success' : 'failed'}`)
-      this.setCustomKey('report_type', reportType)
-      this.setCustomKey('report_success', success)
-      
-      if (entryCount !== undefined) {
-        this.setCustomKey('report_entry_count', entryCount)
-      }
-      
-      if (processingTime !== undefined) {
-        this.setCustomKey('report_processing_time', processingTime)
-      }
-    } catch (error) {
-      console.warn('Failed to log report generation:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics Report Generation:', reportType, success ? 'success' : 'failed', {
+        entryCount,
+        processingTime
+      })
     }
   }
 
   // Clear user data
   clearUser() {
-    if (!this.isAvailable()) return
-
-    try {
-      this.crashlytics.setUserId(null)
-    } catch (error) {
-      console.warn('Failed to clear user data:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mock Crashlytics: Clear user')
     }
   }
 }
@@ -300,7 +143,9 @@ export function useCrashlytics() {
 // Error boundary integration
 export function recordErrorInCrashlytics(error: Error, errorInfo: any, context?: string) {
   crashlytics.recordError(error, context)
-  crashlytics.setCustomKey('error_info', JSON.stringify(errorInfo))
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Mock Crashlytics Error Info:', errorInfo)
+  }
 }
 
 // Performance monitoring integration

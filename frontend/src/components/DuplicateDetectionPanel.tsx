@@ -3,11 +3,11 @@ import {
   detectDuplicateScans, 
   getDuplicateResults, 
   resolveDuplicate 
-} from '../services/firebaseFunctions';
+} from '@/services/supabaseService';
 import type { 
   DuplicateDetectionResult, 
   DuplicateRecord 
-} from '../types/firebase';
+} from '@/types/universal';
 import { Button } from './ui/Button';
 import Card from './ui/Card';
 
@@ -47,7 +47,7 @@ export const DuplicateDetectionPanel: React.FC<DuplicateDetectionPanelProps> = (
       setDetecting(true);
       const result = await detectDuplicateScans();
       if (result.success && result.data) {
-        setDuplicates(result.data.duplicates || []);
+        setDuplicates(result.data || []);
         if (onRefresh) onRefresh();
       }
     } catch (error) {
@@ -59,7 +59,7 @@ export const DuplicateDetectionPanel: React.FC<DuplicateDetectionPanelProps> = (
 
   const handleResolveDuplicate = async (duplicateId: string, action: string) => {
     try {
-      const result = await resolveDuplicate(duplicateId, action);
+      const result = await resolveDuplicate(duplicateId, action as 'keep_first' | 'keep_second' | 'keep_both');
       if (result.success) {
         // Remove resolved duplicate from list
         setDuplicates(prev => prev.filter(d => d.id !== duplicateId));
@@ -184,8 +184,8 @@ export const DuplicateDetectionPanel: React.FC<DuplicateDetectionPanelProps> = (
                       <h3 className="text-lg font-semibold text-gray-900">
                         {duplicate.type === 'image_duplicate' ? 'Image Duplicate' : 'Stamp Duplicate'}
                       </h3>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSimilarityColor(duplicate.similarity)}`}>
-                        {Math.round(duplicate.similarity * 100)}% Similar
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSimilarityColor(duplicate.similarity || duplicate.confidence)}`}>
+                        {Math.round((duplicate.similarity || duplicate.confidence) * 100)}% Similar
                       </span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getConfidenceColor(duplicate.confidence)}`}>
                         {duplicate.confidence}% Confidence
@@ -193,7 +193,7 @@ export const DuplicateDetectionPanel: React.FC<DuplicateDetectionPanelProps> = (
                     </div>
                     
                     <div className="text-sm text-gray-600 mb-3">
-                      Detected on {new Date(duplicate.detectedAt).toLocaleDateString()}
+                      Detected on {duplicate.detectedAt ? new Date(duplicate.detectedAt).toLocaleDateString() : 'Unknown date'}
                     </div>
 
                     {duplicate.type === 'stamp_duplicate' && duplicate.stamps && (

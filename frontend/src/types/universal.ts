@@ -254,3 +254,140 @@ export interface ExportResult {
   expiresAt?: string;
   metadata: Record<string, any>;
 }
+
+// Additional types to fix import errors
+
+export interface BatchProcessingResult {
+  success: boolean;
+  processed: number;
+  failed: number;
+  results: any[];
+  data?: {
+    total?: number;
+    processed?: number;
+    cached?: number;
+    duplicateCount?: number;
+    errorCount?: number;
+    scans?: any[];
+    errors?: any[];
+  };
+}
+
+export interface OptimizationResult {
+  success: boolean;
+  optimizations: any[];
+  savings: number;
+  data?: {
+    batchSize?: number;
+    estimatedCost?: number;
+    suggestedBatchSize?: number;
+    optimizations?: any[];
+  };
+}
+
+export interface DuplicateDetectionResult {
+  success: boolean;
+  duplicates: DuplicateRecord[];
+  total: number;
+}
+
+export interface DuplicateRecord {
+  id: string;
+  items: any[];
+  confidence: number;
+  type: string;
+  status?: 'pending' | 'resolved' | 'dismissed' | 'pending_review';
+  similarity?: number;
+  detectedAt?: string;
+  stamps?: any[];
+  userId?: string;
+  description?: string;
+  timestamp?: string;
+}
+
+export interface SmartSuggestionsResult {
+  success: boolean;
+  suggestions: any[];
+  data?: {
+    suggestions?: any[];
+    conflictingData?: any[];
+    potentialGaps?: any[];
+    recommendations?: any[];
+    missingEntries?: any[];
+  };
+}
+
+export interface TravelPatternsResult {
+  success: boolean;
+  patterns: any[];
+  data?: {
+    totalTrips?: number;
+    totalCountries?: number;
+    mostFrequentCountry?: string;
+    longestStay?: { days: number; country: string };
+    countriesVisited?: string[];
+    travelFrequency?: Record<string, number>;
+    frequentDestinations?: any[];
+    travelTrends?: any[];
+  };
+}
+
+export interface PotentialGap {
+  id: string;
+  start: string;
+  end: string;
+  confidence: number;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface ConflictData {
+  id: string;
+  type: string;
+  items: any[];
+  severity: 'low' | 'medium' | 'high';
+  description?: string;
+  country?: string;
+  date?: string;
+  confidence?: number;
+}
+
+export interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high';
+  action: string;
+  type?: string;
+}
+
+export interface AvailableCountriesResult {
+  success: boolean;
+  data: Array<{
+    code: string;
+    name: string;
+    rules: any[];
+  }>;
+  error?: string;
+}
+
+// Legacy Firebase types for compatibility
+export interface PassportScan {
+  id: string;
+  user_id: string;
+  created_at: string;
+  file_url: string;
+  analysis_results?: any;
+  file_name?: string;
+}
+
+export interface FlightEmail {
+  id: string;
+  user_id: string;
+  created_at: string;
+  subject: string;
+  from: string;
+  body: string;
+  parsed_data?: any;
+}

@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   generateSmartSuggestions, 
   analyzeTravelPatterns 
-} from '../services/firebaseFunctions';
+} from '@/services/supabaseService';
 import type { 
   SmartSuggestionsResult, 
   TravelPatternsResult,
   PotentialGap,
   ConflictData,
   Recommendation
-} from '../types/firebase';
+} from '@/types/universal';
 import { Button } from './ui/Button';
 import Card from './ui/Card';
 
@@ -35,7 +35,11 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
       setLoading(true);
       const result = await generateSmartSuggestions();
       if (result.success) {
-        setSuggestions(result);
+        setSuggestions({
+          success: result.success,
+          suggestions: Array.isArray(result.data) ? result.data : (result.data?.suggestions || []),
+          data: Array.isArray(result.data) ? undefined : result.data
+        });
       }
     } catch (error) {
       console.error('Error loading smart suggestions:', error);
@@ -48,7 +52,11 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
     try {
       const result = await analyzeTravelPatterns();
       if (result.success) {
-        setTravelPatterns(result);
+        setTravelPatterns({
+          success: result.success,
+          patterns: (result.data && typeof result.data === 'object' && 'patterns' in result.data) 
+            ? result.data.patterns : []
+        });
       }
     } catch (error) {
       console.error('Error loading travel patterns:', error);
@@ -146,45 +154,45 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="p-4">
               <div className="text-2xl font-bold text-blue-600">
-                {suggestions.data.potentialGaps.length}
+                {suggestions.data?.potentialGaps?.length || 0}
               </div>
               <div className="text-sm text-gray-600">Potential Gaps</div>
             </Card>
             <Card className="p-4">
               <div className="text-2xl font-bold text-red-600">
-                {suggestions.data.conflictingData.length}
+                {suggestions.data?.conflictingData?.length || 0}
               </div>
               <div className="text-sm text-gray-600">Conflicts</div>
             </Card>
             <Card className="p-4">
               <div className="text-2xl font-bold text-yellow-600">
-                {suggestions.data.recommendations.length}
+                {suggestions.data?.recommendations?.length || 0}
               </div>
               <div className="text-sm text-gray-600">Recommendations</div>
             </Card>
             <Card className="p-4">
               <div className="text-2xl font-bold text-green-600">
-                {suggestions.data.missingEntries.length}
+                {suggestions.data?.missingEntries?.length || 0}
               </div>
               <div className="text-sm text-gray-600">Missing Entries</div>
             </Card>
           </div>
 
           {/* Potential Gaps */}
-          {suggestions.data.potentialGaps.length > 0 && (
+          {(suggestions.data?.potentialGaps?.length || 0) > 0 && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Potential Travel Gaps
               </h3>
               <div className="space-y-4">
-                {suggestions.data.potentialGaps.map((gap: PotentialGap, index) => {
-                  const dateRange = formatDateRange(gap.startDate, gap.endDate);
+                {(suggestions.data?.potentialGaps || []).map((gap: PotentialGap, index) => {
+                  const dateRange = formatDateRange(gap.startDate || gap.start, gap.endDate || gap.end);
                   return (
                     <div key={index} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
-                            <span className="text-lg">{getConfidenceIcon(gap.confidence)}</span>
+                            <span className="text-lg">{getConfidenceIcon(gap.confidence.toString())}</span>
                             <h4 className="text-sm font-medium text-gray-900">
                               {gap.description}
                             </h4>
@@ -221,13 +229,13 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
           )}
 
           {/* Conflicting Data */}
-          {suggestions.data.conflictingData.length > 0 && (
+          {(suggestions.data?.conflictingData?.length || 0) > 0 && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Data Conflicts
               </h3>
               <div className="space-y-4">
-                {suggestions.data.conflictingData.map((conflict: ConflictData, index) => (
+                {(suggestions.data?.conflictingData || []).map((conflict: ConflictData, index) => (
                   <div key={index} className="border border-red-200 rounded-lg p-4 bg-red-50">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -268,13 +276,13 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
           )}
 
           {/* Recommendations */}
-          {suggestions.data.recommendations.length > 0 && (
+          {(suggestions.data?.recommendations?.length || 0) > 0 && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Recommendations
               </h3>
               <div className="space-y-4">
-                {suggestions.data.recommendations.map((rec: Recommendation, index) => (
+                {(suggestions.data?.recommendations || []).map((rec: Recommendation, index) => (
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -305,9 +313,9 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
           )}
 
           {/* No Issues */}
-          {suggestions.data.potentialGaps.length === 0 && 
-           suggestions.data.conflictingData.length === 0 && 
-           suggestions.data.recommendations.length === 0 && (
+          {(suggestions.data?.potentialGaps?.length || 0) === 0 && 
+           (suggestions.data?.conflictingData?.length || 0) === 0 && 
+           (suggestions.data?.recommendations?.length || 0) === 0 && (
             <Card className="p-8 text-center">
               <div className="text-6xl mb-4">✅</div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -328,25 +336,25 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="p-4">
               <div className="text-2xl font-bold text-blue-600">
-                {travelPatterns.data.totalTrips}
+                {travelPatterns.data?.totalTrips || 0}
               </div>
               <div className="text-sm text-gray-600">Total Trips</div>
             </Card>
             <Card className="p-4">
               <div className="text-2xl font-bold text-green-600">
-                {travelPatterns.data.totalCountries}
+                {travelPatterns.data?.totalCountries || 0}
               </div>
               <div className="text-sm text-gray-600">Countries Visited</div>
             </Card>
             <Card className="p-4">
               <div className="text-2xl font-bold text-purple-600">
-                {travelPatterns.data.mostFrequentCountry || 'N/A'}
+                {travelPatterns.data?.mostFrequentCountry || 'N/A'}
               </div>
               <div className="text-sm text-gray-600">Most Frequent</div>
             </Card>
             <Card className="p-4">
               <div className="text-2xl font-bold text-yellow-600">
-                {travelPatterns.data.longestStay ? `${travelPatterns.data.longestStay.days} days` : 'N/A'}
+                {travelPatterns.data?.longestStay ? `${travelPatterns.data.longestStay.days} days` : 'N/A'}
               </div>
               <div className="text-sm text-gray-600">Longest Stay</div>
             </Card>
@@ -358,13 +366,13 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
               Countries Visited
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {travelPatterns.data.countriesVisited.map((country, index) => (
+              {(travelPatterns.data?.countriesVisited || []).map((country, index) => (
                 <div key={index} className="bg-gray-50 p-3 rounded-lg text-center">
                   <div className="text-sm font-medium text-gray-900">
                     {country}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {travelPatterns.data.travelFrequency[country] || 0} visits
+                    {travelPatterns.data?.travelFrequency?.[country] || 0} visits
                   </div>
                 </div>
               ))}
@@ -377,7 +385,7 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
               Travel Frequency by Country
             </h3>
             <div className="space-y-3">
-              {Object.entries(travelPatterns.data.travelFrequency)
+              {Object.entries(travelPatterns.data?.travelFrequency || {})
                 .sort(([,a], [,b]) => b - a)
                 .slice(0, 10)
                 .map(([country, frequency]) => (
@@ -389,7 +397,7 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
                       <div className="w-32 bg-gray-200 rounded-full h-2">
                         <div 
                           className="bg-blue-600 h-2 rounded-full" 
-                          style={{ width: `${(frequency / Math.max(...Object.values(travelPatterns.data.travelFrequency))) * 100}%` }}
+                          style={{ width: `${(frequency / Math.max(...Object.values(travelPatterns.data?.travelFrequency || {}))) * 100}%` }}
                         ></div>
                       </div>
                       <div className="text-sm text-gray-600 w-8">
@@ -402,13 +410,13 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
           </Card>
 
           {/* Travel Trends */}
-          {travelPatterns.data.travelTrends.length > 0 && (
+          {(travelPatterns.data?.travelTrends?.length || 0) > 0 && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Travel Trends
               </h3>
               <div className="space-y-3">
-                {travelPatterns.data.travelTrends.map((trend, index) => (
+                {(travelPatterns.data?.travelTrends || []).map((trend, index) => (
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
                     <div className="text-sm font-medium text-gray-900">
                       {trend.title || `Trend ${index + 1}`}

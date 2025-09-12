@@ -18,7 +18,7 @@ import {
   getDuplicateResults, 
   generateSmartSuggestions,
   getSystemStatus
-} from '@/services/firebaseFunctions'
+} from '@/services/supabaseService'
 import { 
   getIntegrationStatus,
   getBookingIngestionStatus
@@ -103,8 +103,8 @@ export function AlertList({ className = '' }: AlertListProps) {
     }
 
     // Data quality issues from suggestions
-    if (suggestions?.data) {
-      const { conflictingData, potentialGaps } = suggestions.data
+    if (suggestions?.data && typeof suggestions.data === 'object' && 'conflictingData' in suggestions.data) {
+      const { conflictingData, potentialGaps } = suggestions.data as any
 
       if (conflictingData && conflictingData.length > 0) {
         conflictingData.forEach((conflict: any, index: number) => {
@@ -162,7 +162,7 @@ export function AlertList({ className = '' }: AlertListProps) {
     }
 
     // System status alerts
-    if (systemStatus?.status?.firestore === 'disconnected') {
+    if (systemStatus?.status === 'error') {
       alerts.push({
         id: 'system-error',
         type: 'error',

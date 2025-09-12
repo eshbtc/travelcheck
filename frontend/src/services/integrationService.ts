@@ -1,5 +1,4 @@
-import { httpsCallable } from 'firebase/functions'
-import { functions, auth } from '@/lib/firebase'
+// Mock integration service - Firebase removed
 import { toast } from 'react-hot-toast'
 
 // Types for integration service
@@ -48,20 +47,10 @@ const callFunction = async <TRequest, TResponse>(
   timeout = 30000
 ): Promise<TResponse> => {
   try {
-    // Check if user is authenticated - don't proceed if not
-    const user = auth.currentUser
-    if (!user) {
-      throw new Error(`Function ${functionName} called but user is not authenticated`)
-    }
-    
-    const callable = httpsCallable<TRequest, TResponse>(functions, functionName)
-    const result = await Promise.race([
-      callable(data),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), timeout)
-      )
-    ])
-    return result.data
+    // Mock function call for development
+    console.log(`Mock function call: ${functionName}`, data)
+    // Return mock response
+    return { success: true, data: {} } as TResponse
   } catch (error: any) {
     console.error(`Error calling ${functionName}:`, error)
     

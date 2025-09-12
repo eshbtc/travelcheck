@@ -18,7 +18,7 @@ import {
   ingestOffice365Bookings,
   getIntegrationStatus
 } from '@/services/integrationService'
-import { generateUniversalReport } from '@/services/firebaseFunctions'
+import { supabaseService, generateUniversalReport } from '@/services/supabaseService'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
 

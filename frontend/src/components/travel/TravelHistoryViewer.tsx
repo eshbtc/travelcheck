@@ -24,9 +24,9 @@ import {
   getPassportScans,
   getFlightEmails,
   analyzeEnhancedTravelHistory
-} from '@/services/firebaseFunctions'
+} from '@/services/supabaseService'
 import { toast } from 'react-hot-toast'
-import type { PassportScan, FlightEmail } from '@/types/firebase'
+import type { PassportScan, FlightEmail } from '@/types/universal'
 
 interface TravelHistoryViewerProps {
   onItemSelect?: (item: any) => void
@@ -68,19 +68,19 @@ export function TravelHistoryViewer({
       const items: TravelItem[] = []
 
       // Process passport scans
-      if (passportResult.success && passportResult.scans) {
-        passportResult.scans.forEach((scan: PassportScan) => {
-          if (scan.stamps && Array.isArray(scan.stamps)) {
-            scan.stamps.forEach((stamp: any) => {
+      if (passportResult.success && passportResult.data) {
+        passportResult.data.forEach((scan: PassportScan) => {
+          if (scan.analysis_results?.stamps && Array.isArray(scan.analysis_results.stamps)) {
+            scan.analysis_results.stamps.forEach((stamp: any) => {
               items.push({
                 id: `${scan.id}-${stamp.date || 'unknown'}`,
                 type: 'passport',
                 date: stamp.date || 'Unknown',
                 country: stamp.country || 'Unknown',
                 source: 'Passport Scan',
-                confidence: stamp.confidence || scan.confidence,
+                confidence: stamp.confidence || 95,
                 data: { scan, stamp },
-                createdAt: scan.timestamp?.toDate ? scan.timestamp.toDate() : new Date(scan.timestamp || Date.now())
+                createdAt: new Date(scan.created_at || Date.now())
               })
             })
           }
@@ -88,18 +88,18 @@ export function TravelHistoryViewer({
       }
 
       // Process flight emails
-      if (flightResult.success && flightResult.emails) {
-        flightResult.emails.forEach((email: FlightEmail) => {
-          if (email.extractedData) {
+      if (flightResult.success && flightResult.data) {
+        flightResult.data.forEach((email: FlightEmail) => {
+          if (email.parsed_data) {
             items.push({
               id: email.id,
               type: 'flight',
-              date: email.extractedData.departureDate || email.extractedData.date || 'Unknown',
-              country: email.extractedData.destination || email.extractedData.country || 'Unknown',
+              date: email.parsed_data.departureDate || email.parsed_data.date || 'Unknown',
+              country: email.parsed_data.destination || email.parsed_data.country || 'Unknown',
               source: 'Flight Email',
-              confidence: email.confidence,
+              confidence: 85,
               data: email,
-              createdAt: email.timestamp?.toDate ? email.timestamp.toDate() : new Date(email.timestamp || Date.now())
+              createdAt: new Date(email.created_at || Date.now())
             })
           }
         })

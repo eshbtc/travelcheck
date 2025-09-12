@@ -1,6 +1,5 @@
-import { getGenerativeModel } from 'firebase/ai'
-import type { PresenceDay, UniversalResidenceRecord } from '../types/universal'
-import { ai } from '../lib/firebase'
+import type { PresenceDay } from '../types/universal'
+import { vertexAI } from './vertexAI'
 
 // AI Service for TravelCheck
 // Handles passport stamp analysis, travel history processing, and USCIS report generation
@@ -35,30 +34,8 @@ export interface USCISReportData {
 }
 
 class AIService {
-  private passportModel: any
-  private travelModel: any
-  private reportModel: any
-
   constructor() {
-    // Initialize different models for different tasks
-    this.passportModel = getGenerativeModel(ai, { 
-      model: "gemini-2.5-flash",
-      systemInstruction: `You are an expert at analyzing passport stamps and entry/exit records. 
-      Extract travel information including country, dates, locations, and visa types.
-      Always provide confidence scores and explain your reasoning.`
-    })
-
-    this.travelModel = getGenerativeModel(ai, { 
-      model: "gemini-2.5-flash",
-      systemInstruction: `You are a travel history analyst specializing in USCIS citizenship applications.
-      Process and validate travel data, identify gaps, and ensure accuracy for immigration purposes.`
-    })
-
-    this.reportModel = getGenerativeModel(ai, { 
-      model: "gemini-2.5-flash",
-      systemInstruction: `You are a USCIS report generator. Create comprehensive, accurate travel history reports
-      formatted specifically for US citizenship applications. Ensure all dates are precise and gaps are identified.`
-    })
+    // All AI functionality is now handled by the vertexAI service
   }
 
   /**
@@ -66,56 +43,29 @@ class AIService {
    */
   async analyzePassportStamp(imageData: string): Promise<PassportStampAnalysis> {
     try {
-      const prompt = `Analyze this passport stamp image and extract the following information:
+      // Convert base64 string to Buffer for vertexAI
+      const buffer = Buffer.from(imageData, 'base64')
       
-      1. Country name
-      2. Entry date (YYYY-MM-DD format)
-      3. Exit date if visible (YYYY-MM-DD format)
-      4. Location/city
-      5. Visa type if applicable
-      6. Confidence score (0-100)
-      7. Raw text visible in the stamp
+      // Use vertexAI service to process the passport image
+      const result = await vertexAI.processPassportImage(buffer)
       
-      Return the information in JSON format with the exact field names above.
-      If any information is unclear or not visible, use null for that field.
-      Be conservative with confidence scores - only give high scores for clearly readable information.`
-
-      const result = await this.passportModel.generateContent([
-        {
-          text: prompt,
-        },
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: imageData,
-          },
-        },
-      ])
-
-      const response = result.response
-      const text = response.text()
-      
-      // Parse the JSON response defensively (strip Markdown code fences)
-      const analysis = this.parseJsonSafely(text)
-      
-      // Handle both single object and array responses
-      let stampData;
-      if (Array.isArray(analysis)) {
-        // If it's an array, take the first (most confident) entry
-        stampData = analysis[0] || {};
-      } else {
-        stampData = analysis;
+      if (!result.success || !result.data) {
+        throw new Error('Service error' || 'Failed to analyze passport stamp')
       }
+
+      // Extract the first stamp if multiple are found
+      const stamps = result.data.stamps || []
+      const firstStamp = stamps.length > 0 ? stamps[0] : null
       
-      // Map field names from Gemini response to our interface
+      // Map vertexAI response to our interface
       return {
-        country: stampData.country_name || stampData.country || 'Unknown',
-        entryDate: stampData.entry_date || stampData.entryDate || '',
-        exitDate: stampData.exit_date || stampData.exitDate || undefined,
-        location: stampData.location_city || stampData.location || 'Unknown',
-        visaType: stampData.visa_type || stampData.visaType || undefined,
-        confidence: stampData.confidence_score || stampData.confidence || 0,
-        rawText: stampData.raw_text || stampData.rawText || ''
+        country: firstStamp?.country || result.data.personalInfo?.nationality || 'Unknown',
+        entryDate: firstStamp?.date || '',
+        exitDate: undefined, // vertexAI doesn't distinguish entry/exit in current implementation
+        location: firstStamp?.location || 'Unknown',
+        visaType: result.data.personalInfo?.passportNumber ? 'Passport' : undefined,
+        confidence: firstStamp?.confidence || 50,
+        rawText: `${result.data.personalInfo?.firstName || ''} ${result.data.personalInfo?.lastName || ''}`.trim()
       }
     } catch (error) {
       console.error('Error analyzing passport stamp:', error)
@@ -128,50 +78,29 @@ class AIService {
    */
   async analyzePassportStamps(imageData: string): Promise<PassportStampAnalysis[]> {
     try {
-      const prompt = `Analyze this passport stamp image and extract ALL passport stamps visible. 
-      Return an array of objects, each containing:
+      // Convert base64 string to Buffer for vertexAI
+      const buffer = Buffer.from(imageData, 'base64')
       
-      1. Country name
-      2. Entry date (YYYY-MM-DD format)
-      3. Exit date if visible (YYYY-MM-DD format)
-      4. Location/city
-      5. Visa type if applicable
-      6. Confidence score (0-100)
-      7. Raw text visible in the stamp
+      // Use vertexAI service to process the passport image
+      const result = await vertexAI.processPassportImage(buffer)
       
-      Return as JSON array. If any information is unclear, use null for that field.`
+      if (!result.success || !result.data) {
+        throw new Error('Service error' || 'Failed to analyze passport stamps')
+      }
 
-      const result = await this.passportModel.generateContent([
-        {
-          text: prompt,
-        },
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: imageData,
-          },
-        },
-      ])
-
-      const response = result.response
-      const text = response.text()
+      // Extract all stamps from the result
+      const stamps = result.data.stamps || []
       
-      // Parse the JSON response defensively
-      const analysis = this.parseJsonSafely(text)
-      
-      // Ensure we have an array
-      const stampsArray = Array.isArray(analysis) ? analysis : [analysis];
-      
-      // Map field names and return array
-      return stampsArray.map(stamp => ({
-        country: stamp.country_name || stamp.country || 'Unknown',
-        entryDate: stamp.entry_date || stamp.entryDate || '',
-        exitDate: stamp.exit_date || stamp.exitDate || undefined,
-        location: stamp.location_city || stamp.location || 'Unknown',
-        visaType: stamp.visa_type || stamp.visaType || undefined,
-        confidence: stamp.confidence_score || stamp.confidence || 0,
-        rawText: stamp.raw_text || stamp.rawText || ''
-      }));
+      // Map vertexAI response to our interface
+      return stamps.map(stamp => ({
+        country: stamp.country || 'Unknown',
+        entryDate: stamp.date || '',
+        exitDate: undefined, // vertexAI doesn't distinguish entry/exit in current implementation
+        location: stamp.location || 'Unknown',
+        visaType: stamp.type || undefined,
+        confidence: stamp.confidence || 50,
+        rawText: stamp.country + (stamp.location ? ` - ${stamp.location}` : '')
+      }))
     } catch (error) {
       console.error('Error analyzing passport stamps:', error)
       throw new Error('Failed to analyze passport stamps')
@@ -183,24 +112,20 @@ class AIService {
    */
   async processTravelHistory(entries: PresenceDay[]): Promise<PresenceDay[]> {
     try {
-      const prompt = `Process and validate this travel history data for USCIS citizenship application:
+      // Use vertexAI to analyze and validate the travel patterns
+      const result = await vertexAI.analyzeTravelPatterns(entries)
       
-      ${JSON.stringify(entries, null, 2)}
-      
-      Please:
-      1. Validate all dates and ensure they're in correct format
-      2. Calculate accurate durations
-      3. Identify any inconsistencies or gaps
-      4. Suggest corrections for any obvious errors
-      5. Maintain the same JSON structure
-      
-      Return the processed and validated travel history entries.`
+      if (!result.success) {
+        throw new Error('Service error' || 'Failed to process travel history')
+      }
 
-      const result = await this.travelModel.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
-      
-      return this.parseJsonSafely(text)
+      // Return the original entries since vertexAI provides patterns, not modified entries
+      // In a real implementation, you might transform the entries based on the analysis
+      return entries.map((entry, index) => ({
+        ...entry,
+        // Add any validation metadata from the analysis
+        conflicts: result.data?.patterns?.some(p => p.type === 'conflict') ? [] : (entry.conflicts || [])
+      }))
     } catch (error) {
       console.error('Error processing travel history:', error)
       throw new Error('Failed to process travel history')
@@ -212,42 +137,23 @@ class AIService {
    */
   async generateUSCISReport(entries: PresenceDay[]): Promise<USCISReportData> {
     try {
-      const prompt = `Generate a comprehensive USCIS travel history report from this data:
+      // Calculate report data from presence entries
+      const countries = Array.from(new Set(entries.map(e => e.country)))
+      const sortedEntries = entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       
-      ${JSON.stringify(entries, null, 2)}
-      
-      Create a report that includes:
-      1. Total number of trips
-      2. Total days spent abroad
-      3. List of all countries visited
-      4. Date range of all travel
-      5. Detailed entries with calculated durations
-      6. Any gaps in the travel history
-      
-      Format the response as JSON with the following structure:
-      {
-        "totalTrips": number,
-        "totalDaysAbroad": number,
-        "countries": string[],
-        "dateRange": {
-          "start": "YYYY-MM-DD",
-          "end": "YYYY-MM-DD"
+      const report: USCISReportData = {
+        totalTrips: entries.filter(e => e.attribution === 'entry').length,
+        totalDaysAbroad: entries.filter(e => e.country !== 'United States').length,
+        countries: countries,
+        dateRange: {
+          start: sortedEntries[0]?.date || '',
+          end: sortedEntries[sortedEntries.length - 1]?.date || ''
         },
-        "entries": PresenceDay[],
-        "gaps": [
-          {
-            "startDate": "YYYY-MM-DD",
-            "endDate": "YYYY-MM-DD", 
-            "duration": number
-          }
-        ]
-      }`
-
-      const result = await this.reportModel.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
+        entries: entries,
+        gaps: [] // Would need more complex logic to detect gaps
+      }
       
-      return this.parseJsonSafely(text)
+      return report
     } catch (error) {
       console.error('Error generating USCIS report:', error)
       throw new Error('Failed to generate USCIS report')
@@ -259,24 +165,33 @@ class AIService {
    */
   async generatePresenceInsights(days: PresenceDay[]): Promise<any> {
     try {
-      const prompt = `Analyze this presence calendar and summarize key insights for travel/residency:
+      // Use vertexAI to generate insights
+      const result = await vertexAI.analyzeTravelPatterns(days)
+      
+      if (!result.success) {
+        throw new Error('Service error' || 'Failed to generate insights')
+      }
 
-      ${JSON.stringify(days, null, 2)}
-
-      Provide:
-      - Total presence days by country
-      - Date range coverage
-      - Notable gaps/conflicts
-      - Any risks (e.g., approaching Schengen 90/180 limit)
-      - A concise recommendations list
-
-      Return JSON with: { summary: { totalDays, countries: Record<string, number>, dateRange: { start, end } },
-        risks: string[], recommendations: string[] }`
-
-      const result = await this.reportModel.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
-      return this.parseJsonSafely(text)
+      // Transform the vertexAI result to match expected format
+      const countries: Record<string, number> = {}
+      days.forEach(day => {
+        countries[day.country] = (countries[day.country] || 0) + 1
+      })
+      
+      const sortedDays = days.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      
+      return {
+        summary: {
+          totalDays: days.length,
+          countries,
+          dateRange: {
+            start: sortedDays[0]?.date || '',
+            end: sortedDays[sortedDays.length - 1]?.date || ''
+          }
+        },
+        risks: result.data?.insights?.filter(i => i.type === 'warning').map(i => i.description) || [],
+        recommendations: result.data?.insights?.filter(i => i.type === 'info').map(i => i.description) || []
+      }
     } catch (error) {
       console.error('Error generating presence insights:', error)
       throw new Error('Failed to generate presence insights')
@@ -288,25 +203,26 @@ class AIService {
    */
   async analyzeEmailContent(emailContent: string): Promise<PresenceDay[]> {
     try {
-      const prompt = `Analyze this email content and extract any travel information:
+      // Use vertexAI to generate smart suggestions from email content
+      const result = await vertexAI.generateSmartSuggestions({ emailContent })
       
-      ${emailContent}
-      
-      Look for:
-      - Flight confirmations
-      - Hotel bookings
-      - Travel dates
-      - Destinations
-      - Trip purposes
-      
-      Return an array of travel entries in JSON format, or an empty array if no travel information is found.
-      Each entry should have: country, entryDate, exitDate, duration, purpose, source: "email", confidence.`
+      if (!result.success) {
+        throw new Error('Service error' || 'Failed to analyze email content')
+      }
 
-      const result = await this.travelModel.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
-      
-      return this.parseJsonSafely(text)
+      // Transform suggestions into PresenceDay format
+      // This is a simplified transformation - in a real implementation,
+      // you'd want more sophisticated parsing
+      return result.data?.suggestions?.map((suggestion: any, index: number) => ({
+        date: new Date().toISOString().split('T')[0], // Placeholder date
+        country: suggestion.title || 'Unknown',
+        attribution: 'email_analysis',
+        confidence: 0.7,
+        evidence: [emailContent.substring(0, 100)],
+        conflicts: [],
+        timezone: 'UTC',
+        localTime: '12:00:00'
+      } as PresenceDay)) || []
     } catch (error) {
       console.error('Error analyzing email content:', error)
       throw new Error('Failed to analyze email content')
@@ -321,25 +237,27 @@ class AIService {
     emailEntries: PresenceDay[]
   ): Promise<PresenceDay[]> {
     try {
-      const prompt = `Cross-reference and merge these travel history entries from different sources:
+      // Simple merging logic - in production, you'd want more sophisticated merging
+      const allEntries = [...passportEntries, ...emailEntries]
+      const mergedEntries: PresenceDay[] = []
+      const seenDates = new Set<string>()
       
-      Passport entries: ${JSON.stringify(passportEntries, null, 2)}
-      Email entries: ${JSON.stringify(emailEntries, null, 2)}
+      // Sort by date and deduplicate based on date + country
+      allEntries
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .forEach(entry => {
+          const key = `${entry.date}-${entry.country}`
+          if (!seenDates.has(key)) {
+            seenDates.add(key)
+            mergedEntries.push({
+              ...entry,
+              // Boost confidence if we have multiple sources
+              confidence: Math.min((entry.confidence || 0.5) * 1.2, 1.0)
+            })
+          }
+        })
       
-      Please:
-      1. Merge duplicate entries (same country, similar dates)
-      2. Resolve conflicts by using the most reliable source
-      3. Fill in missing information where possible
-      4. Maintain chronological order
-      5. Update confidence scores based on multiple sources
-      
-      Return the merged and validated travel history entries.`
-
-      const result = await this.travelModel.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
-      
-      return JSON.parse(text)
+      return mergedEntries
     } catch (error) {
       console.error('Error cross-referencing data:', error)
       throw new Error('Failed to cross-reference travel data')
@@ -351,36 +269,3 @@ class AIService {
 export const aiService = new AIService()
 export default aiService
 
-// Extend class with helper method without changing export shape
-interface AIService {
-  parseJsonSafely(text: string): any
-}
-
-AIService.prototype.parseJsonSafely = function (text: string): any {
-  try {
-    return JSON.parse(text)
-  } catch (_) {
-    // Try to extract content inside ```json ... ``` or ``` ... ``` fences
-    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-    if (fenceMatch && fenceMatch[1]) {
-      const inner = fenceMatch[1].trim()
-      try {
-        return JSON.parse(inner)
-      } catch (_) {
-        // fall through
-      }
-    }
-    // Fallback: try to find first JSON object or array
-    const matches = Array.from(text.matchAll(/[\[{]/g))
-    const start = Math.min(
-      ...matches.map((m) => m.index ?? text.length).concat([text.length])
-    )
-    const candidate = start < text.length ? text.slice(start).trim() : text
-    try {
-      return JSON.parse(candidate)
-    } catch (err) {
-      console.error('Failed to parse JSON from model text:', { textSnippet: text.slice(0, 200) })
-      throw err
-    }
-  }
-}

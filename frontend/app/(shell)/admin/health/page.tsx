@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getSystemStatus, getAdminSystemStatus, healthCheck } from '@/services/firebaseFunctions'
+import { supabaseService } from '@/services/supabaseService'
 
 type Status = Record<string, any>
 
@@ -25,9 +25,9 @@ export default function AdminHealthPage() {
       try {
         setLoading(true)
         const [sys, admin, hc] = await Promise.all([
-          getSystemStatus().catch(() => null),
-          getAdminSystemStatus().catch(() => null),
-          healthCheck().catch(() => null),
+          supabaseService.getSystemStatus().catch(() => null),
+          supabaseService.getSystemStatus().catch(() => null), // Using same call for now
+          supabaseService.healthCheck().catch(() => null),
         ])
         setStatus(sys)
         setAdminStatus(admin)

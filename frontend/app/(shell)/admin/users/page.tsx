@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { listUsers, setUserRole } from '@/services/firebaseFunctions'
+import { supabaseService } from '@/services/supabaseService'
 import { toast } from 'react-hot-toast'
 
 export default function AdminUsersPage() {
@@ -36,7 +36,7 @@ export default function AdminUsersPage() {
     if (!user) return
     setLoading(true)
     try {
-      const res = await listUsers()
+      const res = await supabaseService.listUsers()
       if (res?.success && Array.isArray(res.users)) {
         setUsers(res.users)
       } else {
@@ -78,7 +78,7 @@ export default function AdminUsersPage() {
   const handleSetRole = async (targetUserId: string, role: 'admin' | 'user') => {
     const tid = toast.loading('Updating role...')
     try {
-      const res = await setUserRole(targetUserId, role)
+      const res = await supabaseService.setUserRole(targetUserId, role)
       if (res?.success) {
         toast.success('Role updated', { id: tid })
         setUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, role } : u))

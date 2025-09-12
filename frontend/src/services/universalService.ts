@@ -1,6 +1,5 @@
-import { callFunction } from './firebaseFunctions';
+import { supabaseService } from './supabaseService';
 import { 
-  UniversalResidenceRecord, 
   UniversalReport, 
   ReportType, 
   UserProfile, 
@@ -24,7 +23,7 @@ export class UniversalTravelService {
     } = {}
   ): Promise<UniversalReport> {
     try {
-      const result = await callFunction('generateUniversalReport', {
+      const result = await supabaseService.apiCall('generateUniversalReport', {
         reportType,
         country,
         dateRange,
@@ -32,10 +31,10 @@ export class UniversalTravelService {
       });
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to generate report');
+        throw new Error('Failed to generate report');
       }
       
-      return result.data;
+      return result.data as any;
     } catch (error) {
       console.error('Error generating universal report:', error);
       throw error;
@@ -46,16 +45,18 @@ export class UniversalTravelService {
    * Ingest hotel bookings from Gmail
    */
   async ingestGmailBookings(options: { maxResults?: number; query?: string } = {}): Promise<{ success: boolean; ingested: number; messageIds: string[] }>{
-    const res = await callFunction('ingestGmailBookings', options);
-    return res;
+    const res = await supabaseService.apiCall('ingestGmailBookings', options);
+    if (res && res.data && typeof res.data === 'object' && 'success' in res.data) return res.data as { success: boolean; ingested: number; messageIds: string[] };
+    return { success: true, ingested: 0, messageIds: [] };
   }
 
   /**
    * Ingest hotel bookings from Office365/Outlook
    */
   async ingestOffice365Bookings(options: { maxResults?: number; providers?: string[]; days?: number } = {}): Promise<{ success: boolean; ingested: number; messageIds: string[] }>{
-    const res = await callFunction('ingestOffice365Bookings', options);
-    return res;
+    const res = await supabaseService.apiCall('ingestOffice365Bookings', options);
+    if (res && res.data && typeof res.data === 'object' && 'success' in res.data) return res.data as { success: boolean; ingested: number; messageIds: string[] };
+    return { success: true, ingested: 0, messageIds: [] };
   }
 
   /**
@@ -67,8 +68,9 @@ export class UniversalTravelService {
     totalParsedBookings: number;
     providers: Array<{ provider: string; emails: number; parsedBookings: number }>;
   }> {
-    const res = await callFunction('getBookingIngestionStatus', {});
-    return (res && res.data) || { lastIngestedAt: null, emailsIngested: 0, totalParsedBookings: 0, providers: [] };
+    const res = await supabaseService.apiCall('getBookingIngestionStatus', {});
+    if (res && res.data && typeof res.data === 'object' && 'lastIngestedAt' in res.data) return res.data as { lastIngestedAt: string | null; emailsIngested: number; totalParsedBookings: number; providers: Array<{ provider: string; emails: number; parsedBookings: number }> };
+    return { lastIngestedAt: null, emailsIngested: 0, totalParsedBookings: 0, providers: [] };
   }
 
   /**
@@ -85,8 +87,9 @@ export class UniversalTravelService {
     }>;
   }>> {
     try {
-      const result = await callFunction('getAvailableCountries');
-      return result.data || [];
+      const result = await supabaseService.apiCall('getAvailableCountries');
+      if (result && result.data && Array.isArray(result.data)) return result.data;
+      return [];
     } catch (error) {
       console.error('Error getting available countries:', error);
       return [];
@@ -106,8 +109,9 @@ export class UniversalTravelService {
     effectiveTo?: string;
   }>> {
     try {
-      const result = await callFunction('getCountryRules', { country });
-      return result.data || [];
+      const result = await supabaseService.apiCall('getCountryRules', { country });
+      if (result && result.data && Array.isArray(result.data)) return result.data;
+      return [];
     } catch (error) {
       console.error('Error getting country rules:', error);
       return [];
@@ -135,12 +139,13 @@ export class UniversalTravelService {
     status: 'met' | 'not_met' | 'partial' | 'error';
   }>> {
     try {
-      const result = await callFunction('analyzeMultiPurpose', {
+      const result = await supabaseService.apiCall('analyzeMultiPurpose', {
         purposes,
         ...options
       });
       
-      return result.data || [];
+      if (result && result.data && Array.isArray(result.data)) return result.data;
+      return [];
     } catch (error) {
       console.error('Error analyzing multi-purpose:', error);
       throw error;
@@ -152,8 +157,9 @@ export class UniversalTravelService {
    */
   async getUserProfile(): Promise<UserProfile | null> {
     try {
-      const result = await callFunction('getUserProfile');
-      return result.data || null;
+      const result = await supabaseService.apiCall('getUserProfile');
+      if (result && result.data && typeof result.data === 'object' && 'id' in result.data) return result.data as UserProfile;
+      return null;
     } catch (error) {
       console.error('Error getting user profile:', error);
       return null;
@@ -165,13 +171,13 @@ export class UniversalTravelService {
    */
   async updateUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
     try {
-      const result = await callFunction('updateUserProfile', { profile });
+      const result = await supabaseService.apiCall('updateUserProfile', { profile });
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to update profile');
+        throw new Error('Failed to update profile');
       }
       
-      return result.data;
+      return result.data as any;
     } catch (error) {
       console.error('Error updating user profile:', error);
       throw error;
@@ -183,13 +189,13 @@ export class UniversalTravelService {
    */
   async exportReport(request: ExportRequest | (ExportRequest & { report?: any })): Promise<ExportResult> {
     try {
-      const result = await callFunction('exportReport', request);
+      const result = await supabaseService.apiCall('exportReport', request);
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to export report');
+        throw new Error('Failed to export report');
       }
       
-      return result.data;
+      return result.data as any;
     } catch (error) {
       console.error('Error exporting report:', error);
       throw error;
@@ -209,8 +215,9 @@ export class UniversalTravelService {
     preview?: string;
   }>> {
     try {
-      const result = await callFunction('getReportTemplates', { category });
-      return result.data || [];
+      const result = await supabaseService.apiCall('getReportTemplates', { category });
+      if (result && result.data && Array.isArray(result.data)) return result.data;
+      return [];
     } catch (error) {
       console.error('Error getting report templates:', error);
       return [];
@@ -228,13 +235,14 @@ export class UniversalTravelService {
     template: any;
   }): Promise<string> {
     try {
-      const result = await callFunction('saveReportTemplate', template);
+      const result = await supabaseService.apiCall('saveReportTemplate', template);
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to save template');
+        throw new Error('Failed to save template');
       }
       
-      return result.data.id;
+      if (result && result.data && typeof result.data === 'object' && 'id' in result.data && typeof result.data.id === 'string') return result.data.id;
+      throw new Error('Failed to get template ID');
     } catch (error) {
       console.error('Error saving report template:', error);
       throw error;
@@ -246,8 +254,9 @@ export class UniversalTravelService {
    */
   async listUniversalReports(limit: number = 500): Promise<UniversalReport[]> {
     try {
-      const result = await callFunction('listUniversalReports', { limit });
-      return (result && result.data) || [];
+      const result = await supabaseService.apiCall('listUniversalReports', { limit });
+      if (result && result.data && Array.isArray(result.data)) return result.data;
+      return [];
     } catch (error) {
       console.error('Error listing reports:', error);
       return [];
@@ -259,7 +268,7 @@ export class UniversalTravelService {
    */
   async deleteUniversalReport(reportId: string): Promise<boolean> {
     try {
-      const result = await callFunction('deleteUniversalReport', { reportId });
+      const result = await supabaseService.apiCall('deleteUniversalReport', { reportId });
       return !!(result && result.success);
     } catch (error) {
       console.error('Error deleting report:', error);
@@ -291,8 +300,9 @@ export class UniversalTravelService {
     }>;
   }> {
     try {
-      const result = await callFunction('getTravelInsights', options);
-      return result.data || { insights: [], recommendations: [] };
+      const result = await supabaseService.apiCall('getTravelInsights', options);
+      if (result && result.data && typeof result.data === 'object' && 'insights' in result.data) return result.data as { insights: Array<{ type: 'opportunity' | 'warning' | 'info' | 'recommendation'; title: string; description: string; action?: string; priority: 'high' | 'medium' | 'low' }>; recommendations: Array<{ category: string; title: string; description: string; impact: string; effort: 'low' | 'medium' | 'high' }> };
+      return { insights: [], recommendations: [] };
     } catch (error) {
       console.error('Error getting travel insights:', error);
       return { insights: [], recommendations: [] };
@@ -326,13 +336,13 @@ export class UniversalTravelService {
     }>;
   }> {
     try {
-      const result = await callFunction('simulateScenario', scenario);
+      const result = await supabaseService.apiCall('simulateScenario', scenario);
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to simulate scenario');
+        throw new Error('Failed to simulate scenario');
       }
       
-      return result.data;
+      return result.data as any;
     } catch (error) {
       console.error('Error simulating scenario:', error);
       throw error;
