@@ -84,9 +84,9 @@ export function AppShell({ children }: AppShellProps) {
             <div className="flex items-center justify-between p-4 border-b border-border-light">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-white grid place-items-center text-brand-primary font-semibold">
-                  {(user?.full_name || 'U')[0]}
+                  {(user?.email || 'U')[0].toUpperCase()}
                 </div>
-                <div className="font-semibold">{user?.full_name || user?.email || 'Account'}</div>
+                <div className="font-semibold">{user?.email || 'Account'}</div>
               </div>
               <button className="p-2 rounded-full hover:bg-bg-secondary" onClick={() => setProfileOpen(false)}>
                 <XMarkIcon className="h-5 w-5 text-text-secondary" />
