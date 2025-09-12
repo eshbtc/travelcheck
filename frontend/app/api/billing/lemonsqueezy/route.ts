@@ -9,6 +9,30 @@ function verifySignature(rawBody: string, signature: string | null, secret: stri
   return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))
 }
 
+// Helper: map variant ID to plan code
+function planFromVariant(v?: number | null): string | null {
+  if (!v) return null
+  const env = (key: string) => parseInt(process.env[key] || '')
+  const map: Record<number, string> = {}
+  const entries: Array<[string, string]> = [
+    ['LEMON_VARIANT_ID_BASIC', 'one_time_basic'],
+    ['LEMON_VARIANT_ID_STANDARD', 'one_time_standard'],
+    ['LEMON_VARIANT_ID_PREMIUM', 'one_time_premium'],
+    ['LEMON_VARIANT_ID_PERSONAL_MONTHLY', 'personal_monthly'],
+    ['LEMON_VARIANT_ID_PERSONAL_ANNUAL', 'personal_annual'],
+    ['LEMON_VARIANT_ID_FIRM_STARTER', 'firm_starter'],
+    ['LEMON_VARIANT_ID_FIRM_GROWTH', 'firm_growth'],
+    ['LEMON_VARIANT_ID_FIRM_SCALE', 'firm_scale'],
+  ]
+  
+  entries.forEach(([envKey, planCode]) => {
+    const variantId = env(envKey)
+    if (variantId) map[variantId] = planCode
+  })
+  
+  return map[v] || null
+}
+
 export async function POST(request: NextRequest) {
   try {
     const secret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET
@@ -67,27 +91,6 @@ export async function POST(request: NextRequest) {
       raw: payload
     } as any)
 
-    // Helper: map variant ID to plan code
-    function planFromVariant(v?: number | null): string | null {
-      if (!v) return null
-      const env = (key: string) => parseInt(process.env[key] || '')
-      const map: Record<number, string> = {}
-      const entries: Array<[string, string]> = [
-        ['LEMON_VARIANT_ID_BASIC', 'one_time_basic'],
-        ['LEMON_VARIANT_ID_STANDARD', 'one_time_standard'],
-        ['LEMON_VARIANT_ID_PREMIUM', 'one_time_premium'],
-        ['LEMON_VARIANT_ID_PERSONAL_MONTHLY', 'personal_monthly'],
-        ['LEMON_VARIANT_ID_PERSONAL_ANNUAL', 'personal_annual'],
-        ['LEMON_VARIANT_ID_FIRM_STARTER', 'firm_starter'],
-        ['LEMON_VARIANT_ID_FIRM_GROWTH', 'firm_growth'],
-        ['LEMON_VARIANT_ID_FIRM_SCALE', 'firm_scale'],
-      ]
-      for (const [k, code] of entries) {
-        const val = env(k)
-        if (!Number.isNaN(val) && val > 0) map[val] = code
-      }
-      return map[v] || null
-    }
 
     async function findUserIdByEmail(email: string | null): Promise<string | null> {
       if (!email) return null
