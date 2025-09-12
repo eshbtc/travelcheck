@@ -95,7 +95,7 @@ export function ResolutionCenter({
               description: `Similar travel entries detected (${group.entries?.length || 0} entries with ${(group.similarity * 100).toFixed(0)}% similarity)`,
               timestamp: group.created_at || new Date().toISOString(),
               metadata: group
-            })
+            } as any)
           })
         }
       }
@@ -118,7 +118,7 @@ export function ResolutionCenter({
               description: `Duplicate passport scans detected (${group.duplicates?.length + 1 || 1} scans): ${group.reasons?.join(', ') || 'Similar content'}`,
               timestamp: new Date().toISOString(),
               metadata: group
-            })
+            } as any)
           })
         }
       }
