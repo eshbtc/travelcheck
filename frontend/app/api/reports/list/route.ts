@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../auth/middleware'
 import { supabaseAdmin as supabase } from '@/lib/supabase-server'
 
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
   if (authResult.error) {

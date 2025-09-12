@@ -325,7 +325,7 @@ export const getDuplicateResults = async () => {
     // Get passport scans for duplicate detection
     const { data: scans, error } = await supabase
       .from('passport_scans')
-      .select('id, file_url, metadata')
+      .select('id, file_url, analysis_results')
       .eq('user_id', user.id)
 
     if (error) throw error
@@ -335,7 +335,7 @@ export const getDuplicateResults = async () => {
       (scans || []).map(scan => ({
         id: scan.id,
         imageUrl: scan.file_url,
-        metadata: scan.metadata
+        metadata: scan.analysis_results
       }))
     )
 

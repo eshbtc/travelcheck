@@ -60,7 +60,7 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.googleapis.com",
               "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-              "font-src 'self' fonts.gstatic.com",
+              "font-src 'self' fonts.gstatic.com *.perplexity.ai r2cdn.perplexity.ai",
               "img-src 'self' data: blob: *.supabase.co *.googleapis.com",
               "connect-src 'self' *.supabase.co wss://*.supabase.co *.googleapis.com *.google.com *.microsoft.com *.office.com *.sentry.io",
               "frame-src 'self' *.google.com *.microsoft.com accounts.google.com login.microsoftonline.com",
