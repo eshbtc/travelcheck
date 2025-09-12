@@ -25,33 +25,22 @@ function CallbackHandler() {
         
         if (accessToken) {
           // This is a Supabase OAuth callback
-          // Wait for the auth state to update and user to be fetched
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          // Clear the hash from URL to clean up the address bar
+          window.history.replaceState({}, document.title, window.location.pathname)
           
+          // Wait a moment for Supabase to process the auth state
+          await new Promise(resolve => setTimeout(resolve, 1500))
+          
+          // Check if we have a session
           const { data: { session } } = await supabase.auth.getSession()
           
           if (session) {
-            // Wait for AuthContext to process the user
-            let attempts = 0
-            const maxAttempts = 10
-            
-            while (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 500))
-              if (user && !isLoading) {
-                // User is loaded, safe to redirect
-                window.history.replaceState({}, document.title, '/dashboard')
-                router.replace('/dashboard')
-                return
-              }
-              attempts++
-            }
-            
-            // Fallback: redirect anyway after timeout
-            window.history.replaceState({}, document.title, '/dashboard')
-            router.replace('/dashboard')
+            // Session exists, redirect to dashboard
+            // The AuthContext will automatically redirect us if we're on an auth page
+            router.push('/dashboard')
             return
           } else {
-            // Session not found, redirect to login with error
+            // No session, something went wrong
             router.replace('/auth/login?error=oauth_callback_failed')
             return
           }
