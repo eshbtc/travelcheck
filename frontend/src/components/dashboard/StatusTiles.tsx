@@ -95,7 +95,7 @@ export function StatusTiles({ className = '', loading = false }: StatusTilesProp
   }
 
   // Calculate real metrics from backend data
-  const travelSummary = travelData?.summary
+  const travelSummary = (travelData as any)?.summary
   const totalPresenceDays = travelSummary?.totalDays || 0
   const totalCountries = travelSummary?.uniqueCountries || 0
   const totalReports = Array.isArray(reports) ? reports.length : 0
