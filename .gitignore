@@ -3,6 +3,7 @@
 .env.local
 .env.production
 .env.development
+.env.vercel
 
 # Service account keys
 service-account-key.json

@@ -176,14 +176,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Get user's Office365 account
-    const { data: emailAccounts, error: accountError } = await supabase
+    const body = await request.json().catch(() => ({}))
+    const { accountId } = body
+
+    // Get user's Office365 account(s)
+    let query = supabase
       .from('email_accounts')
       .select('*')
       .eq('user_id', user.id)
       .eq('provider', 'office365')
       .eq('is_active', true)
-      .limit(1)
+
+    if (accountId) {
+      query = query.eq('id', accountId)
+    }
+
+    const { data: emailAccounts, error: accountError } = await query
 
     if (accountError || !emailAccounts || emailAccounts.length === 0) {
       return NextResponse.json(

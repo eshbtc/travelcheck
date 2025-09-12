@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Check if Office365 account is connected
+    // Get all active Office365 accounts for this user
     const { data: emailAccounts, error } = await supabase
       .from('email_accounts')
       .select('*')
@@ -34,24 +34,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (emailAccounts && emailAccounts.length > 0) {
-      const account = emailAccounts[0]
-      return NextResponse.json({
-        success: true,
-        connected: true,
-        provider: account.provider,
-        email: account.email,
-        connectedAt: account.created_at,
-        lastSync: account.last_sync,
-        syncStatus: account.sync_status,
-        isActive: account.is_active,
-      })
-    } else {
-      return NextResponse.json({
-        success: true,
-        connected: false,
-      })
-    }
+    const accounts = emailAccounts || []
+    return NextResponse.json({
+      success: true,
+      connected: accounts.length > 0,
+      count: accounts.length,
+      accounts: accounts.map(a => ({
+        id: a.id,
+        email: a.email,
+        provider: a.provider,
+        connectedAt: a.created_at,
+        lastSync: a.last_sync,
+        syncStatus: a.sync_status,
+        isActive: a.is_active
+      }))
+    })
   } catch (error) {
     console.error('Error checking Office365 connection status:', error)
     return NextResponse.json(

@@ -1,2 +1,7 @@
 frontend/.claude-changelog/
 .vercel
+.env.vercel
+.env.local
+.env.production
+*.pem
+key.json

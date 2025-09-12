@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS public.users (
     settings JSONB DEFAULT '{}'::jsonb
 );
 
+-- User Preferences (schedule and user-level settings)
+CREATE TABLE IF NOT EXISTS public.user_preferences (
+    user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Email Accounts table for OAuth integrations
 CREATE TABLE IF NOT EXISTS public.email_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -60,7 +68,7 @@ CREATE TABLE IF NOT EXISTS public.email_accounts (
 CREATE TABLE IF NOT EXISTS public.flight_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    email_account_id UUID REFERENCES public.email_accounts(id),
+    email_account_id UUID REFERENCES public.email_accounts(id) ON DELETE SET NULL,
     message_id TEXT,
     thread_id TEXT,
     subject TEXT,
@@ -367,11 +375,13 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
 CREATE INDEX IF NOT EXISTS idx_email_accounts_user_id ON public.email_accounts(user_id);
 CREATE INDEX IF NOT EXISTS idx_email_accounts_provider ON public.email_accounts(provider);
 CREATE INDEX IF NOT EXISTS idx_email_accounts_active ON public.email_accounts(is_active);
+CREATE INDEX IF NOT EXISTS idx_email_accounts_user_provider_active ON public.email_accounts(user_id, provider, is_active);
 
 CREATE INDEX IF NOT EXISTS idx_flight_emails_user_id ON public.flight_emails(user_id);
 CREATE INDEX IF NOT EXISTS idx_flight_emails_processed ON public.flight_emails(is_processed);
 CREATE INDEX IF NOT EXISTS idx_flight_emails_date_flight ON public.flight_emails(date_flight);
 CREATE INDEX IF NOT EXISTS idx_flight_emails_airline ON public.flight_emails(airline);
+CREATE INDEX IF NOT EXISTS idx_flight_emails_account_message ON public.flight_emails(email_account_id, message_id);
 
 CREATE INDEX IF NOT EXISTS idx_passport_scans_user_id ON public.passport_scans(user_id);
 CREATE INDEX IF NOT EXISTS idx_passport_scans_status ON public.passport_scans(processing_status);
@@ -422,14 +432,14 @@ CREATE INDEX IF NOT EXISTS idx_billing_webhook_events_received ON public.billing
 -- Unique constraints for upserts (using conditional creation)
 DO $$
 BEGIN
-  -- flight_emails uniqueness on (user_id, message_id)
+  -- flight_emails uniqueness on (email_account_id, message_id)
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint 
-    WHERE conname = 'flight_emails_user_message_unique'
+    WHERE conname = 'flight_emails_account_message_unique'
   ) THEN
     ALTER TABLE public.flight_emails
-      ADD CONSTRAINT flight_emails_user_message_unique
-      UNIQUE (user_id, message_id);
+      ADD CONSTRAINT flight_emails_account_message_unique
+      UNIQUE (email_account_id, message_id);
   END IF;
 
   -- travel_entries uniqueness on (user_id, source_id, entry_type, country_code, entry_date)
@@ -562,6 +572,18 @@ CREATE POLICY "Admins can view all report templates" ON public.report_templates
         )
     );
 
+-- User preferences policies (RLS-style; effective when RLS enabled)
+CREATE POLICY "Users can manage own preferences" ON public.user_preferences
+    FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all preferences" ON public.user_preferences
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.users
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
 -- Duplicate detection policies
 CREATE POLICY "Users can manage own duplicates" ON public.duplicate_groups
     FOR ALL USING (auth.uid() = user_id);
@@ -681,6 +703,10 @@ CREATE TRIGGER update_reports_updated_at
 
 CREATE TRIGGER update_report_templates_updated_at
     BEFORE UPDATE ON public.report_templates
+    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+CREATE TRIGGER update_user_preferences_updated_at
+    BEFORE UPDATE ON public.user_preferences
     FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
 
 CREATE TRIGGER update_batch_operations_updated_at

@@ -1,5 +1,6 @@
 // Mock integration service - Firebase removed
 import { toast } from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
 
 // Types for integration service
 export interface IntegrationStatus {
@@ -50,11 +51,15 @@ const apiCall = async <TResponse>(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
+    // Attach Supabase auth token if available
+    const { data: { session } } = await supabase.auth.getSession()
+
     const response = await fetch(endpoint, {
       ...options,
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         ...options.headers,
       },
     })
@@ -251,8 +256,22 @@ export const getBookingIngestionStatus = async (): Promise<IngestStatus[]> => {
 export const getSchedulePreferences = async (): Promise<SchedulePreferences> => {
   // Schedule preferences are handled by dedicated schedule API
   try {
-    const result = await apiCall<{ success: boolean; data: SchedulePreferences }>('/api/schedule')
-    return result.data
+    const result = await apiCall<{ success: boolean; preferences: any }>(
+      '/api/schedule/preferences'
+    )
+    const prefs = result.preferences || {}
+    // Map flexible stored preferences to simple booleans used by UI
+    const daily = Boolean(
+      prefs.daily ??
+      prefs.emailSync ??
+      (prefs.schedules && (prefs.schedules.emailSync || prefs.schedules.morning))
+    )
+    const evening = Boolean(
+      prefs.evening ??
+      prefs.duplicateDetection ??
+      (prefs.schedules && (prefs.schedules.evening || prefs.schedules.duplicateCheck))
+    )
+    return { daily, evening }
   } catch (error) {
     // Return defaults if API not available
     return { daily: false, evening: false }
@@ -260,9 +279,9 @@ export const getSchedulePreferences = async (): Promise<SchedulePreferences> => 
 }
 
 export const updateSchedulePreferences = async (preferences: SchedulePreferences): Promise<void> => {
-  await apiCall<{ success: boolean }>('/api/schedule', {
+  await apiCall<{ success: boolean }>('/api/schedule/preferences', {
     method: 'POST',
-    body: JSON.stringify(preferences),
+    body: JSON.stringify({ preferences }),
   })
 }
 

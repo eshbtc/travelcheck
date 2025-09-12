@@ -186,6 +186,7 @@ export const supabaseService = {
       }
 
       // Normalize endpoint - ensure it starts with /
+      const originalEndpoint = endpoint
       let normalizedEndpoint = endpoint
       if (routeMap[endpoint]) {
         normalizedEndpoint = routeMap[endpoint]
@@ -193,10 +194,31 @@ export const supabaseService = {
         normalizedEndpoint = `/${endpoint}`
       }
 
-      const response = await fetch(`/api${normalizedEndpoint}`, {
-        method: data ? 'POST' : 'GET',
+      // Some endpoints expect GET with query params even when a payload is provided
+      const getWithQueryAliases = new Set<string>([
+        'listUniversalReports',
+        'getReportTemplates'
+      ])
+
+      let method: 'GET' | 'POST' = data ? 'POST' : 'GET'
+      let url = `/api${normalizedEndpoint}`
+
+      if (getWithQueryAliases.has(originalEndpoint)) {
+        method = 'GET'
+        if (data && typeof data === 'object') {
+          const qs = new URLSearchParams()
+          Object.entries(data).forEach(([k, v]) => {
+            if (v !== undefined && v !== null) qs.append(k, String(v))
+          })
+          const query = qs.toString()
+          if (query) url = `${url}?${query}`
+        }
+      }
+
+      const response = await fetch(url, {
+        method,
         headers,
-        body: data ? JSON.stringify(data) : undefined
+        body: method === 'POST' && data ? JSON.stringify(data) : undefined
       })
 
       if (!response.ok) {

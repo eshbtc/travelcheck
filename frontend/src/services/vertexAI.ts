@@ -1,4 +1,6 @@
 // Browser-compatible Vertex AI service using API routes
+import { supabaseService } from './supabaseService'
+
 export class VertexAIService {
   constructor() {
     // Client-side service that makes API calls to our Next.js API routes
@@ -50,24 +52,11 @@ export class VertexAIService {
         throw new Error('Unsupported image data type')
       }
 
-      // Make API call to our Next.js API route
-      const response = await fetch('/api/ai/analyze-passport', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          imageData: imageContent
-        })
+      // Use authorized API helper so Authorization is included
+      const result = await supabaseService.apiCall('/ai/analyze-passport', {
+        imageData: imageContent
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'API request failed')
-      }
-
-      const result = await response.json()
-      return result
+      return result as any
     } catch (error) {
       console.error('Error processing passport image:', error)
       return {
@@ -100,23 +89,10 @@ export class VertexAIService {
     error?: string
   }> {
     try {
-      const response = await fetch('/api/ai/analyze-patterns', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          travelData
-        })
+      const result = await supabaseService.apiCall('/ai/analyze-patterns', {
+        travelData
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'API request failed')
-      }
-
-      const result = await response.json()
-      return result
+      return result as any
     } catch (error) {
       console.error('Error analyzing travel patterns:', error)
       return {
@@ -156,23 +132,10 @@ export class VertexAIService {
     error?: string
   }> {
     try {
-      const response = await fetch('/api/ai/generate-suggestions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userData
-        })
+      const result = await supabaseService.apiCall('/ai/generate-suggestions', {
+        userData
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'API request failed')
-      }
-
-      const result = await response.json()
-      return result
+      return result as any
     } catch (error) {
       console.error('Error generating smart suggestions:', error)
       return {

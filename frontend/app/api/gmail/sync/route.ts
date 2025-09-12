@@ -195,14 +195,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Get user's Gmail account
-    const { data: emailAccounts, error: accountError } = await supabase
+    const body = await request.json().catch(() => ({}))
+    const { accountId } = body
+
+    // Get user's Gmail accounts (optionally a specific account)
+    let query = supabase
       .from('email_accounts')
       .select('*')
       .eq('user_id', user.id)
       .eq('provider', 'gmail')
       .eq('is_active', true)
-      .limit(1)
+
+    if (accountId) {
+      query = query.eq('id', accountId)
+    }
+
+    const { data: emailAccounts, error: accountError } = await query
 
     if (accountError || !emailAccounts || emailAccounts.length === 0) {
       return NextResponse.json(
@@ -211,137 +219,105 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const account = emailAccounts[0]
-    const refreshToken = decrypt(account.refresh_token)
+    const aggregateResults: Array<{ accountId: string, email: string, count: number }> = []
+    let totalCount = 0
 
-    if (!refreshToken) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid refresh token' },
-        { status: 400 }
+    for (const account of emailAccounts) {
+      const refreshToken = decrypt(account.refresh_token)
+      if (!refreshToken) {
+        await supabase
+          .from('email_accounts')
+          .update({ sync_status: 'failed', error_message: 'Invalid refresh token', updated_at: new Date().toISOString() })
+          .eq('id', account.id)
+        continue
+      }
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GMAIL_CLIENT_ID,
+        process.env.GMAIL_CLIENT_SECRET,
+        process.env.GMAIL_REDIRECT_URI,
       )
-    }
 
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
-      process.env.GMAIL_REDIRECT_URI,
-    )
+      oauth2Client.setCredentials({ refresh_token: refreshToken })
+      await oauth2Client.refreshAccessToken()
 
-    oauth2Client.setCredentials({ refresh_token: refreshToken })
-    await oauth2Client.refreshAccessToken()
+      // Use Gmail API to fetch messages
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+      const searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)'
+      const { data: list } = await gmail.users.messages.list({ userId: 'me', q: searchQuery, maxResults: 50 })
 
-    // Use Gmail API to fetch messages
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
-    const searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)'
-    const { data: list } = await gmail.users.messages.list({
-      userId: 'me',
-      q: searchQuery,
-      maxResults: 50
-    })
-
-    const flightEmails = []
-    if (list.messages && list.messages.length) {
-      for (const m of list.messages) {
-        if (!m.id) continue
-        
-        const messageData = await gmail.users.messages.get({
-          userId: 'me',
-          id: m.id,
-          format: 'full'
-        })
-        
-        const email = messageData.data
-        const headers = email.payload?.headers || []
-        const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
-        const from = headers.find((h: any) => h.name === 'From')?.value || ''
-        const date = headers.find((h: any) => h.name === 'Date')?.value || ''
-        const emailContent = extractEmailContent(email.payload)
-
-        const extractedFlights = await extractFlightInfo(emailContent, subject)
-        
-        const flightData = {
-          user_id: user.id,
-          email_account_id: account.id,
-          message_id: m.id,
-          subject,
-          sender: from,
-          recipient: account.email,
-          body_text: emailContent,
-          flight_data: extractedFlights,
-          parsed_data: extractedFlights,
-          confidence_score: 0.8,
-          processing_status: 'completed',
-          is_processed: true,
-          date_received: date ? new Date(date).toISOString() : new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-        
-        flightEmails.push(flightData)
-      }
-
-      // Save to Supabase
-      if (flightEmails.length > 0) {
-        const { data: insertedEmails, error: insertError } = await supabase
-          .from('flight_emails')
-          .upsert(flightEmails, {
-            onConflict: 'user_id,message_id',
-            ignoreDuplicates: false
+      const flightEmails: any[] = []
+      if (list.messages && list.messages.length) {
+        for (const m of list.messages) {
+          if (!m.id) continue
+          
+          const messageData = await gmail.users.messages.get({
+            userId: 'me',
+            id: m.id,
+            format: 'full'
           })
-          .select('id, flight_data, date_received')
+          
+          const email = messageData.data
+          const headers = email.payload?.headers || []
+          const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
+          const from = headers.find((h: any) => h.name === 'From')?.value || ''
+          const date = headers.find((h: any) => h.name === 'Date')?.value || ''
+          const emailContent = extractEmailContent(email.payload)
+          const extractedFlights = await extractFlightInfo(emailContent, subject)
+          
+          flightEmails.push({
+            user_id: user.id,
+            email_account_id: account.id,
+            message_id: m.id,
+            subject,
+            sender: from,
+            recipient: account.email,
+            body_text: emailContent,
+            flight_data: extractedFlights,
+            parsed_data: extractedFlights,
+            confidence_score: 0.8,
+            processing_status: 'completed',
+            is_processed: true,
+            date_received: date ? new Date(date).toISOString() : new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+        }
 
-        if (insertError) {
-          console.error('Error saving flight emails:', insertError)
-        } else if (insertedEmails && insertedEmails.length > 0) {
-          // Create travel entries from flight emails
-          const travelEntries = []
-          for (const email of insertedEmails) {
-            if (email.flight_data) {
-              const entries = await createTravelEntries(
-                user.id, 
-                email.id, 
-                email.flight_data, 
-                email.date_received
-              )
-              travelEntries.push(...entries)
+        // Save to Supabase
+        if (flightEmails.length > 0) {
+          const { data: insertedEmails, error: insertError } = await supabase
+            .from('flight_emails')
+            .upsert(flightEmails, { onConflict: 'user_id,message_id', ignoreDuplicates: false })
+            .select('id, flight_data, date_received')
+
+          if (!insertError && insertedEmails && insertedEmails.length > 0) {
+            const travelEntries = []
+            for (const email of insertedEmails) {
+              if (email.flight_data) {
+                const entries = await createTravelEntries(user.id, email.id, email.flight_data, email.date_received)
+                travelEntries.push(...entries)
+              }
             }
-          }
-
-          // Save travel entries
-          if (travelEntries.length > 0) {
-            const { error: entriesError } = await supabase
-              .from('travel_entries')
-              .upsert(travelEntries, {
-                onConflict: 'user_id,source_id,entry_type,country_code,entry_date',
-                ignoreDuplicates: true
-              })
-
-            if (entriesError) {
-              console.error('Error saving travel entries:', entriesError)
-            } else {
-              console.log(`Created ${travelEntries.length} travel entries from ${insertedEmails.length} flight emails`)
+            if (travelEntries.length > 0) {
+              await supabase
+                .from('travel_entries')
+                .upsert(travelEntries, { onConflict: 'user_id,source_id,entry_type,country_code,entry_date', ignoreDuplicates: true })
             }
           }
         }
       }
+
+      totalCount += flightEmails.length
+      aggregateResults.push({ accountId: account.id, email: account.email, count: flightEmails.length })
+
+      await supabase
+        .from('email_accounts')
+        .update({ last_sync: new Date().toISOString(), sync_status: 'completed', error_message: null, updated_at: new Date().toISOString() })
+        .eq('id', account.id)
     }
 
-    // Update sync status
-    await supabase
-      .from('email_accounts')
-      .update({
-        last_sync: new Date().toISOString(),
-        sync_status: 'completed',
-        error_message: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', account.id)
-
-    return NextResponse.json({
-      success: true,
-      count: flightEmails.length,
-      emails: flightEmails,
-    })
+    return NextResponse.json({ success: true, totalCount, results: aggregateResults })
   } catch (error) {
     console.error('Error syncing Gmail:', error)
     

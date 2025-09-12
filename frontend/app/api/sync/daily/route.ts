@@ -5,52 +5,37 @@ import { google } from 'googleapis'
 
 async function syncUserGmail(userId: string): Promise<{ success: boolean; count: number; error?: string }> {
   try {
-    // Get user's Gmail account
-    const { data: emailAccount, error } = await supabase
+    // Get all user's Gmail accounts
+    const { data: accounts, error } = await supabase
       .from('email_accounts')
       .select('*')
       .eq('user_id', userId)
       .eq('provider', 'gmail')
-      .single()
 
-    if (error || !emailAccount) {
+    if (error || !accounts || accounts.length === 0) {
       return { success: false, count: 0, error: 'Gmail account not found' }
     }
 
-    const refreshToken = decrypt(emailAccount.refresh_token)
-    if (!refreshToken) {
-      return { success: false, count: 0, error: 'Invalid refresh token' }
-    }
-
-    // Initialize OAuth client
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
-      process.env.GMAIL_REDIRECT_URI
-    )
-
-    oauth2Client.setCredentials({ refresh_token: refreshToken })
-    
-    try {
-      await oauth2Client.refreshAccessToken()
-    } catch (tokenError) {
-      return { success: false, count: 0, error: 'Failed to refresh access token' }
-    }
-
-    // Use Gmail API to sync emails
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
-    const searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel) newer_than:7d'
-    
-    const { data: list } = await gmail.users.messages.list({
-      userId: 'me',
-      q: searchQuery,
-      maxResults: 20
-    })
-
     let syncCount = 0
-    if (list.messages && list.messages.length) {
-      for (const message of list.messages) {
-        if (!message.id) continue
+    for (const acct of accounts) {
+      const refreshToken = decrypt(acct.refresh_token)
+      if (!refreshToken) continue
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GMAIL_CLIENT_ID,
+        process.env.GMAIL_CLIENT_SECRET,
+        process.env.GMAIL_REDIRECT_URI
+      )
+      oauth2Client.setCredentials({ refresh_token: refreshToken })
+      try { await oauth2Client.refreshAccessToken() } catch { continue }
+
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+      const searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel) newer_than:7d'
+      const { data: list } = await gmail.users.messages.list({ userId: 'me', q: searchQuery, maxResults: 20 })
+
+      if (list.messages && list.messages.length) {
+        for (const message of list.messages) {
+          if (!message.id) continue
 
         // Check if already processed
         const { data: existing } = await supabase
@@ -113,6 +98,7 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
         if (!insertError) {
           syncCount++
         }
+        }
       }
     }
 
@@ -125,46 +111,43 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
 
 async function syncUserOffice365(userId: string): Promise<{ success: boolean; count: number; error?: string }> {
   try {
-    // Get user's Office365 account
-    const { data: emailAccount, error } = await supabase
+    // Get user's Office365 accounts
+    const { data: accounts, error } = await supabase
       .from('email_accounts')
       .select('*')
       .eq('user_id', userId)
       .eq('provider', 'office365')
-      .single()
 
-    if (error || !emailAccount) {
+    if (error || !accounts || accounts.length === 0) {
       return { success: false, count: 0, error: 'Office365 account not found' }
     }
 
-    const accessToken = decrypt(emailAccount.access_token)
-    if (!accessToken) {
-      return { success: false, count: 0, error: 'Invalid access token' }
-    }
-
-    // Use Microsoft Graph API
-    const response = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=20&$filter=receivedDateTime ge ' + 
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    })
-
-    if (!response.ok) {
-      return { success: false, count: 0, error: 'Failed to fetch emails from Office365' }
-    }
-
-    const data = await response.json()
-    const messages = data.value || []
-
     let syncCount = 0
-    for (const message of messages) {
-      // Check if flight-related
-      const subject = message.subject || ''
-      const isFlightEmail = /confirmation|booking|ticket|flight|airline|travel/i.test(subject)
-      
-      if (!isFlightEmail) continue
+    for (const acct of accounts) {
+      const accessToken = decrypt(acct.access_token)
+      if (!accessToken) continue
+
+      const response = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=20&$filter=receivedDateTime ge ' + 
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        continue
+      }
+
+      const data = await response.json()
+      const messages = data.value || []
+
+      for (const message of messages) {
+        // Check if flight-related
+        const subject = message.subject || ''
+        const isFlightEmail = /confirmation|booking|ticket|flight|airline|travel/i.test(subject)
+        
+        if (!isFlightEmail) continue
 
       // Check if already processed
       const { data: existing } = await supabase
@@ -197,6 +180,7 @@ async function syncUserOffice365(userId: string): Promise<{ success: boolean; co
 
       if (!insertError) {
         syncCount++
+      }
       }
     }
 

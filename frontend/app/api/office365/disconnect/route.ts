@@ -18,12 +18,24 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Remove Office365 account from Supabase
-    const { error } = await supabase
+    const body = await request.json().catch(() => ({}))
+    const { accountId, email } = body
+
+    // Remove one or all Office365 accounts
+    let query = supabase
       .from('email_accounts')
       .delete()
       .eq('user_id', user.id)
       .eq('provider', 'office365')
+
+    if (accountId) {
+      query = query.eq('id', accountId)
+    }
+    if (email) {
+      query = query.eq('email', email)
+    }
+
+    const { error } = await query
 
     if (error) {
       console.error('Error disconnecting Office365:', error)
@@ -35,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Office365 account disconnected successfully',
+      message: accountId || email ? 'Office365 account disconnected successfully' : 'All Office365 accounts disconnected successfully',
     })
   } catch (error) {
     console.error('Error disconnecting Office365:', error)
