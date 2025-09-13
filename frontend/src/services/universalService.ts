@@ -31,12 +31,20 @@ export class UniversalTravelService {
       });
       
       if (!result.success) {
-        throw new Error('Failed to generate report');
+        // Don't log payment required errors as they are expected
+        if (result.error !== 'payment_required') {
+          console.error('Error generating universal report:', result.error);
+        }
+        throw new Error(result.error || 'Failed to generate report');
       }
       
       return result.report as any;
     } catch (error) {
-      console.error('Error generating universal report:', error);
+      // Only log unexpected errors, not payment/rate limit issues
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate report';
+      if (!['payment_required', 'Rate limit exceeded. Please try again later.'].includes(errorMessage)) {
+        console.error('Error generating universal report:', error);
+      }
       throw error;
     }
   }

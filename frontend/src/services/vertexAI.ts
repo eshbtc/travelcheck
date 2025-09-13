@@ -137,10 +137,14 @@ export class VertexAIService {
       })
       return result as any
     } catch (error) {
-      console.error('Error generating smart suggestions:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Suggestions generation failed'
+      // Don't log rate limit errors as they are expected
+      if (!['Rate limit exceeded. Please try again later.'].includes(errorMessage)) {
+        console.error('Error generating smart suggestions:', error)
+      }
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Suggestions generation failed'
+        error: errorMessage
       }
     }
   }

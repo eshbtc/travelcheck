@@ -223,15 +223,29 @@ export const supabaseService = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+        const errorMessage = errorData.error || `HTTP ${response.status}`
+        
+        // Map specific HTTP status codes to more user-friendly error types
+        if (response.status === 402) {
+          throw new Error('payment_required')
+        } else if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.')
+        }
+        
+        throw new Error(errorMessage)
       }
 
       return await response.json()
     } catch (error) {
-      console.error('API call error:', error)
+      // Only log errors that are not expected user-facing errors
+      const errorMessage = error instanceof Error ? error.message : 'API call failed'
+      if (!['payment_required', 'Rate limit exceeded. Please try again later.'].includes(errorMessage)) {
+        console.error('API call error:', error)
+      }
+      
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'API call failed' 
+        error: errorMessage
       }
     }
   }
@@ -531,6 +545,35 @@ export const processBatchPassportImages = async (imageDataArray: Array<{
       }))
     )
 
+    // Immediately persist placeholder rows so data survives refresh
+    const pendingInserts = uploadResults.results
+      .filter(r => r.success && r.url)
+      .map(r => ({
+        user_id: user.id,
+        file_url: r.url!,
+        file_name: r.path.split('/').pop() || 'unknown',
+        processing_status: 'pending' as const,
+        created_at: new Date().toISOString()
+      }))
+
+    let idByPath = new Map<string, string>()
+    if (pendingInserts.length > 0) {
+      const { data: inserted, error: insertError } = await supabase
+        .from('passport_scans')
+        .insert(pendingInserts)
+        .select('id, file_url')
+      if (!insertError && inserted) {
+        // Build lookup from file path tail to id for later updates
+        inserted.forEach(row => {
+          try {
+            const url: string = (row as any).file_url || ''
+            const tail = url.split('/').pop() || url
+            idByPath.set(tail, (row as any).id)
+          } catch (_) {}
+        })
+      }
+    }
+
     // Process uploaded images with Vertex AI
     const processResults = await vertexAI.processBatchPassportImages(
       uploadResults.results
@@ -542,19 +585,64 @@ export const processBatchPassportImages = async (imageDataArray: Array<{
         }))
     )
 
-    // Save results to database
-    const scansToSave = processResults.results
-      .filter(r => r.success)
-      .map(r => ({
-        user_id: user.id,
-        file_url: uploadResults.results.find(u => u.path === r.id)?.url || '',
-        file_name: r.id.split('/').pop() || 'unknown',
-        analysis_results: r.data,
-        created_at: new Date().toISOString()
-      }))
-
-    if (scansToSave.length > 0) {
-      await supabase.from('passport_scans').insert(scansToSave)
+    // Update placeholder rows with processing results
+    if (processResults.results && processResults.results.length > 0) {
+      for (const r of processResults.results) {
+        const tail = (r.id || '').split('/').pop() || r.id
+        const rowId = idByPath.get(tail)
+        const updateData: any = {
+          processing_status: r.success ? 'completed' : 'failed',
+          analysis_results: r.data || null,
+          updated_at: new Date().toISOString(),
+        }
+        if (rowId) {
+          await supabase.from('passport_scans').update(updateData).eq('id', rowId)
+          // Create travel entries from extracted stamps when available
+          try {
+            const stamps: any[] = r?.data?.stamps || []
+            if (stamps.length > 0) {
+              const travelEntries = stamps.map((stamp: any) => ({
+                user_id: user.id,
+                entry_type: 'passport_stamp',
+                source_id: rowId,
+                source_type: 'passport_scan',
+                country_code: stamp.country || 'UNKNOWN',
+                country_name: stamp.country || 'UNKNOWN',
+                city: stamp.location,
+                entry_date: stamp.date,
+                exit_date: stamp.type === 'exit' ? stamp.date : null,
+                purpose: stamp.type === 'entry' ? 'entry' : stamp.type === 'exit' ? 'exit' : 'unknown',
+                transport_type: 'other',
+                status: 'pending',
+                confidence_score: typeof stamp.confidence === 'number' ? stamp.confidence : 0.5,
+                is_verified: false,
+                manual_override: false,
+                notes: `Extracted from passport scan - ${stamp.type}`,
+                metadata: {
+                  passport_extracted: true,
+                  stamp_type: stamp.type,
+                  original_text: stamp?.metadata?.originalText,
+                  extraction_source: stamp?.metadata?.extractedFrom
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }))
+              await supabase.from('travel_entries').insert(travelEntries)
+            }
+          } catch (e) {
+            console.warn('Travel entries creation skipped:', (e as Error).message)
+          }
+        } else {
+          // Fallback: insert a full row if placeholder was not created
+          await supabase.from('passport_scans').insert({
+            user_id: user.id,
+            file_url: uploadResults.results.find(u => u.path === r.id)?.url || '',
+            file_name: tail || 'unknown',
+            ...updateData,
+            created_at: new Date().toISOString()
+          })
+        }
+      }
     }
 
     return processResults
