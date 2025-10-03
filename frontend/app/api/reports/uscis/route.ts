@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 interface TravelEntry {
   id: string
-  entry_date: string
-  exit_date?: string | null
-  country_code: string
-  country_name: string
+  entryDate: Date
+  exitDate?: Date | null
+  countryCode: string
+  countryName: string
   city?: string | null
-  entry_type: string
+  entryType: string
   purpose?: string | null
-  created_at: string
+  createdAt: Date
 }
 
 function calculateDaysOutside(entries: TravelEntry[], startDate: string, endDate: string): number {
@@ -20,12 +20,12 @@ function calculateDaysOutside(entries: TravelEntry[], startDate: string, endDate
   let totalDays = 0
 
   for (const entry of entries) {
-    if (entry.country_code === 'US' || entry.country_name === 'United States') {
+    if (entry.countryCode === 'US' || entry.countryName === 'United States') {
       continue // Skip US entries for days outside calculation
     }
 
-    const entryDate = new Date(entry.entry_date)
-    const exitDate = entry.exit_date ? new Date(entry.exit_date) : new Date()
+    const entryDate = new Date(entry.entryDate)
+    const exitDate = entry.exitDate ? new Date(entry.exitDate) : new Date()
 
     // Calculate overlap with the specified period
     const overlapStart = new Date(Math.max(start.getTime(), entryDate.getTime()))
@@ -42,21 +42,21 @@ function calculateDaysOutside(entries: TravelEntry[], startDate: string, endDate
 
 function generateUSCISTrips(entries: TravelEntry[]): any[] {
   const trips = []
-  
+
   // Sort entries by date
   const sortedEntries = entries
-    .filter(entry => entry.country_code !== 'US' && entry.country_name !== 'United States')
-    .sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime())
+    .filter(entry => entry.countryCode !== 'US' && entry.countryName !== 'United States')
+    .sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime())
 
   for (const entry of sortedEntries) {
     trips.push({
-      departureDate: entry.entry_date,
-      returnDate: entry.exit_date || new Date().toISOString().split('T')[0],
-      destination: entry.country_name || entry.country_code,
+      departureDate: entry.entryDate.toISOString().split('T')[0],
+      returnDate: entry.exitDate ? entry.exitDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      destination: entry.countryName || entry.countryCode,
       city: entry.city,
       purpose: entry.purpose || 'Personal/Tourism',
-      daysAbsent: entry.exit_date 
-        ? Math.ceil((new Date(entry.exit_date).getTime() - new Date(entry.entry_date).getTime()) / (1000 * 60 * 60 * 24))
+      daysAbsent: entry.exitDate
+        ? Math.ceil((new Date(entry.exitDate).getTime() - new Date(entry.entryDate).getTime()) / (1000 * 60 * 60 * 24))
         : 0
     })
   }
@@ -65,25 +65,13 @@ function generateUSCISTrips(entries: TravelEntry[]): any[] {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     const body = await request.json()
-    const { 
-      startDate, 
-      endDate, 
+    const {
+      startDate,
+      endDate,
       reportType = 'N-400',
       applicantInfo = {}
     } = body
@@ -96,21 +84,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Get travel entries
-    const { data: entries, error } = await supabase
-      .from('travel_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('entry_date', startDate)
-      .lte('entry_date', endDate)
-      .order('entry_date', { ascending: true })
-
-    if (error) {
-      console.error('Error fetching travel entries:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch travel entries' },
-        { status: 500 }
-      )
-    }
+    const entries = await prisma.travelEntry.findMany({
+      where: {
+        userId: session.user.id,
+        entryDate: {
+          gte: new Date(startDate),
+          lte: new Date(endDate)
+        }
+      },
+      orderBy: { entryDate: 'asc' }
+    })
 
     // Generate USCIS report
     const trips = generateUSCISTrips(entries || [])
@@ -147,7 +130,7 @@ export async function POST(request: NextRequest) {
           `Total trips outside US: ${totalTrips}`,
           `Longest trip: ${Math.max(...trips.map(t => t.daysAbsent), 0)} days`
         ],
-        warnings: trips.filter(trip => trip.daysAbsent > 365).length > 0 
+        warnings: trips.filter(trip => trip.daysAbsent > 365).length > 0
           ? ['One or more trips exceeded 365 days - may affect continuous residence']
           : []
       },
@@ -155,29 +138,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Save report
-    const { data: savedReport, error: saveError } = await supabase
-      .from('reports')
-      .insert({
-        user_id: user.id,
-        report_type: 'uscis',
-        title: `USCIS ${reportType} Report`,
-        description: `Travel history report for ${reportType} application`,
-        parameters: { startDate, endDate, reportType, applicantInfo },
-        report_data: reportData,
-        file_format: 'json',
-        status: 'completed',
-        created_at: new Date().toISOString(),
+    let savedReport
+    try {
+      savedReport = await prisma.report.create({
+        data: {
+          userId: session.user.id,
+          reportType: 'uscis',
+          title: `USCIS ${reportType} Report`,
+          description: `Travel history report for ${reportType} application`,
+          parameters: { startDate, endDate, reportType, applicantInfo } as any,
+          reportData: reportData as any,
+          fileFormat: 'json',
+          status: 'completed'
+        }
       })
-      .select()
-
-    if (saveError) {
+    } catch (saveError) {
       console.error('Error saving report:', saveError)
     }
 
     return NextResponse.json({
       success: true,
       report: reportData,
-      reportId: savedReport?.[0]?.id,
+      reportId: savedReport?.id,
       summary: {
         totalTrips,
         totalDaysOutside,

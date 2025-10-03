@@ -1,24 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/crypto'
 import { google } from 'googleapis'
 
 async function syncUserGmail(userId: string): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     // Get all user's Gmail accounts
-    const { data: accounts, error } = await supabase
-      .from('email_accounts')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('provider', 'gmail')
+    const accounts = await prisma.emailAccount.findMany({
+      where: {
+        userId,
+        provider: 'gmail'
+      }
+    })
 
-    if (error || !accounts || accounts.length === 0) {
+    if (!accounts || accounts.length === 0) {
       return { success: false, count: 0, error: 'Gmail account not found' }
     }
 
     let syncCount = 0
     for (const acct of accounts) {
-      const refreshToken = decrypt(acct.refresh_token)
+      const refreshToken = decrypt(acct.refreshToken)
       if (!refreshToken) continue
 
       const oauth2Client = new google.auth.OAuth2(
@@ -37,15 +38,15 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
         for (const message of list.messages) {
           if (!message.id) continue
 
-        // Check if already processed
-        const { data: existing } = await supabase
-          .from('flight_emails')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('message_id', message.id)
-          .single()
+          // Check if already processed
+          const existing = await prisma.flightEmail.findFirst({
+            where: {
+              userId,
+              messageId: message.id
+            }
+          })
 
-        if (existing) continue // Already processed
+          if (existing) continue // Already processed
 
         const messageData = await gmail.users.messages.get({
           userId: 'me',
@@ -79,25 +80,25 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
           flights.push(match[1])
         }
 
-        // Save to database
-        const { error: insertError } = await supabase
-          .from('flight_emails')
-          .insert({
-            user_id: userId,
-            message_id: message.id,
-            subject,
-            sender: from,
-            date_received: date,
-            body_text: content,
-            parsed_data: { flights, extractedAt: new Date().toISOString() },
-            processing_status: 'completed',
-            confidence_score: flights.length > 0 ? 0.8 : 0.3,
-            created_at: new Date().toISOString()
-          })
-
-        if (!insertError) {
-          syncCount++
-        }
+          // Save to database
+          try {
+            await prisma.flightEmail.create({
+              data: {
+                userId,
+                messageId: message.id,
+                subject,
+                sender: from,
+                dateReceived: date ? new Date(date) : new Date(),
+                bodyText: content,
+                parsedData: { flights, extractedAt: new Date().toISOString() } as any,
+                processingStatus: 'completed',
+                confidenceScore: flights.length > 0 ? 0.8 : 0.3
+              }
+            })
+            syncCount++
+          } catch (insertError) {
+            console.error('Error inserting flight email:', insertError)
+          }
         }
       }
     }
@@ -112,19 +113,20 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
 async function syncUserOffice365(userId: string): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     // Get user's Office365 accounts
-    const { data: accounts, error } = await supabase
-      .from('email_accounts')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('provider', 'office365')
+    const accounts = await prisma.emailAccount.findMany({
+      where: {
+        userId,
+        provider: 'office365'
+      }
+    })
 
-    if (error || !accounts || accounts.length === 0) {
+    if (!accounts || accounts.length === 0) {
       return { success: false, count: 0, error: 'Office365 account not found' }
     }
 
     let syncCount = 0
     for (const acct of accounts) {
-      const accessToken = decrypt(acct.access_token)
+      const accessToken = decrypt(acct.accessToken)
       if (!accessToken) continue
 
       const response = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=20&$filter=receivedDateTime ge ' + 
@@ -149,38 +151,38 @@ async function syncUserOffice365(userId: string): Promise<{ success: boolean; co
         
         if (!isFlightEmail) continue
 
-      // Check if already processed
-      const { data: existing } = await supabase
-        .from('flight_emails')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('message_id', message.id)
-        .single()
-
-      if (existing) continue
-
-      const content = message.body?.content || ''
-      const from = message.from?.emailAddress?.address || ''
-
-      // Save to database
-      const { error: insertError } = await supabase
-        .from('flight_emails')
-        .insert({
-          user_id: userId,
-          message_id: message.id,
-          subject,
-          sender: from,
-          date_received: message.receivedDateTime,
-          body_text: content,
-          parsed_data: { source: 'office365', extractedAt: new Date().toISOString() },
-          processing_status: 'completed',
-          confidence_score: 0.6,
-          created_at: new Date().toISOString()
+        // Check if already processed
+        const existing = await prisma.flightEmail.findFirst({
+          where: {
+            userId,
+            messageId: message.id
+          }
         })
 
-      if (!insertError) {
-        syncCount++
-      }
+        if (existing) continue
+
+        const content = message.body?.content || ''
+        const from = message.from?.emailAddress?.address || ''
+
+        // Save to database
+        try {
+          await prisma.flightEmail.create({
+            data: {
+              userId,
+              messageId: message.id,
+              subject,
+              sender: from,
+              dateReceived: message.receivedDateTime ? new Date(message.receivedDateTime) : new Date(),
+              bodyText: content,
+              parsedData: { source: 'office365', extractedAt: new Date().toISOString() } as any,
+              processingStatus: 'completed',
+              confidenceScore: 0.6
+            }
+          })
+          syncCount++
+        } catch (insertError) {
+          console.error('Error inserting flight email:', insertError)
+        }
       }
     }
 
@@ -206,55 +208,49 @@ export async function POST(request: NextRequest) {
     const singleUserId = body.singleUser
 
     // Get email accounts - either for all users or specific user
-    let query = supabase
-      .from('email_accounts')
-      .select('user_id, provider, is_active')
-      .eq('is_active', true)
-    
-    if (singleUserId) {
-      query = query.eq('user_id', singleUserId)
-    }
-
-    const { data: emailAccounts, error } = await query
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch email accounts' },
-        { status: 500 }
-      )
-    }
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        isActive: true,
+        ...(singleUserId ? { userId: singleUserId } : {})
+      },
+      select: {
+        userId: true,
+        provider: true,
+        isActive: true
+      }
+    })
 
     const results = []
     const processedUsers = new Set<string>()
 
     for (const account of emailAccounts || []) {
-      if (processedUsers.has(account.user_id)) continue
-      processedUsers.add(account.user_id)
+      if (processedUsers.has(account.userId)) continue
+      processedUsers.add(account.userId)
 
       const userResults = {
-        userId: account.user_id,
+        userId: account.userId,
         gmail: { success: false, count: 0 },
         office365: { success: false, count: 0 }
       }
 
       // Check if user has Gmail
-      const hasGmail = emailAccounts.some(acc => 
-        acc.user_id === account.user_id && acc.provider === 'gmail'
+      const hasGmail = emailAccounts.some(acc =>
+        acc.userId === account.userId && acc.provider === 'gmail'
       )
 
       // Check if user has Office365
-      const hasOffice365 = emailAccounts.some(acc => 
-        acc.user_id === account.user_id && acc.provider === 'office365'
+      const hasOffice365 = emailAccounts.some(acc =>
+        acc.userId === account.userId && acc.provider === 'office365'
       )
 
       // Sync Gmail if connected
       if (hasGmail) {
-        userResults.gmail = await syncUserGmail(account.user_id)
+        userResults.gmail = await syncUserGmail(account.userId)
       }
 
       // Sync Office365 if connected
       if (hasOffice365) {
-        userResults.office365 = await syncUserOffice365(account.user_id)
+        userResults.office365 = await syncUserOffice365(account.userId)
       }
 
       results.push(userResults)

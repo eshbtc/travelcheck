@@ -1,39 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 // Helper function to check if user is admin
-async function requireAdmin(user: any) {
-  const { data: userData, error } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+async function requireAdmin(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, email: true }
+  })
 
-  if (error || !userData || userData.role !== 'admin') {
-    return false
-  }
-  return true
+  if (!user) return false
+
+  // Check admin emails from environment
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || []
+  const isAdmin = user.role === 'admin' || adminEmails.includes(user.email || '')
+
+  return isAdmin
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     // Check if user is admin
-    const isAdmin = await requireAdmin(user)
+    const isAdmin = await requireAdmin(session.user.id)
     if (!isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Admin access required' },
@@ -59,24 +49,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user role
-    const { data, error } = await supabase
-      .from('users')
-      .update({ 
-        role: role,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', targetUserId)
-      .select()
+    const data = await prisma.user.update({
+      where: { id: targetUserId },
+      data: { role }
+    })
 
-    if (error) {
-      console.error('Error updating user role:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to update user role' },
-        { status: 500 }
-      )
-    }
-
-    if (!data || data.length === 0) {
+    if (!data) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
         { status: 404 }
@@ -86,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `User role updated to ${role}`,
-      user: data[0],
+      user: data,
     })
   } catch (error) {
     console.error('Error setting user role:', error)

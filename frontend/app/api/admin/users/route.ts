@@ -1,39 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 // Helper function to check if user is admin
-async function requireAdmin(user: any) {
-  const { data: userData, error } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+async function requireAdmin(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, email: true }
+  })
 
-  if (error || !userData || userData.role !== 'admin') {
-    return false
-  }
-  return true
+  if (!user) return false
+
+  // Check admin emails from environment
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || []
+  const isAdmin = user.role === 'admin' || adminEmails.includes(user.email || '')
+
+  return isAdmin
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     // Check if user is admin
-    const isAdmin = await requireAdmin(user)
+    const isAdmin = await requireAdmin(session.user.id)
     if (!isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Admin access required' },
@@ -42,18 +32,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all users
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id, email, display_name, role, created_at, last_login, settings')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching users:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch users' },
-        { status: 500 }
-      )
-    }
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        createdAt: true,
+        lastLogin: true,
+        settings: true
+      },
+      orderBy: { createdAt: 'desc' }
+    })
 
     return NextResponse.json({
       success: true,

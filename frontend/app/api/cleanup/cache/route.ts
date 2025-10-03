@@ -1,26 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     const body = await request.json()
     const { type = 'all', olderThanDays = 30 } = body
 
-    const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
+    const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000)
     let cleanupResults = {
       scansRemoved: 0,
       emailsRemoved: 0,
@@ -30,114 +19,71 @@ export async function POST(request: NextRequest) {
 
     // Clean up old passport scans with low confidence
     if (type === 'all' || type === 'scans') {
-      const { data: oldScans } = await supabase
-        .from('passport_scans')
-        .select('id')
-        .eq('user_id', user.id)
-        .lt('created_at', cutoffDate)
-        .lt('confidence_score', 0.3)
-
-      if (oldScans && oldScans.length > 0) {
-        const { error } = await supabase
-          .from('passport_scans')
-          .delete()
-          .eq('user_id', user.id)
-          .lt('created_at', cutoffDate)
-          .lt('confidence_score', 0.3)
-
-        if (!error) {
-          cleanupResults.scansRemoved = oldScans.length
+      const deletedScans = await prisma.passportScan.deleteMany({
+        where: {
+          userId: session.user.id,
+          createdAt: { lt: cutoffDate },
+          confidenceScore: { lt: 0.3 }
         }
-      }
+      })
+      cleanupResults.scansRemoved = deletedScans.count
     }
 
     // Clean up processed flight emails that are old
     if (type === 'all' || type === 'emails') {
-      const { data: oldEmails } = await supabase
-        .from('flight_emails')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('processing_status', 'completed')
-        .lt('created_at', cutoffDate)
-
-      if (oldEmails && oldEmails.length > 0) {
-        const { error } = await supabase
-          .from('flight_emails')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('processing_status', 'completed')
-          .lt('created_at', cutoffDate)
-
-        if (!error) {
-          cleanupResults.emailsRemoved = oldEmails.length
+      const deletedEmails = await prisma.flightEmail.deleteMany({
+        where: {
+          userId: session.user.id,
+          processingStatus: 'completed',
+          createdAt: { lt: cutoffDate }
         }
-      }
+      })
+      cleanupResults.emailsRemoved = deletedEmails.count
     }
 
     // Clean up old reports
     if (type === 'all' || type === 'reports') {
-      const { data: oldReports } = await supabase
-        .from('reports')
-        .select('id')
-        .eq('user_id', user.id)
-        .lt('created_at', cutoffDate)
-
-      if (oldReports && oldReports.length > 0) {
-        const { error } = await supabase
-          .from('reports')
-          .delete()
-          .eq('user_id', user.id)
-          .lt('created_at', cutoffDate)
-
-        if (!error) {
-          cleanupResults.reportsRemoved = oldReports.length
+      const deletedReports = await prisma.report.deleteMany({
+        where: {
+          userId: session.user.id,
+          createdAt: { lt: cutoffDate }
         }
-      }
+      })
+      cleanupResults.reportsRemoved = deletedReports.count
     }
 
     // Auto-resolve old duplicate groups with low confidence
     if (type === 'all' || type === 'duplicates') {
-      const { data: oldDuplicates } = await supabase
-        .from('duplicate_groups')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-        .lt('similarity_score', 0.6)
-        .lt('created_at', cutoffDate)
-
-      if (oldDuplicates && oldDuplicates.length > 0) {
-        const { error } = await supabase
-          .from('duplicate_groups')
-          .update({
-            status: 'auto_resolved',
-            resolution_action: 'ignored',
-            resolved_at: new Date().toISOString(),
-            metadata: { auto_resolved: true, reason: 'low_confidence_cleanup' }
-          })
-          .eq('user_id', user.id)
-          .eq('status', 'pending')
-          .lt('similarity_score', 0.6)
-          .lt('created_at', cutoffDate)
-
-        if (!error) {
-          cleanupResults.duplicatesResolved = oldDuplicates.length
+      const updatedDuplicates = await prisma.duplicateGroup.updateMany({
+        where: {
+          userId: session.user.id,
+          status: 'pending',
+          similarityScore: { lt: 0.6 },
+          createdAt: { lt: cutoffDate }
+        },
+        data: {
+          status: 'auto_resolved',
+          resolutionAction: 'ignored',
+          resolvedAt: new Date(),
+          metadata: { auto_resolved: true, reason: 'low_confidence_cleanup' } as any
         }
-      }
+      })
+      cleanupResults.duplicatesResolved = updatedDuplicates.count
     }
 
     // Log cleanup operation
-    await supabase
-      .from('system_logs')
-      .insert({
-        user_id: user.id,
+    await prisma.systemLog.create({
+      data: {
+        userId: session.user.id,
         operation: 'cache_cleanup',
         details: {
           type,
           olderThanDays,
           results: cleanupResults,
           timestamp: new Date().toISOString()
-        }
-      })
+        } as any
+      }
+    })
 
     return NextResponse.json({
       success: true,
@@ -145,7 +91,7 @@ export async function POST(request: NextRequest) {
       results: cleanupResults,
       summary: {
         totalItemsRemoved: Object.values(cleanupResults).reduce((a, b) => a + b, 0),
-        cutoffDate,
+        cutoffDate: cutoffDate.toISOString(),
         type
       }
     })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
 
@@ -18,19 +18,7 @@ const GetTemplatesSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     const { searchParams } = new URL(request.url)
@@ -46,25 +34,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Get report templates
-    let query = supabase
-      .from('report_templates')
-      .select('*')
-      .or(`user_id.eq.${user.id},is_public.eq.true`)
-      .order('created_at', { ascending: false })
-
-    if (category) {
-      query = query.eq('category', category)
-    }
-
-    const { data: templates, error } = await query
-
-    if (error) {
-      console.error('Supabase error:', sanitizeForLogging(error))
-      return NextResponse.json(
-        { success: false, error: 'Failed to get templates' },
-        { status: 500 }
-      )
-    }
+    const templates = await prisma.reportTemplate.findMany({
+      where: {
+        OR: [
+          { userId: session.user.id },
+          { isPublic: true }
+        ],
+        ...(category ? { category } : {})
+      },
+      orderBy: { createdAt: 'desc' }
+    })
 
     return NextResponse.json({
       success: true,
@@ -80,24 +59,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     const body = await request.json()
     console.log('Save template request:', sanitizeForLogging(body))
-    
+
     // Validate input data
     const validation = validateInput(ReportTemplateSchema, body)
     if (!validation.success) {
@@ -110,30 +77,18 @@ export async function POST(request: NextRequest) {
     const templateData = validation.data!
 
     // Save the template
-    const { data, error } = await supabase
-      .from('report_templates')
-      .insert({
-        user_id: user.id,
+    const data = await prisma.reportTemplate.create({
+      data: {
+        userId: session.user.id,
         name: templateData.name,
         description: templateData.description || '',
         category: templateData.category,
         country: templateData.country,
-        template: templateData.template,
+        template: templateData.template as any,
         preview: templateData.preview,
-        is_public: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Supabase error:', sanitizeForLogging(error))
-      return NextResponse.json(
-        { success: false, error: 'Failed to save template' },
-        { status: 500 }
-      )
-    }
+        isPublic: false
+      }
+    })
 
     return NextResponse.json({
       success: true,

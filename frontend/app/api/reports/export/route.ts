@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     const body = await request.json()
@@ -28,14 +17,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the report
-    const { data: report, error } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('id', reportId)
-      .eq('user_id', user.id)
-      .single()
+    const report = await prisma.report.findFirst({
+      where: {
+        id: reportId,
+        userId: session.user.id
+      }
+    })
 
-    if (error || !report) {
+    if (!report) {
       return NextResponse.json(
         { success: false, error: 'Report not found' },
         { status: 404 }
@@ -48,14 +37,14 @@ export async function POST(request: NextRequest) {
 
     switch (format.toLowerCase()) {
       case 'json':
-        exportData = JSON.stringify(report.report_data, null, 2)
+        exportData = JSON.stringify(report.reportData, null, 2)
         contentType = 'application/json'
         filename = `${report.title.replace(/\s+/g, '_')}.json`
         break
 
       case 'csv':
         // Convert report data to CSV format
-        const csvData = convertToCSV(report.report_data)
+        const csvData = convertToCSV(report.reportData)
         exportData = csvData
         contentType = 'text/csv'
         filename = `${report.title.replace(/\s+/g, '_')}.csv`
@@ -69,7 +58,7 @@ export async function POST(request: NextRequest) {
         break
 
       case 'txt':
-        exportData = generateTextReport(report.report_data)
+        exportData = generateTextReport(report.reportData)
         contentType = 'text/plain'
         filename = `${report.title.replace(/\s+/g, '_')}.txt`
         break

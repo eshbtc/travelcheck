@@ -1,25 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
-async function isAdmin(user: any): Promise<boolean> {
+async function isAdmin(userId: string): Promise<boolean> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, email: true }
+    })
+
+    if (!user) return false
+
     // Check admin emails from environment
     const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
-    if (adminEmails.includes(user.email?.toLowerCase())) {
+    if (adminEmails.includes(user.email?.toLowerCase() || '')) {
       return true
     }
 
     // Check user role in database
-    const { data: userDoc, error } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!error && userDoc) {
-      return userDoc.role === 'admin'
-    }
+    return user.role === 'admin'
   } catch (error) {
     console.error('Error checking admin status:', error)
   }
@@ -27,22 +26,10 @@ async function isAdmin(user: any): Promise<boolean> {
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   // Check if user is admin
-  const adminStatus = await isAdmin(user)
+  const adminStatus = await isAdmin(session.user.id)
   if (!adminStatus) {
     return NextResponse.json(
       { success: false, error: 'Admin access required' },
@@ -51,38 +38,69 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get system statistics
-    const stats = await Promise.all([
-      // Total users
-      supabase.from('users').select('*', { count: 'exact', head: true }),
-      
-      // Active email accounts
-      supabase.from('email_accounts').select('*', { count: 'exact', head: true }).eq('is_active', true),
-      
-      // Recent passport scans (last 7 days)
-      supabase.from('passport_scans').select('*', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      
-      // Recent flight emails (last 7 days)
-      supabase.from('flight_emails').select('*', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      
-      // Total travel entries
-      supabase.from('travel_entries').select('*', { count: 'exact', head: true }),
-      
-      // Recent reports (last 30 days)
-      supabase.from('reports').select('*', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
-      
-      // Pending duplicates
-      supabase.from('duplicate_groups').select('*', { count: 'exact', head: true }).eq('status', 'pending')
-    ])
+    // Calculate cutoff dates
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    // Get processing status by type
-    const processingStats = await Promise.all([
-      supabase.from('passport_scans').select('processing_status', { count: 'exact' }),
-      supabase.from('flight_emails').select('processing_status', { count: 'exact' }),
-      supabase.from('travel_entries').select('status', { count: 'exact' })
+    // Get system statistics
+    const [
+      totalUsers,
+      activeEmailAccounts,
+      recentPassportScans,
+      recentFlightEmails,
+      totalTravelEntries,
+      recentReports,
+      pendingDuplicates,
+      recentActivity
+    ] = await Promise.all([
+      // Total users
+      prisma.user.count(),
+
+      // Active email accounts
+      prisma.emailAccount.count({
+        where: { isActive: true }
+      }),
+
+      // Recent passport scans (last 7 days)
+      prisma.passportScan.count({
+        where: {
+          createdAt: { gte: sevenDaysAgo }
+        }
+      }),
+
+      // Recent flight emails (last 7 days)
+      prisma.flightEmail.count({
+        where: {
+          createdAt: { gte: sevenDaysAgo }
+        }
+      }),
+
+      // Total travel entries
+      prisma.travelEntry.count(),
+
+      // Recent reports (last 30 days)
+      prisma.report.count({
+        where: {
+          createdAt: { gte: thirtyDaysAgo }
+        }
+      }),
+
+      // Pending duplicates
+      prisma.duplicateGroup.count({
+        where: { status: 'pending' }
+      }),
+
+      // Recent activity
+      prisma.passportScan.findMany({
+        select: {
+          id: true,
+          createdAt: true,
+          userId: true,
+          processingStatus: true
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
     ])
 
     // System health metrics
@@ -93,50 +111,42 @@ export async function GET(request: NextRequest) {
       uptime: process.uptime ? Math.floor(process.uptime()) : 0
     }
 
-    // Recent activity
-    const { data: recentActivity } = await supabase
-      .from('passport_scans')
-      .select('id, created_at, user_id, processing_status')
-      .order('created_at', { ascending: false })
-      .limit(10)
-
     const systemStatus = {
       version: '2.0.0',
       environment: process.env.NODE_ENV || 'production',
       timestamp: new Date().toISOString(),
-      
+
       statistics: {
-        totalUsers: stats[0].count || 0,
-        activeEmailAccounts: stats[1].count || 0,
-        recentPassportScans: stats[2].count || 0,
-        recentFlightEmails: stats[3].count || 0,
-        totalTravelEntries: stats[4].count || 0,
-        recentReports: stats[5].count || 0,
-        pendingDuplicates: stats[6].count || 0
+        totalUsers,
+        activeEmailAccounts,
+        recentPassportScans,
+        recentFlightEmails,
+        totalTravelEntries,
+        recentReports,
+        pendingDuplicates
       },
-      
+
       processing: {
         passportScans: {
-          total: processingStats[0].data?.length || 0,
-          // You'd count by status here
+          total: recentPassportScans
         },
         flightEmails: {
-          total: processingStats[1].data?.length || 0,
+          total: recentFlightEmails
         },
         travelEntries: {
-          total: processingStats[2].data?.length || 0,
+          total: totalTravelEntries
         }
       },
-      
+
       health: systemHealth,
-      
+
       recentActivity: recentActivity || [],
-      
+
       configuration: {
         gmailEnabled: !!process.env.GMAIL_CLIENT_ID,
         office365Enabled: !!process.env.OFFICE365_CLIENT_ID,
         ocrEnabled: !!process.env.GOOGLE_CLOUD_PROJECT_ID,
-        supabaseConnected: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        prismaConnected: true
       }
     }
 

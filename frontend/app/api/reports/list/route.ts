@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
@@ -14,19 +14,7 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     const { searchParams } = new URL(request.url)
@@ -35,46 +23,38 @@ export async function GET(request: NextRequest) {
     const reportType = searchParams.get('report_type')
     const status = searchParams.get('status')
 
-    let query = supabase
-      .from('reports')
-      .select('id, report_type, title, description, status, file_format, created_at, updated_at, parameters')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+    const where: any = {
+      userId: session.user.id
+    }
 
     if (reportType) {
-      query = query.eq('report_type', reportType)
+      where.reportType = reportType
     }
 
     if (status) {
-      query = query.eq('status', status)
+      where.status = status
     }
 
-    const { data: reports, error } = await query
-
-    if (error) {
-      console.error('Error fetching reports:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch reports' },
-        { status: 500 }
-      )
-    }
-
-    // Get total count for pagination
-    let countQuery = supabase
-      .from('reports')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-
-    if (reportType) {
-      countQuery = countQuery.eq('report_type', reportType)
-    }
-
-    if (status) {
-      countQuery = countQuery.eq('status', status)
-    }
-
-    const { count, error: countError } = await countQuery
+    const [reports, count] = await Promise.all([
+      prisma.report.findMany({
+        where,
+        select: {
+          id: true,
+          reportType: true,
+          title: true,
+          description: true,
+          status: true,
+          fileFormat: true,
+          createdAt: true,
+          updatedAt: true,
+          parameters: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit
+      }),
+      prisma.report.count({ where })
+    ])
 
     return NextResponse.json({
       success: true,

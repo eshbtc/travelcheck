@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 interface ReportParameters {
   reportType: 'presence' | 'travel_summary' | 'tax_residency' | 'visa_compliance' | 'custom'
@@ -16,9 +16,9 @@ interface ReportParameters {
 
 function generatePresenceReport(entries: any[], parameters: ReportParameters) {
   const presenceByCountry: any = {}
-  
+
   entries.forEach(entry => {
-    const country = entry.country_code || entry.country_name || 'Unknown'
+    const country = entry.countryCode || entry.countryName || 'Unknown'
     if (!presenceByCountry[country]) {
       presenceByCountry[country] = {
         country,
@@ -26,18 +26,18 @@ function generatePresenceReport(entries: any[], parameters: ReportParameters) {
         entries: []
       }
     }
-    
-    const entryDate = new Date(entry.entry_date)
-    const exitDate = entry.exit_date ? new Date(entry.exit_date) : new Date()
+
+    const entryDate = new Date(entry.entryDate)
+    const exitDate = entry.exitDate ? new Date(entry.exitDate) : new Date()
     const days = Math.ceil((exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
-    
+
     presenceByCountry[country].totalDays += days
     presenceByCountry[country].entries.push({
-      entryDate: entry.entry_date,
-      exitDate: entry.exit_date,
+      entryDate: entry.entryDate,
+      exitDate: entry.exitDate,
       days,
       purpose: entry.purpose,
-      transportType: entry.transport_type
+      transportType: entry.transportType
     })
   })
 
@@ -57,11 +57,11 @@ function generatePresenceReport(entries: any[], parameters: ReportParameters) {
     presenceByCountry: Object.values(presenceByCountry),
     detailedEntries: entries.map(entry => ({
       id: entry.id,
-      date: entry.entry_date,
-      country: entry.country_code || entry.country_name,
+      date: entry.entryDate,
+      country: entry.countryCode || entry.countryName,
       city: entry.city,
       purpose: entry.purpose,
-      transportType: entry.transport_type,
+      transportType: entry.transportType,
       status: entry.status
     }))
   }
@@ -69,7 +69,7 @@ function generatePresenceReport(entries: any[], parameters: ReportParameters) {
 
 function generateTravelSummaryReport(entries: any[], parameters: ReportParameters) {
   const byYear = entries.reduce((acc, entry) => {
-    const year = new Date(entry.entry_date).getFullYear()
+    const year = new Date(entry.entryDate).getFullYear()
     if (!acc[year]) {
       acc[year] = []
     }
@@ -77,8 +77,8 @@ function generateTravelSummaryReport(entries: any[], parameters: ReportParameter
     return acc
   }, {})
 
-  const countries = Array.from(new Set(entries.map(e => e.country_code || e.country_name)))
-  const transportTypes = Array.from(new Set(entries.map(e => e.transport_type).filter(Boolean)))
+  const countries = Array.from(new Set(entries.map(e => e.countryCode || e.countryName)))
+  const transportTypes = Array.from(new Set(entries.map(e => e.transportType).filter(Boolean)))
 
   return {
     reportType: parameters.reportType,
@@ -97,50 +97,36 @@ function generateTravelSummaryReport(entries: any[], parameters: ReportParameter
     byYear: Object.entries(byYear).map(([year, yearEntries]: [string, any]) => ({
       year: parseInt(year),
       trips: yearEntries.length,
-      countries: Array.from(new Set(yearEntries.map((e: any) => e.country_code || e.country_name))).length
+      countries: Array.from(new Set(yearEntries.map((e: any) => e.countryCode || e.countryName))).length
     })),
     byCountry: countries.map(country => ({
       country,
-      visits: entries.filter(e => (e.country_code || e.country_name) === country).length
+      visits: entries.filter(e => (e.countryCode || e.countryName) === country).length
     })).sort((a, b) => b.visits - a.visits),
-    timeline: entries.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime())
+    timeline: entries.sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime())
   }
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
-
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const session = await requireAuth(request)
 
   try {
     const parameters: ReportParameters = await request.json()
 
     // Check entitlements unless admin
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role, email')
-      .eq('id', user.id)
-      .maybeSingle()
+    const profile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, email: true }
+    })
     const isAdmin = (profile?.role || 'user') === 'admin'
 
     if (!isAdmin) {
-      const { data: ent } = await supabase
-        .from('billing_entitlements')
-        .select('status, report_credits_balance')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const ent = await prisma.billingEntitlement.findUnique({
+        where: { userId: session.user.id },
+        select: { status: true, reportCreditsBalance: true }
+      })
 
-      const hasCredit = (ent?.report_credits_balance || 0) > 0
+      const hasCredit = (ent?.reportCreditsBalance || 0) > 0
       if (!hasCredit) {
         return NextResponse.json(
           {
@@ -162,27 +148,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Get travel entries for the date range
-    let query = supabase
-      .from('travel_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('entry_date', parameters.startDate)
-      .lte('entry_date', parameters.endDate)
-      .order('entry_date', { ascending: true })
-
-    if (parameters.countries && parameters.countries.length > 0) {
-      query = query.in('country_code', parameters.countries)
-    }
-
-    const { data: entries, error } = await query
-
-    if (error) {
-      console.error('Error fetching travel entries:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch travel entries' },
-        { status: 500 }
-      )
-    }
+    const entries = await prisma.travelEntry.findMany({
+      where: {
+        userId: session.user.id,
+        entryDate: {
+          gte: new Date(parameters.startDate),
+          lte: new Date(parameters.endDate)
+        },
+        ...(parameters.countries && parameters.countries.length > 0
+          ? { countryCode: { in: parameters.countries } }
+          : {})
+      },
+      orderBy: { entryDate: 'asc' }
+    })
 
     // Generate report based on type
     let reportData
@@ -214,39 +192,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Save report to database
-    const { data: savedReport, error: saveError } = await supabase
-      .from('reports')
-      .insert({
-        user_id: user.id,
-        report_type: parameters.reportType,
-        title: parameters.title,
-        description: parameters.description || '',
-        parameters: parameters,
-        report_data: reportData,
-        file_format: parameters.format || 'json',
-        status: 'generated',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+    let savedReport
+    try {
+      savedReport = await prisma.report.create({
+        data: {
+          userId: session.user.id,
+          reportType: parameters.reportType,
+          title: parameters.title,
+          description: parameters.description || '',
+          parameters: parameters as any,
+          reportData: reportData as any,
+          fileFormat: parameters.format || 'json',
+          status: 'generated'
+        }
       })
-      .select()
-
-    if (saveError) {
+    } catch (saveError) {
       console.error('Error saving report:', saveError)
       // Still return the report data even if save fails
     }
 
     // Optional: decrement one-time report credit if available
     try {
-      const { data: ent } = await supabase
-        .from('billing_entitlements')
-        .select('id, report_credits_balance')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      if (ent && typeof ent.report_credits_balance === 'number' && ent.report_credits_balance > 0) {
-        await supabase
-          .from('billing_entitlements')
-          .update({ report_credits_balance: ent.report_credits_balance - 1 })
-          .eq('id', ent.id)
+      const ent = await prisma.billingEntitlement.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true, reportCreditsBalance: true }
+      })
+      if (ent && typeof ent.reportCreditsBalance === 'number' && ent.reportCreditsBalance > 0) {
+        await prisma.billingEntitlement.update({
+          where: { id: ent.id },
+          data: { reportCreditsBalance: ent.reportCreditsBalance - 1 }
+        })
       }
     } catch (e) {
       console.warn('Credit decrement skipped:', (e as Error).message)
@@ -255,7 +230,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       report: {
-        id: savedReport?.[0]?.id,
+        id: savedReport?.id,
         ...reportData
       }
     })
