@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { XMarkIcon, FunnelIcon } from '@heroicons/react/24/outline'
 import { Button } from './Button'
-import { cn } from '@/lib/utils'
+import { cn } from './utils'
 
 export interface Filter {
   id: string
