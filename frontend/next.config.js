@@ -7,12 +7,25 @@ const nextConfig = {
   trailingSlash: true,
   output: 'standalone',
   productionBrowserSourceMaps: true, // Enable source maps for Sentry
-  webpack: (config) => {
-    // Ensure path aliases work - use absolute path from __dirname
+
+  // Explicitly set experimental features
+  experimental: {
+    externalDir: true, // Allow imports from outside the project root
+  },
+
+  webpack: (config, { isServer }) => {
+    // Ensure path aliases work in all environments
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': path.join(__dirname, 'src'),
+      '@': path.resolve(__dirname, 'src'),
     }
+
+    // Add src to resolve modules
+    if (!config.resolve.modules) {
+      config.resolve.modules = []
+    }
+    config.resolve.modules.push(path.resolve(__dirname, 'src'))
+
     return config
   },
   generateBuildId: async () => {
