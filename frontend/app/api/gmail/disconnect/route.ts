@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -21,27 +21,31 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const { accountId, email } = body
 
-    // Remove one or all Gmail accounts
-    let query = supabase
-      .from('email_accounts')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('provider', 'gmail')
+    // Soft delete (set isActive to false) for one or all Gmail accounts
+    const whereClause: any = {
+      userId: user.id,
+      provider: 'gmail',
+    }
 
     if (accountId) {
-      query = query.eq('id', accountId)
+      whereClause.id = accountId
     }
     if (email) {
-      query = query.eq('email', email)
+      whereClause.email = email
     }
 
-    const { error } = await query
+    const result = await prisma.emailAccount.updateMany({
+      where: whereClause,
+      data: {
+        isActive: false,
+        updatedAt: new Date(),
+      },
+    })
 
-    if (error) {
-      console.error('Error disconnecting Gmail:', error)
+    if (result.count === 0) {
       return NextResponse.json(
-        { success: false, error: 'Failed to disconnect Gmail account' },
-        { status: 500 }
+        { success: false, error: 'No Gmail accounts found to disconnect' },
+        { status: 404 }
       )
     }
 

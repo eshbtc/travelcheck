@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { google } from 'googleapis'
 import crypto from 'crypto'
 
@@ -67,28 +67,41 @@ export async function POST(request: NextRequest) {
     const profile = await gmail.users.getProfile({ userId: 'me' })
     const emailAddress = profile.data.emailAddress
 
-    // Store tokens securely in Supabase
-    const { error } = await supabase
-      .from('email_accounts')
-      .upsert({
-        user_id: user.id,
+    // Store tokens securely in database using Prisma
+    const account = await prisma.emailAccount.upsert({
+      where: {
+        userId_provider_email: {
+          userId: user.id,
+          provider: 'gmail',
+          email: emailAddress || '',
+        },
+      },
+      create: {
+        userId: user.id,
         provider: 'gmail',
-        email: emailAddress,
-        access_token: JSON.stringify(encrypt(tokens.access_token || '')),
-        refresh_token: JSON.stringify(encrypt(tokens.refresh_token || '')),
-        token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+        email: emailAddress || '',
+        accessToken: JSON.stringify(encrypt(tokens.access_token || '')),
+        refreshToken: JSON.stringify(encrypt(tokens.refresh_token || '')),
+        tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
         scope: 'gmail.readonly',
-        is_active: true,
-        last_sync: null,
-        sync_status: 'ready',
-        error_message: null,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id,provider,email'
-      })
+        isActive: true,
+        lastSync: null,
+        syncStatus: 'ready',
+        errorMessage: null,
+      },
+      update: {
+        accessToken: JSON.stringify(encrypt(tokens.access_token || '')),
+        refreshToken: JSON.stringify(encrypt(tokens.refresh_token || '')),
+        tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+        isActive: true,
+        syncStatus: 'ready',
+        errorMessage: null,
+        updatedAt: new Date(),
+      },
+    })
 
-    if (error) {
-      console.error('Error storing Gmail tokens:', error)
+    if (!account) {
+      console.error('Error storing Gmail tokens')
       return NextResponse.json(
         { success: false, error: 'Failed to store account information' },
         { status: 500 }

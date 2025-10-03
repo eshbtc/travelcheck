@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -19,34 +19,35 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get all active Gmail accounts for this user
-    const { data: emailAccounts, error } = await supabase
-      .from('email_accounts')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('provider', 'gmail')
-      .eq('is_active', true)
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        userId: user.id,
+        provider: 'gmail',
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        provider: true,
+        createdAt: true,
+        lastSync: true,
+        syncStatus: true,
+        isActive: true,
+      },
+    })
 
-    if (error) {
-      console.error('Error checking Gmail connection status:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to check connection status' },
-        { status: 500 }
-      )
-    }
-
-    const accounts = emailAccounts || []
     return NextResponse.json({
       success: true,
-      connected: accounts.length > 0,
-      count: accounts.length,
-      accounts: accounts.map(a => ({
+      connected: emailAccounts.length > 0,
+      count: emailAccounts.length,
+      accounts: emailAccounts.map(a => ({
         id: a.id,
         email: a.email,
         provider: a.provider,
-        connectedAt: a.created_at,
-        lastSync: a.last_sync,
-        syncStatus: a.sync_status,
-        isActive: a.is_active
+        connectedAt: a.createdAt,
+        lastSync: a.lastSync,
+        syncStatus: a.syncStatus,
+        isActive: a.isActive
       }))
     })
   } catch (error) {

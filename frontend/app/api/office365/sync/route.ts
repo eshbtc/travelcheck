@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
 // Decryption function
@@ -71,10 +71,10 @@ const AIRPORT_COUNTRIES: Record<string, string> = {
   'DXB': 'AE', 'DOH': 'QA', 'SIN': 'SG', 'ICN': 'KR', 'BOM': 'IN', 'DEL': 'IN'
 }
 
-// Create travel entries from extracted flight data
+// Create travel entries from extracted flight data (Prisma format)
 async function createTravelEntries(userId: string, flightEmailId: string, flightData: any, emailDate: string) {
   const entries = []
-  
+
   if (flightData.departure && flightData.arrival && flightData.date) {
     // Parse date
     let entryDate: Date
@@ -95,64 +95,63 @@ async function createTravelEntries(userId: string, flightEmailId: string, flight
     const departureCountry = AIRPORT_COUNTRIES[flightData.departure.toUpperCase()] || 'UNKNOWN'
     const arrivalCountry = AIRPORT_COUNTRIES[flightData.arrival.toUpperCase()] || 'UNKNOWN'
 
+    const entryDateStr = entryDate.toISOString().split('T')[0]
+
     // Create departure entry (exit from departure country)
     if (departureCountry !== 'UNKNOWN') {
       entries.push({
-        user_id: userId,
-        entry_type: 'email',
-        source_id: flightEmailId,
-        source_type: 'flight_email',
-        country_code: departureCountry,
-        country_name: departureCountry,
-        airport_code: flightData.departure.toUpperCase(),
-        entry_date: entryDate.toISOString().split('T')[0],
-        exit_date: entryDate.toISOString().split('T')[0],
-        transport_type: 'flight',
-        carrier: flightData.airline,
-        flight_number: flightData.flightNumber,
-        confirmation_number: flightData.confirmation,
+        userId,
+        entryType: 'email',
+        sourceId: flightEmailId,
+        sourceType: 'flight_email',
+        countryCode: departureCountry,
+        countryName: departureCountry,
+        airportCode: flightData.departure.toUpperCase(),
+        entryDate: entryDateStr,
+        exitDate: entryDateStr,
+        transportType: 'flight',
+        carrier: flightData.airline || null,
+        flightNumber: flightData.flightNumber || null,
+        confirmationNumber: flightData.confirmation || null,
         status: 'pending',
-        confidence_score: 0.7,
-        is_verified: false,
-        manual_override: false,
+        confidenceScore: 0.7,
+        isVerified: false,
+        manualOverride: false,
         notes: `Extracted from email - departure from ${flightData.departure}`,
-        metadata: { 
+        metadata: {
           email_extracted: true,
           flight_type: 'departure',
           raw_data: flightData
         },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       })
     }
 
-    // Create arrival entry (entry to arrival country) 
+    // Create arrival entry (entry to arrival country)
     if (arrivalCountry !== 'UNKNOWN' && arrivalCountry !== departureCountry) {
       entries.push({
-        user_id: userId,
-        entry_type: 'email',
-        source_id: flightEmailId,
-        source_type: 'flight_email',
-        country_code: arrivalCountry,
-        country_name: arrivalCountry,
-        airport_code: flightData.arrival.toUpperCase(),
-        entry_date: entryDate.toISOString().split('T')[0],
-        transport_type: 'flight',
-        carrier: flightData.airline,
-        flight_number: flightData.flightNumber,
-        confirmation_number: flightData.confirmation,
+        userId,
+        entryType: 'email',
+        sourceId: flightEmailId,
+        sourceType: 'flight_email',
+        countryCode: arrivalCountry,
+        countryName: arrivalCountry,
+        airportCode: flightData.arrival.toUpperCase(),
+        entryDate: entryDateStr,
+        exitDate: null,
+        transportType: 'flight',
+        carrier: flightData.airline || null,
+        flightNumber: flightData.flightNumber || null,
+        confirmationNumber: flightData.confirmation || null,
         status: 'pending',
-        confidence_score: 0.7,
-        is_verified: false,
-        manual_override: false,
+        confidenceScore: 0.7,
+        isVerified: false,
+        manualOverride: false,
         notes: `Extracted from email - arrival in ${flightData.arrival}`,
-        metadata: { 
+        metadata: {
           email_extracted: true,
           flight_type: 'arrival',
           raw_data: flightData
         },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       })
     }
   }
@@ -180,20 +179,16 @@ export async function POST(request: NextRequest) {
     const { accountId } = body
 
     // Get user's Office365 account(s)
-    let query = supabase
-      .from('email_accounts')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('provider', 'office365')
-      .eq('is_active', true)
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        userId: user.id,
+        provider: 'office365',
+        isActive: true,
+        ...(accountId && { id: accountId }),
+      },
+    })
 
-    if (accountId) {
-      query = query.eq('id', accountId)
-    }
-
-    const { data: emailAccounts, error: accountError } = await query
-
-    if (accountError || !emailAccounts || emailAccounts.length === 0) {
+    if (!emailAccounts || emailAccounts.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Office365 account not connected' },
         { status: 404 }
@@ -201,7 +196,7 @@ export async function POST(request: NextRequest) {
     }
 
     const account = emailAccounts[0]
-    const accessToken = decrypt(account.access_token)
+    const accessToken = decrypt(account.accessToken)
 
     if (!accessToken) {
       return NextResponse.json(
@@ -241,51 +236,60 @@ export async function POST(request: NextRequest) {
       const content = item.body?.content || ''
 
       const extractedFlights = await extractFlightInfo(content, subject)
-      
+
       const flightData = {
-        user_id: user.id,
-        email_account_id: account.id,
-        message_id: item.id,
+        userId: user.id,
+        emailAccountId: account.id,
+        messageId: item.id,
         subject,
         sender: from,
-        recipient: account.email,
-        body_text: content,
-        body_html: content,
-        flight_data: extractedFlights,
-        parsed_data: extractedFlights,
-        confidence_score: 0.8,
-        processing_status: 'completed',
-        is_processed: true,
-        date_received: date ? new Date(date).toISOString() : new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        recipient: account.email || '',
+        bodyText: content,
+        bodyHtml: content,
+        flightData: extractedFlights,
+        parsedData: extractedFlights,
+        confidenceScore: 0.8,
+        processingStatus: 'completed',
+        isProcessed: true,
+        dateReceived: date ? new Date(date) : new Date(),
       }
-      
+
       flightEmails.push(flightData)
     }
 
-    // Save to Supabase
+    // Save to database using Prisma createMany with skipDuplicates
     if (flightEmails.length > 0) {
-      const { data: insertedEmails, error: insertError } = await supabase
-        .from('flight_emails')
-        .upsert(flightEmails, {
-          onConflict: 'user_id,message_id',
-          ignoreDuplicates: false
-        })
-        .select('id, flight_data, date_received')
+      const insertResult = await prisma.flightEmail.createMany({
+        data: flightEmails,
+        skipDuplicates: true,
+      })
 
-      if (insertError) {
-        console.error('Error saving flight emails:', insertError)
-      } else if (insertedEmails && insertedEmails.length > 0) {
+      // Fetch the inserted emails to create travel entries
+      if (insertResult.count > 0) {
+        const insertedEmails = await prisma.flightEmail.findMany({
+          where: {
+            userId: user.id,
+            emailAccountId: account.id,
+            messageId: {
+              in: flightEmails.map(e => e.messageId),
+            },
+          },
+          select: {
+            id: true,
+            flightData: true,
+            dateReceived: true,
+          },
+        })
+
         // Create travel entries from flight emails
         const travelEntries = []
         for (const email of insertedEmails) {
-          if (email.flight_data) {
+          if (email.flightData) {
             const entries = await createTravelEntries(
-              user.id, 
-              email.id, 
-              email.flight_data, 
-              email.date_received
+              user.id,
+              email.id,
+              email.flightData,
+              email.dateReceived.toISOString()
             )
             travelEntries.push(...entries)
           }
@@ -293,32 +297,25 @@ export async function POST(request: NextRequest) {
 
         // Save travel entries
         if (travelEntries.length > 0) {
-          const { error: entriesError } = await supabase
-            .from('travel_entries')
-            .upsert(travelEntries, {
-              onConflict: 'user_id,source_id,entry_type,country_code,entry_date',
-              ignoreDuplicates: true
-            })
-
-          if (entriesError) {
-            console.error('Error saving travel entries:', entriesError)
-          } else {
-            console.log(`Created ${travelEntries.length} travel entries from ${insertedEmails.length} flight emails`)
-          }
+          await prisma.travelEntry.createMany({
+            data: travelEntries,
+            skipDuplicates: true,
+          })
+          console.log(`Created ${travelEntries.length} travel entries from ${insertedEmails.length} flight emails`)
         }
       }
     }
 
     // Update sync status
-    await supabase
-      .from('email_accounts')
-      .update({
-        last_sync: new Date().toISOString(),
-        sync_status: 'completed',
-        error_message: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', account.id)
+    await prisma.emailAccount.update({
+      where: { id: account.id },
+      data: {
+        lastSync: new Date(),
+        syncStatus: 'completed',
+        errorMessage: null,
+        updatedAt: new Date(),
+      },
+    })
 
     return NextResponse.json({
       success: true,
@@ -327,24 +324,26 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error syncing Office365:', error)
-    
+
     // Update error status
-    const { data: accounts } = await supabase
-      .from('email_accounts')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('provider', 'office365')
-      .limit(1)
+    const accounts = await prisma.emailAccount.findMany({
+      where: {
+        userId: user.id,
+        provider: 'office365',
+      },
+      select: { id: true },
+      take: 1,
+    })
 
     if (accounts && accounts.length > 0) {
-      await supabase
-        .from('email_accounts')
-        .update({
-          sync_status: 'failed',
-          error_message: error instanceof Error ? error.message : 'Unknown error',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', accounts[0].id)
+      await prisma.emailAccount.update({
+        where: { id: accounts[0].id },
+        data: {
+          syncStatus: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          updatedAt: new Date(),
+        },
+      })
     }
 
     return NextResponse.json(

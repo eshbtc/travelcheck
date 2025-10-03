@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -24,30 +24,26 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const airline = searchParams.get('airline')
 
-    let query = supabase
-      .from('flight_emails')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('date_received', { ascending: false })
-      .range(offset, offset + limit - 1)
+    const whereClause: any = {
+      userId: user.id,
+    }
 
     if (status) {
-      query = query.eq('processing_status', status)
+      whereClause.processingStatus = status
     }
 
     if (airline) {
-      query = query.eq('airline', airline)
+      whereClause.airline = airline
     }
 
-    const { data: emails, error } = await query
-
-    if (error) {
-      console.error('Error fetching flight emails:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch flight emails' },
-        { status: 500 }
-      )
-    }
+    const emails = await prisma.flightEmail.findMany({
+      where: whereClause,
+      orderBy: {
+        dateReceived: 'desc',
+      },
+      skip: offset,
+      take: limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -93,17 +89,17 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const { error } = await supabase
-      .from('flight_emails')
-      .delete()
-      .eq('id', emailId)
-      .eq('user_id', user.id) // Security check
+    const result = await prisma.flightEmail.deleteMany({
+      where: {
+        id: emailId,
+        userId: user.id, // Security check
+      },
+    })
 
-    if (error) {
-      console.error('Error deleting flight email:', error)
+    if (result.count === 0) {
       return NextResponse.json(
-        { success: false, error: 'Failed to delete flight email' },
-        { status: 500 }
+        { success: false, error: 'Flight email not found or unauthorized' },
+        { status: 404 }
       )
     }
 
