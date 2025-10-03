@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -17,11 +17,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: preferences, error } = await supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+    const userPreferences = await prisma.userPreferences.findUnique({
+      where: { userId: user.id },
+    })
 
     const defaultPreferences = {
       syncFrequency: 'daily',
@@ -43,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      preferences: preferences?.preferences || defaultPreferences
+      preferences: userPreferences?.preferences || defaultPreferences
     })
   } catch (error) {
     console.error('Error fetching schedule preferences:', error)
@@ -72,21 +70,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { preferences } = body
 
-    const { data, error } = await supabase
-      .from('user_preferences')
-      .upsert({
-        user_id: user.id,
+    // Upsert user preferences
+    await prisma.userPreferences.upsert({
+      where: { userId: user.id },
+      update: {
         preferences,
-        updated_at: new Date().toISOString()
-      })
-      .select()
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to update preferences' },
-        { status: 500 }
-      )
-    }
+        updatedAt: new Date(),
+      },
+      create: {
+        userId: user.id,
+        preferences,
+      },
+    })
 
     return NextResponse.json({
       success: true,

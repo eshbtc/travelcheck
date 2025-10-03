@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 export async function DELETE(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -28,20 +28,14 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Delete passport scan
-    const { error } = await supabase
-      .from('passport_scans')
-      .delete()
-      .eq('id', scanId)
-      .eq('user_id', user.id) // Security check
-
-    if (error) {
-      console.error('Error deleting passport scan:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to delete passport scan' },
-        { status: 500 }
-      )
-    }
+    // Delete passport scan with security check
+    // This will throw if scan doesn't exist or doesn't belong to user
+    await prisma.passportScan.deleteMany({
+      where: {
+        id: scanId,
+        userId: user.id, // Security check - only delete user's own scans
+      },
+    })
 
     return NextResponse.json({
       success: true,

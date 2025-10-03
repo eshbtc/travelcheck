@@ -1,28 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
     // Simple health check - test database connection
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .limit(1)
-
-    if (error) {
-      return NextResponse.json({
-        success: false,
-        status: 'unhealthy',
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      }, { status: 500 })
-    }
+    // Execute a lightweight query to verify Prisma can connect
+    await prisma.$queryRaw`SELECT 1`
 
     return NextResponse.json({
       success: true,
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      version: '2.0.0-supabase',
+      version: '3.0.0-railway',
     })
   } catch (error) {
     return NextResponse.json({

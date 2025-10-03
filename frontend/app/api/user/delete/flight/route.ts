@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 export async function DELETE(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -28,20 +28,14 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Delete flight email
-    const { error } = await supabase
-      .from('flight_emails')
-      .delete()
-      .eq('id', emailId)
-      .eq('user_id', user.id) // Security check
-
-    if (error) {
-      console.error('Error deleting flight email:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to delete flight email' },
-        { status: 500 }
-      )
-    }
+    // Delete flight email with security check
+    // This will throw if email doesn't exist or doesn't belong to user
+    await prisma.flightEmail.deleteMany({
+      where: {
+        id: emailId,
+        userId: user.id, // Security check - only delete user's own emails
+      },
+    })
 
     return NextResponse.json({
       success: true,

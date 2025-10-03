@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 import { requireAuth } from '../../auth/middleware'
 import { UserProfileSchema, validateInput, sanitizeForLogging } from '@/lib/validation'
 
@@ -20,14 +20,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get user profile from Supabase
-    const { data: profile, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+    // Get user profile from Prisma
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id },
+    })
 
-    if (error) {
+    if (!profile) {
       return NextResponse.json(
         { success: false, error: 'User profile not found' },
         { status: 404 }
@@ -66,9 +64,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     console.log('Profile update request:', sanitizeForLogging(body))
-    
+
     const { profileData } = body
-    
+
     // Validate input data
     const validation = validateInput(UserProfileSchema, profileData)
     if (!validation.success) {
@@ -78,29 +76,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update user profile in Supabase
-    const { data, error } = await supabase
-      .from('users')
-      .update({
+    // Update user profile in Prisma
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
         ...profileData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Supabase error:', sanitizeForLogging(error))
-      return NextResponse.json(
-        { success: false, error: 'Failed to update profile' },
-        { status: 500 }
-      )
-    }
+        updatedAt: new Date(),
+      },
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Profile updated successfully',
-      user: data,
+      user: updatedUser,
     })
   } catch (error) {
     console.error('Error updating user profile:', error)

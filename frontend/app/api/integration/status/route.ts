@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 // Cache integration status for 60 seconds (changes infrequently)
 export const revalidate = 60
@@ -22,52 +22,51 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get user's email integrations
-    const { data: emailAccounts, error } = await supabase
-      .from('email_accounts')
-      .select('provider, email, is_active, last_sync, sync_status, error_message, created_at')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    if (error) {
-      console.error('Error fetching integration status:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch integration status' },
-        { status: 500 }
-      )
-    }
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        userId: user.id,
+        isActive: true,
+      },
+      select: {
+        provider: true,
+        email: true,
+        isActive: true,
+        lastSync: true,
+        syncStatus: true,
+        errorMessage: true,
+        createdAt: true,
+      },
+    })
 
     // Get passport scan counts
-    const { count: passportCount, error: passportError } = await supabase
-      .from('passport_scans')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+    const passportCount = await prisma.passportScan.count({
+      where: { userId: user.id },
+    })
 
-    // Get flight email counts  
-    const { count: flightEmailCount, error: flightError } = await supabase
-      .from('flight_emails')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+    // Get flight email counts
+    const flightEmailCount = await prisma.flightEmail.count({
+      where: { userId: user.id },
+    })
 
     // Get travel entry counts
-    const { count: travelEntryCount, error: travelError } = await supabase
-      .from('travel_entries')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+    const travelEntryCount = await prisma.travelEntry.count({
+      where: { userId: user.id },
+    })
 
     const integrationStatus = {
       emailAccounts: emailAccounts || [],
       dataCounts: {
-        passportScans: passportError ? 0 : (passportCount || 0),
-        flightEmails: flightError ? 0 : (flightEmailCount || 0), 
-        travelEntries: travelError ? 0 : (travelEntryCount || 0),
+        passportScans: passportCount,
+        flightEmails: flightEmailCount,
+        travelEntries: travelEntryCount,
       },
       summary: {
         totalIntegrations: emailAccounts?.length || 0,
-        activeIntegrations: emailAccounts?.filter(acc => acc.is_active).length || 0,
-        lastActivity: emailAccounts?.reduce((latest: string | null, acc: any) => {
-          if (!acc.last_sync) return latest
-          if (!latest) return acc.last_sync
-          return new Date(acc.last_sync) > new Date(latest) ? acc.last_sync : latest
+        activeIntegrations: emailAccounts?.filter(acc => acc.isActive).length || 0,
+        lastActivity: emailAccounts?.reduce((latest: Date | null, acc: any) => {
+          if (!acc.lastSync) return latest
+          if (!latest) return acc.lastSync
+          return new Date(acc.lastSync) > new Date(latest) ? acc.lastSync : latest
         }, null),
       },
     }

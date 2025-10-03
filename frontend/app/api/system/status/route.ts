@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 // Cache system status for 30 seconds
 export const revalidate = 30
@@ -16,17 +16,21 @@ export async function GET(request: NextRequest) {
 
   try {
     // Check database connectivity
-    const { data: healthCheck, error: healthError } = await supabase
-      .from('health_check')
-      .select('*')
-      .limit(1)
+    let dbHealthy = true
+    let dbError = null
+    try {
+      await prisma.$queryRaw`SELECT 1`
+    } catch (error) {
+      dbHealthy = false
+      dbError = error instanceof Error ? error.message : 'Database connection failed'
+    }
 
     // Check various system components
     const systemStatus = {
       database: {
-        status: healthError ? 'unhealthy' : 'healthy',
+        status: dbHealthy ? 'healthy' : 'unhealthy',
         lastCheck: new Date().toISOString(),
-        error: healthError?.message || null,
+        error: dbError,
       },
       authentication: {
         status: 'healthy', // If we got here, auth is working
@@ -35,11 +39,11 @@ export async function GET(request: NextRequest) {
       emailIntegrations: {
         gmail: {
           status: 'available',
-          configured: !!(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET),
+          configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         },
         office365: {
-          status: 'available', 
-          configured: !!(process.env.OFFICE365_CLIENT_ID && process.env.OFFICE365_CLIENT_SECRET),
+          status: 'available',
+          configured: !!(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET),
         },
       },
       ocr: {
@@ -48,12 +52,12 @@ export async function GET(request: NextRequest) {
       },
       storage: {
         status: 'healthy',
-        provider: 'supabase',
+        provider: 'r2',
       },
     }
 
-    const overallStatus = Object.values(systemStatus).every(component => 
-      typeof component === 'object' && 'status' in component ? 
+    const overallStatus = Object.values(systemStatus).every(component =>
+      typeof component === 'object' && 'status' in component ?
         component.status === 'healthy' || component.status === 'available' : true
     ) ? 'healthy' : 'degraded'
 
@@ -61,7 +65,7 @@ export async function GET(request: NextRequest) {
       success: true,
       status: overallStatus,
       timestamp: new Date().toISOString(),
-      version: '2.0.0-supabase',
+      version: '3.0.0-railway',
       components: systemStatus,
     }, {
       headers: {
@@ -71,11 +75,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error getting system status:', error)
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         status: 'unhealthy',
         error: 'System status check failed',
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     )

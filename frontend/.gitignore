@@ -5,3 +5,5 @@ frontend/.claude-changelog/
 .env.production
 *.pem
 key.json
+
+/generated/prisma

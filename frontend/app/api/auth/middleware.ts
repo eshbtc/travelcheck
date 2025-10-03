@@ -1,31 +1,44 @@
 import { NextRequest } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-server'
+import { getServerSession } from '@/lib/auth'
 
+/**
+ * Authenticate user from NextAuth session
+ *
+ * Checks for valid NextAuth session in cookies.
+ * Returns user data if authenticated, error otherwise.
+ */
 export async function authenticateUser(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return { error: 'Missing or invalid authorization header', status: 401 }
+    const session = await getServerSession()
+
+    if (!session || !session.user) {
+      return { error: 'Unauthorized - No valid session', status: 401 }
     }
 
-    const token = authHeader.split(' ')[1]
-    
-    // Verify the JWT token with Supabase
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
-    
-    if (error || !user) {
-      return { error: 'Invalid or expired token', status: 401 }
+    // Return user in same format as before for backward compatibility
+    return {
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        image: session.user.image,
+      },
+      error: null
     }
-
-    return { user, error: null }
   } catch (error) {
-    return { 
-      error: error instanceof Error ? error.message : 'Authentication failed', 
-      status: 500 
+    return {
+      error: error instanceof Error ? error.message : 'Authentication failed',
+      status: 500
     }
   }
 }
 
+/**
+ * Require authentication for API routes
+ *
+ * Wrapper around authenticateUser for consistent error handling.
+ * Returns same result structure as authenticateUser.
+ */
 export async function requireAuth(request: NextRequest) {
   const authResult = await authenticateUser(request)
   if (authResult.error) {
