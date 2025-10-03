@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -29,14 +29,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify group belongs to user
-    const { data: group, error: groupError } = await supabase
-      .from('duplicate_groups')
-      .select('*')
-      .eq('id', groupId)
-      .eq('user_id', user.id)
-      .single()
+    const group = await prisma.duplicateGroup.findFirst({
+      where: {
+        id: groupId,
+        userId: user.id
+      }
+    })
 
-    if (groupError || !group) {
+    if (!group) {
       return NextResponse.json(
         { success: false, error: 'Duplicate group not found or access denied' },
         { status: 404 }
@@ -56,12 +56,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Get all items in the group
-        const { data: items, error: itemsError } = await supabase
-          .from('duplicate_items')
-          .select('*')
-          .eq('group_id', groupId)
+        const items = await prisma.duplicateItem.findMany({
+          where: {
+            groupId
+          }
+        })
 
-        if (itemsError || !items) {
+        if (!items) {
           return NextResponse.json(
             { success: false, error: 'Failed to fetch duplicate items' },
             { status: 500 }
@@ -69,24 +70,29 @@ export async function POST(request: NextRequest) {
         }
 
         // Update primary item designation
-        await supabase
-          .from('duplicate_items')
-          .update({ is_primary: false })
-          .eq('group_id', groupId)
+        await prisma.duplicateItem.updateMany({
+          where: { groupId },
+          data: { isPrimary: false }
+        })
 
-        await supabase
-          .from('duplicate_items')
-          .update({ is_primary: true })
-          .eq('group_id', groupId)
-          .eq('item_id', primaryItemId)
+        await prisma.duplicateItem.updateMany({
+          where: {
+            groupId,
+            itemId: primaryItemId
+          },
+          data: { isPrimary: true }
+        })
 
         // Mark non-primary travel entries as merged/ignored
-        const nonPrimaryItems = items.filter(item => item.item_id !== primaryItemId)
+        const nonPrimaryItems = items.filter(item => item.itemId !== primaryItemId)
         for (const item of nonPrimaryItems) {
-          await supabase
-            .from('travel_entries')
-            .update({ status: 'ignored', notes: `Merged into entry ${primaryItemId}` })
-            .eq('id', item.item_id)
+          await prisma.travelEntry.update({
+            where: { id: item.itemId },
+            data: {
+              status: 'ignored',
+              notes: `Merged into entry ${primaryItemId}`
+            }
+          })
         }
 
         resolutionAction = 'merged'
@@ -101,26 +107,21 @@ export async function POST(request: NextRequest) {
           )
         }
 
-        // Delete travel entries
-        const { error: deleteError } = await supabase
-          .from('travel_entries')
-          .delete()
-          .in('id', itemsToDelete)
-          .eq('user_id', user.id) // Additional security check
-
-        if (deleteError) {
-          return NextResponse.json(
-            { success: false, error: 'Failed to delete travel entries' },
-            { status: 500 }
-          )
-        }
+        // Delete travel entries (with additional security check)
+        await prisma.travelEntry.deleteMany({
+          where: {
+            id: { in: itemsToDelete },
+            userId: user.id // Additional security check
+          }
+        })
 
         // Remove corresponding duplicate items
-        await supabase
-          .from('duplicate_items')
-          .delete()
-          .eq('group_id', groupId)
-          .in('item_id', itemsToDelete)
+        await prisma.duplicateItem.deleteMany({
+          where: {
+            groupId,
+            itemId: { in: itemsToDelete }
+          }
+        })
 
         resolutionAction = 'deleted'
         result = { deletedItems: itemsToDelete.length }
@@ -139,28 +140,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Update duplicate group status
-    const { error: updateError } = await supabase
-      .from('duplicate_groups')
-      .update({
+    await prisma.duplicateGroup.update({
+      where: { id: groupId },
+      data: {
         status: 'resolved',
-        resolution_action: resolutionAction,
-        resolved_by: user.id,
-        resolved_at: new Date().toISOString(),
+        resolutionAction,
+        resolvedBy: user.id,
+        resolvedAt: new Date(),
         metadata: {
-          ...group.metadata,
+          ...(group.metadata as object || {}),
           resolutionDetails: result,
           resolvedAt: new Date().toISOString()
         }
-      })
-      .eq('id', groupId)
-
-    if (updateError) {
-      console.error('Error updating duplicate group:', updateError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to update duplicate group status' },
-        { status: 500 }
-      )
-    }
+      }
+    })
 
     return NextResponse.json({
       success: true,

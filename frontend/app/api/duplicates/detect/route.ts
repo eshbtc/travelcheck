@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 interface TravelEntry {
   id: string
-  entry_date: string
-  exit_date: string | null
-  country_code: string
-  country_name: string
+  entryDate: Date | null
+  exitDate: Date | null
+  countryCode: string | null
+  countryName: string | null
   city: string | null
-  entry_type: string
-  source_type: string | null
-  flight_number: string | null
-  confirmation_number: string | null
+  entryType: string
+  sourceType: string | null
+  flightNumber: string | null
+  confirmationNumber: string | null
 }
 
 function calculateSimilarity(entry1: TravelEntry, entry2: TravelEntry): number {
@@ -20,17 +20,18 @@ function calculateSimilarity(entry1: TravelEntry, entry2: TravelEntry): number {
   let factors = 0
 
   // Date similarity (most important)
-  const date1 = new Date(entry1.entry_date)
-  const date2 = new Date(entry2.entry_date)
+  if (!entry1.entryDate || !entry2.entryDate) return 0
+  const date1 = new Date(entry1.entryDate)
+  const date2 = new Date(entry2.entryDate)
   const daysDiff = Math.abs(date1.getTime() - date2.getTime()) / (1000 * 60 * 60 * 24)
-  
+
   if (daysDiff <= 1) score += 0.4 // Same day or next day
   else if (daysDiff <= 3) score += 0.2 // Within 3 days
   factors += 0.4
 
   // Country similarity
-  if (entry1.country_code === entry2.country_code || 
-      entry1.country_name === entry2.country_name) {
+  if (entry1.countryCode === entry2.countryCode ||
+      entry1.countryName === entry2.countryName) {
     score += 0.3
   }
   factors += 0.3
@@ -44,15 +45,15 @@ function calculateSimilarity(entry1: TravelEntry, entry2: TravelEntry): number {
   }
 
   // Flight/confirmation number similarity
-  if (entry1.flight_number && entry2.flight_number) {
-    if (entry1.flight_number === entry2.flight_number) {
+  if (entry1.flightNumber && entry2.flightNumber) {
+    if (entry1.flightNumber === entry2.flightNumber) {
       score += 0.1
     }
     factors += 0.1
   }
 
-  if (entry1.confirmation_number && entry2.confirmation_number) {
-    if (entry1.confirmation_number === entry2.confirmation_number) {
+  if (entry1.confirmationNumber && entry2.confirmationNumber) {
+    if (entry1.confirmationNumber === entry2.confirmationNumber) {
       score += 0.1
     }
     factors += 0.1
@@ -120,25 +121,15 @@ export async function POST(request: NextRequest) {
     const { threshold = 0.7, entryTypes } = body
 
     // Get travel entries
-    let query = supabase
-      .from('travel_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('entry_date', { ascending: true })
-
-    if (entryTypes && entryTypes.length > 0) {
-      query = query.in('entry_type', entryTypes)
-    }
-
-    const { data: entries, error } = await query
-
-    if (error) {
-      console.error('Error fetching travel entries:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch travel entries' },
-        { status: 500 }
-      )
-    }
+    const entries = await prisma.travelEntry.findMany({
+      where: {
+        userId: user.id,
+        ...(entryTypes && entryTypes.length > 0 ? { entryType: { in: entryTypes } } : {})
+      },
+      orderBy: {
+        entryDate: 'asc'
+      }
+    })
 
     if (!entries || entries.length < 2) {
       return NextResponse.json({
@@ -158,52 +149,46 @@ export async function POST(request: NextRequest) {
     // Save duplicate groups to database
     const savedGroups = []
     for (const group of duplicateGroups) {
-      const { data: savedGroup, error: groupError } = await supabase
-        .from('duplicate_groups')
-        .insert({
-          user_id: user.id,
-          group_type: 'travel_entry',
-          similarity_score: group.similarity,
-          status: 'pending',
-          metadata: {
-            detectionThreshold: threshold,
-            detectedAt: new Date().toISOString()
-          },
-          created_at: new Date().toISOString()
+      try {
+        const savedGroup = await prisma.duplicateGroup.create({
+          data: {
+            userId: user.id,
+            groupType: 'travel_entry',
+            similarityScore: group.similarity,
+            status: 'pending',
+            metadata: {
+              detectionThreshold: threshold,
+              detectedAt: new Date().toISOString()
+            }
+          }
         })
-        .select()
 
-      if (groupError) {
-        console.error('Error saving duplicate group:', groupError)
-        continue
-      }
+        // Save duplicate items
+        const items = group.entries.map((entry, index) => ({
+          groupId: savedGroup.id,
+          itemType: 'travel_entry',
+          itemId: entry.id,
+          isPrimary: index === 0,
+          confidenceScore: group.similarity,
+          metadata: {
+            entryDate: entry.entryDate?.toISOString(),
+            country: entry.countryCode || entry.countryName,
+            entryType: entry.entryType
+          }
+        }))
 
-      const groupId = savedGroup[0].id
+        await prisma.duplicateItem.createMany({
+          data: items
+        })
 
-      // Save duplicate items
-      const items = group.entries.map((entry, index) => ({
-        group_id: groupId,
-        item_type: 'travel_entry',
-        item_id: entry.id,
-        is_primary: index === 0,
-        confidence_score: group.similarity,
-        metadata: {
-          entry_date: entry.entry_date,
-          country: entry.country_code || entry.country_name,
-          entry_type: entry.entry_type
-        }
-      }))
-
-      const { error: itemsError } = await supabase
-        .from('duplicate_items')
-        .insert(items)
-
-      if (!itemsError) {
         savedGroups.push({
-          id: groupId,
+          id: savedGroup.id,
           ...group,
           items
         })
+      } catch (error) {
+        console.error('Error saving duplicate group:', error)
+        continue
       }
     }
 

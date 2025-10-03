@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -54,28 +54,23 @@ export async function POST(request: NextRequest) {
         }
 
         // Save to database
-        const { data: savedScan, error } = await supabase
-          .from('passport_scans')
-          .insert({
-            user_id: user.id,
-            file_name: imageFile.filename || `batch_${batchId}_${i + 1}.jpg`,
-            ocr_text: mockExtraction.ocrText,
-            passport_info: mockExtraction.passportInfo,
-            confidence_score: mockExtraction.confidence,
-            processing_status: 'completed',
-            batch_id: batchId,
-            created_at: new Date().toISOString(),
-          })
-          .select()
-
-        if (error) {
-          throw error
-        }
+        const savedScan = await prisma.passportScan.create({
+          data: {
+            userId: user.id,
+            fileName: imageFile.filename || `batch_${batchId}_${i + 1}.jpg`,
+            fileUrl: `placeholder://batch_${batchId}_${i + 1}`, // Placeholder URL
+            ocrText: mockExtraction.ocrText,
+            passportInfo: mockExtraction.passportInfo,
+            confidenceScore: mockExtraction.confidence,
+            processingStatus: 'completed',
+            batchId
+          }
+        })
 
         results.push({
           filename: imageFile.filename,
           status: 'success',
-          scanId: savedScan[0].id,
+          scanId: savedScan.id,
           confidence: mockExtraction.confidence
         })
         batchStatus.successful++
@@ -92,21 +87,20 @@ export async function POST(request: NextRequest) {
     }
 
     batchStatus.endTime = new Date().toISOString()
-    
+
     // Save batch processing record
-    await supabase
-      .from('batch_operations')
-      .insert({
-        user_id: user.id,
-        batch_id: batchId,
-        operation_type: 'passport_processing',
+    await prisma.batchOperation.create({
+      data: {
+        userId: user.id,
+        batchId,
+        operationType: 'passport_processing',
         status: batchStatus.failed === 0 ? 'completed' : 'partial',
         results: {
           ...batchStatus,
           files: results
-        },
-        created_at: new Date().toISOString()
-      })
+        }
+      }
+    })
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -18,25 +18,31 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get user's travel data
-    const [entriesResult, scansResult, emailsResult, duplicatesResult] = await Promise.all([
-      supabase.from('travel_entries').select('*').eq('user_id', user.id),
-      supabase.from('passport_scans').select('*').eq('user_id', user.id),
-      supabase.from('flight_emails').select('*').eq('user_id', user.id),
-      supabase.from('duplicate_groups').select('*').eq('user_id', user.id).eq('status', 'pending')
+    const [entries, scans, emails, duplicates] = await Promise.all([
+      prisma.travelEntry.findMany({
+        where: { userId: user.id }
+      }),
+      prisma.passportScan.findMany({
+        where: { userId: user.id }
+      }),
+      prisma.flightEmail.findMany({
+        where: { userId: user.id }
+      }),
+      prisma.duplicateGroup.findMany({
+        where: {
+          userId: user.id,
+          status: 'pending'
+        }
+      })
     ])
-
-    const entries = entriesResult.data || []
-    const scans = scansResult.data || []
-    const emails = emailsResult.data || []
-    const duplicates = duplicatesResult.data || []
 
     const suggestions = []
 
     // Data completeness suggestions
-    const entriesWithoutScans = entries.filter((entry: any) => 
+    const entriesWithoutScans = entries.filter((entry: any) =>
       !scans.some((scan: any) => {
-        const scanDate = new Date(scan.created_at)
-        const entryDate = new Date(entry.entry_date)
+        const scanDate = new Date(scan.createdAt)
+        const entryDate = new Date(entry.entryDate)
         const daysDiff = Math.abs(scanDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)
         return daysDiff <= 30
       })
@@ -67,15 +73,15 @@ export async function GET(request: NextRequest) {
 
     // Travel compliance suggestions
     const recentEntries = entries.filter((entry: any) => {
-      const entryDate = new Date(entry.entry_date)
+      const entryDate = new Date(entry.entryDate)
       const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
       return entryDate >= oneYearAgo
     })
 
     const daysOutside = recentEntries.reduce((total: number, entry: any) => {
-      if (entry.country_code === 'US') return total
-      const duration = entry.exit_date ? 
-        Math.ceil((new Date(entry.exit_date).getTime() - new Date(entry.entry_date).getTime()) / (1000 * 60 * 60 * 24)) : 30
+      if (entry.countryCode === 'US') return total
+      const duration = entry.exitDate ?
+        Math.ceil((new Date(entry.exitDate).getTime() - new Date(entry.entryDate).getTime()) / (1000 * 60 * 60 * 24)) : 30
       return total + duration
     }, 0)
 
@@ -91,8 +97,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Organization suggestions
-    const unprocessedEmails = emails.filter((email: any) => 
-      email.processing_status === 'pending' || !email.confidence_score || email.confidence_score < 0.5
+    const unprocessedEmails = emails.filter((email: any) =>
+      email.processingStatus === 'pending' || !email.confidenceScore || email.confidenceScore < 0.5
     )
 
     if (unprocessedEmails.length > 0) {
@@ -119,8 +125,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Optimization suggestions
-    const lowConfidenceScans = scans.filter((scan: any) => 
-      !scan.confidence_score || scan.confidence_score < 0.7
+    const lowConfidenceScans = scans.filter((scan: any) =>
+      !scan.confidenceScore || scan.confidenceScore < 0.7
     )
 
     if (lowConfidenceScans.length > 3) {

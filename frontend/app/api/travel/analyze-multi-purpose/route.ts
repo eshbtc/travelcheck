@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
 
@@ -22,15 +22,15 @@ const AnalyzeMultiPurposeSchema = z.object({
 
 // Helper function to calculate days present in a country
 function calculatePresenceDays(entries: any[], country: string, startDate?: string, endDate?: string): number {
-  const countryEntries = entries.filter(entry => 
-    (entry.country_code === country || entry.country_name === country) &&
-    (!startDate || entry.entry_date >= startDate) &&
-    (!endDate || entry.entry_date <= endDate)
+  const countryEntries = entries.filter(entry =>
+    (entry.countryCode === country || entry.countryName === country) &&
+    (!startDate || entry.entryDate >= startDate) &&
+    (!endDate || entry.entryDate <= endDate)
   )
 
   return countryEntries.reduce((total, entry) => {
-    const entryDate = new Date(entry.entry_date)
-    const exitDate = entry.exit_date ? new Date(entry.exit_date) : new Date()
+    const entryDate = new Date(entry.entryDate)
+    const exitDate = entry.exitDate ? new Date(entry.exitDate) : new Date()
     const days = Math.ceil((exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
     return total + Math.max(0, days)
   }, 0)
@@ -43,8 +43,8 @@ function calculateWeightedPresence(entries: any[], currentYear: number): {
   twoYearsDays: number
   weightedTotal: number
 } {
-  const usEntries = entries.filter(entry => 
-    entry.country_code === 'US' || entry.country_name === 'United States'
+  const usEntries = entries.filter(entry =>
+    entry.countryCode === 'US' || entry.countryName === 'United States'
   )
 
   const currentYearDays = calculatePresenceDays(usEntries, 'US', `${currentYear}-01-01`, `${currentYear}-12-31`)
@@ -67,11 +67,11 @@ function calculateSchengenPresence(entries: any[]): {
   violations: Array<{ date: string, consecutiveDays: number }>
 } {
   const schengenCountries = ['DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'PT', 'GR', 'LU', 'FI', 'SE', 'DK', 'PL', 'CZ', 'HU', 'SK', 'SI', 'EE', 'LV', 'LT', 'MT', 'CY']
-  
-  const schengenEntries = entries.filter(entry => 
-    schengenCountries.includes(entry.country_code) || 
-    schengenCountries.some(code => entry.country_name?.includes(code))
-  ).sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime())
+
+  const schengenEntries = entries.filter(entry =>
+    schengenCountries.includes(entry.countryCode) ||
+    schengenCountries.some(code => entry.countryName?.includes(code))
+  ).sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime())
 
   const violations: Array<{ date: string, consecutiveDays: number }> = []
   let totalDays = 0
@@ -79,26 +79,26 @@ function calculateSchengenPresence(entries: any[]): {
   // Simple sliding window check for 90/180 rule
   for (let i = 0; i < schengenEntries.length; i++) {
     const entry = schengenEntries[i]
-    const entryDate = new Date(entry.entry_date)
-    const exitDate = entry.exit_date ? new Date(entry.exit_date) : new Date()
+    const entryDate = new Date(entry.entryDate)
+    const exitDate = entry.exitDate ? new Date(entry.exitDate) : new Date()
     const stayDays = Math.ceil((exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
-    
+
     totalDays += stayDays
 
     // Check 180-day lookback window
     const lookbackDate = new Date(entryDate)
     lookbackDate.setDate(lookbackDate.getDate() - 180)
-    
+
     const daysInWindow = schengenEntries
-      .filter(e => new Date(e.entry_date) >= lookbackDate && new Date(e.entry_date) <= exitDate)
+      .filter(e => new Date(e.entryDate) >= lookbackDate && new Date(e.entryDate) <= exitDate)
       .reduce((sum, e) => {
-        const eDays = Math.ceil((new Date(e.exit_date || new Date()).getTime() - new Date(e.entry_date).getTime()) / (1000 * 60 * 60 * 24))
+        const eDays = Math.ceil((new Date(e.exitDate || new Date()).getTime() - new Date(e.entryDate).getTime()) / (1000 * 60 * 60 * 24))
         return sum + eDays
       }, 0)
 
     if (daysInWindow > 90) {
       violations.push({
-        date: entry.entry_date,
+        date: entry.entryDate.toISOString().split('T')[0],
         consecutiveDays: daysInWindow
       })
     }
@@ -233,19 +233,14 @@ export async function POST(request: NextRequest) {
     const { purposes, options = {} } = validation.data!
 
     // Get user's travel entries
-    const { data: entries, error } = await supabase
-      .from('travel_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('entry_date', { ascending: true })
-
-    if (error) {
-      console.error('Error fetching travel entries:', sanitizeForLogging(error))
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch travel data' },
-        { status: 500 }
-      )
-    }
+    const entries = await prisma.travelEntry.findMany({
+      where: {
+        userId: user.id
+      },
+      orderBy: {
+        entryDate: 'asc'
+      }
+    })
 
     // Analyze each purpose
     const results = purposes.map(purpose => {
@@ -276,8 +271,8 @@ export async function POST(request: NextRequest) {
       dataSource: {
         travelEntries: entries?.length || 0,
         dateRange: entries?.length ? {
-          earliest: entries[0]?.entry_date,
-          latest: entries[entries.length - 1]?.entry_date
+          earliest: entries[0]?.entryDate?.toISOString().split('T')[0],
+          latest: entries[entries.length - 1]?.entryDate?.toISOString().split('T')[0]
         } : null
       }
     }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
 // Configuration
@@ -18,31 +18,35 @@ function createCacheKey(userData: any): string {
 
 // Helper function to check rate limit
 async function checkRateLimit(userId: string): Promise<boolean> {
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  
-  const { count, error } = await supabase
-    .from('ai_usage_logs')
-    .select('*', { count: 'exact' })
-    .eq('user_id', userId)
-    .eq('endpoint', 'generate-suggestions')
-    .gte('created_at', oneHourAgo)
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
 
-  if (error) {
+  try {
+    const count = await prisma.aiUsageLog.count({
+      where: {
+        userId,
+        endpoint: 'generate-suggestions',
+        createdAt: {
+          gte: oneHourAgo
+        }
+      }
+    })
+
+    return count < RATE_LIMIT_PER_HOUR
+  } catch (error) {
     console.error('Error checking rate limit:', error)
     return false // Be conservative, deny if we can't check
   }
-
-  return (count || 0) < RATE_LIMIT_PER_HOUR
 }
 
 // Helper function to log usage
 async function logUsage(userId: string, cacheHit: boolean, dataSize: number) {
-  await supabase.from('ai_usage_logs').insert({
-    user_id: userId,
-    endpoint: 'generate-suggestions',
-    cache_hit: cacheHit,
-    data_size: dataSize,
-    created_at: new Date().toISOString()
+  await prisma.aiUsageLog.create({
+    data: {
+      userId,
+      endpoint: 'generate-suggestions',
+      cacheHit,
+      dataSize
+    }
   })
 }
 
@@ -121,15 +125,19 @@ export async function POST(request: NextRequest) {
     const dataSize = JSON.stringify(processedData).length
 
     // Check cache first
-    const { data: cachedResult } = await supabase
-      .from('ai_cache')
-      .select('result, created_at')
-      .eq('cache_key', cacheKey)
-      .eq('endpoint', 'generate-suggestions')
-      .single()
+    const cachedResult = await prisma.aiCache.findFirst({
+      where: {
+        cacheKey,
+        endpoint: 'generate-suggestions'
+      },
+      select: {
+        result: true,
+        createdAt: true
+      }
+    })
 
     if (cachedResult) {
-      const cacheAge = Date.now() - new Date(cachedResult.created_at).getTime()
+      const cacheAge = Date.now() - new Date(cachedResult.createdAt).getTime()
       const maxAge = CACHE_TTL_HOURS * 60 * 60 * 1000
 
       if (cacheAge < maxAge) {
@@ -176,12 +184,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Cache the result
-    await supabase.from('ai_cache').upsert({
-      cache_key: cacheKey,
-      endpoint: 'generate-suggestions',
-      user_id: user.id,
-      result: parsedData,
-      created_at: new Date().toISOString()
+    await prisma.aiCache.upsert({
+      where: {
+        cacheKey_endpoint: {
+          cacheKey,
+          endpoint: 'generate-suggestions'
+        }
+      },
+      create: {
+        cacheKey,
+        endpoint: 'generate-suggestions',
+        userId: user.id,
+        result: parsedData
+      },
+      update: {
+        result: parsedData,
+        createdAt: new Date()
+      }
     })
 
     await logUsage(user.id, false, dataSize)
@@ -192,14 +211,15 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error generating smart suggestions:', error)
-    
+
     // Log the error for monitoring
-    await supabase.from('ai_usage_logs').insert({
-      user_id: user.id,
-      endpoint: 'generate-suggestions',
-      cache_hit: false,
-      error_message: error instanceof Error ? error.message : 'Unknown error',
-      created_at: new Date().toISOString()
+    await prisma.aiUsageLog.create({
+      data: {
+        userId: user.id,
+        endpoint: 'generate-suggestions',
+        cacheHit: false,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      }
     })
 
     return NextResponse.json({
