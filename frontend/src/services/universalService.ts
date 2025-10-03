@@ -68,7 +68,10 @@ export class UniversalTravelService {
    * Ingest hotel bookings from Office365/Outlook
    */
   async ingestOffice365Bookings(options: { maxResults?: number; providers?: string[]; days?: number } = {}): Promise<{ success: boolean; ingested: number; messageIds: string[] }>{
-    const res = await supabaseService.apiCall('ingestOffice365Bookings', options);
+    const res = await supabaseService.apiCall('/api/office365/ingest', {
+      method: 'POST',
+      body: JSON.stringify(options)
+    });
     if (res && res.data && typeof res.data === 'object' && 'success' in res.data) return res.data as { success: boolean; ingested: number; messageIds: string[] };
     return { success: true, ingested: 0, messageIds: [] };
   }
@@ -82,7 +85,7 @@ export class UniversalTravelService {
     totalParsedBookings: number;
     providers: Array<{ provider: string; emails: number; parsedBookings: number }>;
   }> {
-    const res = await supabaseService.apiCall('getBookingIngestionStatus', {});
+    const res = await supabaseService.apiCall('/api/booking/ingestion-status');
     if (res && res.data && typeof res.data === 'object' && 'lastIngestedAt' in res.data) return res.data as { lastIngestedAt: string | null; emailsIngested: number; totalParsedBookings: number; providers: Array<{ provider: string; emails: number; parsedBookings: number }> };
     return { lastIngestedAt: null, emailsIngested: 0, totalParsedBookings: 0, providers: [] };
   }
@@ -101,7 +104,7 @@ export class UniversalTravelService {
     }>;
   }>> {
     try {
-      const result = await supabaseService.apiCall('getAvailableCountries');
+      const result = await supabaseService.apiCall('/api/countries/list');
       if (result && result.data && Array.isArray(result.data)) return result.data;
       return [];
     } catch (error) {
@@ -123,7 +126,7 @@ export class UniversalTravelService {
     effectiveTo?: string;
   }>> {
     try {
-      const result = await supabaseService.apiCall('getCountryRules', { country });
+      const result = await supabaseService.apiCall(`/api/countries/${country}/rules`);
       if (result && result.data && Array.isArray(result.data)) return result.data;
       return [];
     } catch (error) {
@@ -153,9 +156,12 @@ export class UniversalTravelService {
     status: 'met' | 'not_met' | 'partial' | 'error';
   }>> {
     try {
-      const result = await supabaseService.apiCall('analyzeMultiPurpose', {
-        purposes,
-        ...options
+      const result = await supabaseService.apiCall('/api/travel/analyze-multi-purpose', {
+        method: 'POST',
+        body: JSON.stringify({
+          purposes,
+          ...options
+        })
       });
       
       if (result && result.data && Array.isArray(result.data)) return result.data;
@@ -171,7 +177,7 @@ export class UniversalTravelService {
    */
   async getUserProfile(): Promise<UserProfile | null> {
     try {
-      const result = await supabaseService.apiCall('getUserProfile');
+      const result = await supabaseService.apiCall('/api/user/profile');
       if (result && result.data && typeof result.data === 'object' && 'id' in result.data) return result.data as UserProfile;
       return null;
     } catch (error) {
@@ -185,7 +191,10 @@ export class UniversalTravelService {
    */
   async updateUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
     try {
-      const result = await supabaseService.apiCall('updateUserProfile', { profile });
+      const result = await supabaseService.apiCall('/api/user/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ profile })
+      });
       
       if (!result.success) {
         throw new Error('Failed to update profile');
@@ -203,7 +212,10 @@ export class UniversalTravelService {
    */
   async exportReport(request: ExportRequest | (ExportRequest & { report?: any })): Promise<ExportResult> {
     try {
-      const result = await supabaseService.apiCall('exportReport', request);
+      const result = await supabaseService.apiCall('/api/reports/export', {
+        method: 'POST',
+        body: JSON.stringify(request)
+      });
       
       if (!result.success) {
         throw new Error('Failed to export report');
@@ -229,7 +241,7 @@ export class UniversalTravelService {
     preview?: string;
   }>> {
     try {
-      const result = await supabaseService.apiCall('getReportTemplates', { category });
+      const result = await supabaseService.apiCall(category ? `/api/reports/templates?category=${category}` : '/api/reports/templates');
       if (result && result.data && Array.isArray(result.data)) return result.data;
       return [];
     } catch (error) {
@@ -249,7 +261,10 @@ export class UniversalTravelService {
     template: any;
   }): Promise<string> {
     try {
-      const result = await supabaseService.apiCall('saveReportTemplate', template);
+      const result = await supabaseService.apiCall('/api/reports/templates', {
+        method: 'POST',
+        body: JSON.stringify(template)
+      });
       
       if (!result.success) {
         throw new Error('Failed to save template');
@@ -268,7 +283,7 @@ export class UniversalTravelService {
    */
   async listUniversalReports(limit: number = 500): Promise<UniversalReport[]> {
     try {
-      const result = await supabaseService.apiCall('listUniversalReports', { limit });
+      const result = await supabaseService.apiCall(`/api/reports/list?limit=${limit}`);
       if (result && result.data && Array.isArray(result.data)) return result.data;
       return [];
     } catch (error) {
@@ -282,7 +297,9 @@ export class UniversalTravelService {
    */
   async deleteUniversalReport(reportId: string): Promise<boolean> {
     try {
-      const result = await supabaseService.apiCall('deleteUniversalReport', { reportId });
+      const result = await supabaseService.apiCall(`/api/reports/${reportId}`, {
+        method: 'DELETE'
+      });
       return !!(result && result.success);
     } catch (error) {
       console.error('Error deleting report:', error);
@@ -314,7 +331,10 @@ export class UniversalTravelService {
     }>;
   }> {
     try {
-      const result = await supabaseService.apiCall('getTravelInsights', options);
+      const result = await supabaseService.apiCall('/api/travel/insights', {
+        method: 'POST',
+        body: JSON.stringify(options)
+      });
       if (result && result.data && typeof result.data === 'object' && 'insights' in result.data) return result.data as { insights: Array<{ type: 'opportunity' | 'warning' | 'info' | 'recommendation'; title: string; description: string; action?: string; priority: 'high' | 'medium' | 'low' }>; recommendations: Array<{ category: string; title: string; description: string; impact: string; effort: 'low' | 'medium' | 'high' }> };
       return { insights: [], recommendations: [] };
     } catch (error) {
@@ -350,7 +370,10 @@ export class UniversalTravelService {
     }>;
   }> {
     try {
-      const result = await supabaseService.apiCall('simulateScenario', scenario);
+      const result = await supabaseService.apiCall('/api/travel/simulate', {
+        method: 'POST',
+        body: JSON.stringify(scenario)
+      });
       
       if (!result.success) {
         throw new Error('Failed to simulate scenario');

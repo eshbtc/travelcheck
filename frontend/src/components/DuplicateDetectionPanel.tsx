@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  detectDuplicateScans, 
-  getDuplicateResults, 
-  resolveDuplicate 
-} from '@/services/supabaseService';
-import type { 
-  DuplicateDetectionResult, 
-  DuplicateRecord 
+import { supabaseService } from '@/services/supabaseService';
+import type {
+  DuplicateDetectionResult,
+  DuplicateRecord
 } from '@/types/universal';
 import { Button } from './ui/Button';
 import Card from './ui/Card';

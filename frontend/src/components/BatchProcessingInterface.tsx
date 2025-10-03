@@ -1,11 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { 
-  processBatchPassportImages, 
-  optimizeBatchProcessing 
-} from '@/services/supabaseService';
-import type { 
-  BatchProcessingResult, 
-  OptimizationResult 
+import { supabaseService } from '@/services/supabaseService';
+import type {
+  BatchProcessingResult,
+  OptimizationResult
 } from '@/types/universal';
 import { Button } from './ui/Button';
 import Card from './ui/Card';

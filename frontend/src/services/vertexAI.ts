@@ -53,8 +53,9 @@ export class VertexAIService {
       }
 
       // Use authorized API helper so Authorization is included
-      const result = await supabaseService.apiCall('/ai/analyze-passport', {
-        imageData: imageContent
+      const result = await supabaseService.apiCall('/api/ai/analyze-passport', {
+        method: 'POST',
+        body: JSON.stringify({ imageData: imageContent })
       })
       return result as any
     } catch (error) {
@@ -89,8 +90,9 @@ export class VertexAIService {
     error?: string
   }> {
     try {
-      const result = await supabaseService.apiCall('/ai/analyze-patterns', {
-        travelData
+      const result = await supabaseService.apiCall('/api/ai/analyze-patterns', {
+        method: 'POST',
+        body: JSON.stringify({ travelData })
       })
       return result as any
     } catch (error) {
@@ -132,8 +134,9 @@ export class VertexAIService {
     error?: string
   }> {
     try {
-      const result = await supabaseService.apiCall('/ai/generate-suggestions', {
-        userData
+      const result = await supabaseService.apiCall('/api/ai/generate-suggestions', {
+        method: 'POST',
+        body: JSON.stringify({ userData })
       })
       return result as any
     } catch (error) {
