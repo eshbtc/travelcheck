@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "echo '=== PWD ===' && pwd && echo '=== LS ===' && ls -la && echo '=== SRC ===' && ls -la src/ && echo '=== Building ===' && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
