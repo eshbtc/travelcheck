@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "echo '=== PWD ===' && pwd && echo '=== LS ===' && ls -la && echo '=== SRC ===' && ls -la src/ && echo '=== Building ===' && next build",
-    "start": "next start",
+    "build": "next build",
+    "start": "node .next/standalone/server.js",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "jest",
