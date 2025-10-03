@@ -1,10 +1,19 @@
 /** @type {import('next').NextConfig} */
+const path = require('path')
+
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   trailingSlash: true,
   output: 'standalone',
   productionBrowserSourceMaps: true, // Enable source maps for Sentry
+  webpack: (config, { isServer }) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    }
+    return config
+  },
   generateBuildId: async () => {
     // Use git commit hash for release tracking
     const { execSync } = require('child_process')
