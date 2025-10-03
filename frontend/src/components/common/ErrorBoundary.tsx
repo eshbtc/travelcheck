@@ -1,7 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import Card from '../ui/Card'
 import Button from '../ui/Button'
-import { recordErrorInCrashlytics } from '../../services/crashlytics'
 
 interface Props {
   children: ReactNode
@@ -184,7 +183,6 @@ export function useErrorHandler() {
     }
 
     // TODO: Send error to crash reporting service
-    // crashlytics().recordError(error)
   }, [])
 
   const clearError = React.useCallback(() => {

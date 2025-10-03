@@ -5,7 +5,7 @@ import { Sidebar } from './Sidebar'
 import { CommandPalette } from './CommandPalette'
 import { SearchBar } from '../ui/SearchBar'
 import { createPortal } from 'react-dom'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { BellIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, UserIcon, XMarkIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 
 interface AppShellProps {
@@ -19,7 +19,7 @@ export function AppShell({ children }: AppShellProps) {
   const [hoverExpand, setHoverExpand] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const { user, logout } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
   const billingPortalUrl = process.env.NEXT_PUBLIC_LEMON_CUSTOMER_PORTAL_URL
   useEffect(() => setMounted(true), [])
 
@@ -108,7 +108,7 @@ export function AppShell({ children }: AppShellProps) {
                   <ShieldCheckIcon className="h-5 w-5 text-text-secondary" />
                   <span>Settings</span>
                 </button>
-                <button onClick={async () => { await logout(); setProfileOpen(false) }} className="flex items-center gap-3 px-3 h-12 rounded-lg hover:bg-bg-secondary w-full text-left">
+                <button onClick={async () => { await signOut({ callbackUrl: "/auth/login" }); setProfileOpen(false) }} className="flex items-center gap-3 px-3 h-12 rounded-lg hover:bg-bg-secondary w-full text-left">
                   <ArrowRightOnRectangleIcon className="h-5 w-5 text-text-secondary" />
                   <span>Sign Out</span>
                 </button>

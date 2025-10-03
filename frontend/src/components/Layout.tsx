@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { Logo } from './ui/Logo'
 import { Button } from './ui/Button'
 import {
@@ -29,7 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
   const pathname = usePathname()
 
   const adminEmails = useMemo(() => (
@@ -64,7 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleLogout = async () => {
     try {
-      await logout()
+      await signOut({ callbackUrl: "/auth/login" })
     } catch (error) {
       console.error('Logout error:', error)
     }

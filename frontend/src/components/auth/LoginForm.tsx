@@ -95,7 +95,7 @@ export function LoginForm() {
           type="submit"
           variant="primary"
           className="w-full"
-          disabled={submitting || isLoading}
+          disabled={submitting}
         >
           {submitting ? 'Signing in…' : 'Sign in'}
         </Button>
@@ -113,7 +113,7 @@ export function LoginForm() {
           variant="outline"
           className="w-full"
           onClick={onGoogleLogin}
-          disabled={submitting || isLoading}
+          disabled={submitting}
         >
           Continue with Google
         </Button>

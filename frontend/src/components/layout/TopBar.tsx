@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '../ui/Logo'
 import { Button } from '../ui/Button'
 import {
@@ -29,13 +29,13 @@ export function TopBar({ onMenuClick, onSearchClick }: TopBarProps) {
   const [profilePanelOpen, setProfilePanelOpen] = useState(false)
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
-  const { user, logout } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
   const [focusedMenuIndex, setFocusedMenuIndex] = useState(0)
   const menuRefs = useRef<Array<HTMLAnchorElement | HTMLButtonElement | null>>([])
 
   const handleLogout = async () => {
     try {
-      await logout()
+      await signOut({ callbackUrl: "/auth/login" })
       router.push('/auth/login')
     } catch (error) {
       console.error('Logout error:', error)
