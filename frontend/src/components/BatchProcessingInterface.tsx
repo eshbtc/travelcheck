@@ -89,13 +89,7 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
 
     try {
       setOptimizing(true);
-      const imageDataArray = images.map(img => ({
-        fileName: img.file.name,
-        size: img.file.size,
-        type: img.file.type
-      }));
-
-      const result = await supabaseService.optimizeBatchProcessing(imageDataArray);
+      const result = await supabaseService.optimizeBatchProcessing();
       if (result.success) {
         setOptimization(result);
       }
@@ -111,14 +105,11 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
 
     try {
       setProcessing(true);
-      
-      // Convert images to base64
-      const imageDataArray = images.map((img) => ({
-        file: img.file,
-        fileName: img.file.name
-      }));
 
-      const result = await supabaseService.processBatchPassportImages(imageDataArray);
+      // Extract files from images array
+      const files = images.map(img => img.file);
+
+      const result = await supabaseService.processBatchPassportImages(files);
       if (result.success) {
         setProcessingResult(result);
         if (onProcessingComplete) {

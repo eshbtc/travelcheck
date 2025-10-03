@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  generateSmartSuggestions, 
-  analyzeTravelPatterns 
-} from '@/services/supabaseService';
-import type { 
-  SmartSuggestionsResult, 
+import { supabaseService } from '@/services/supabaseService';
+import type {
+  SmartSuggestionsResult,
   TravelPatternsResult,
   PotentialGap,
   ConflictData,

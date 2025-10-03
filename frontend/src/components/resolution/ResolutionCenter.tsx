@@ -21,11 +21,6 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { 
-  getDuplicateResults, 
-  resolveDuplicate,
-  detectDuplicateScans 
-} from '@/services/supabaseService'
 import { toast } from 'react-hot-toast'
 import type { DuplicateRecord } from '@/types/universal'
 

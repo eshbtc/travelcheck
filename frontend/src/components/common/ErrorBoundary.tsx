@@ -48,12 +48,8 @@ export class ErrorBoundary extends Component<Props, State> {
       this.props.onError(error, errorInfo)
     }
 
-    // Send error to crash reporting service (guarded)
-    try {
-      recordErrorInCrashlytics(error, errorInfo, 'ErrorBoundary')
-    } catch (e) {
-      // no-op: crash reporting is best-effort
-    }
+    // TODO: Integrate with crash reporting service if needed
+    console.error('ErrorBoundary caught error:', error, errorInfo)
   }
 
   handleRetry = () => {
