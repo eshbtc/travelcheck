@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
 
@@ -244,35 +244,29 @@ export async function POST(request: NextRequest) {
 
     const options = validation.data!
 
-    // Build query with optional filters
-    let query = supabase
-      .from('travel_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('entry_date', { ascending: true })
+    // Build Prisma where clause with optional filters
+    const where: any = { userId: user.id }
 
     // Apply time range filter
-    if (options.timeRange?.start) {
-      query = query.gte('entry_date', options.timeRange.start)
-    }
-    if (options.timeRange?.end) {
-      query = query.lte('entry_date', options.timeRange.end)
+    if (options.timeRange?.start || options.timeRange?.end) {
+      where.entryDate = {}
+      if (options.timeRange.start) {
+        where.entryDate.gte = new Date(options.timeRange.start)
+      }
+      if (options.timeRange.end) {
+        where.entryDate.lte = new Date(options.timeRange.end)
+      }
     }
 
     // Apply country filter
     if (options.countries && options.countries.length > 0) {
-      query = query.in('country_code', options.countries)
+      where.countryCode = { in: options.countries }
     }
 
-    const { data: entries, error } = await query
-
-    if (error) {
-      console.error('Error fetching travel entries:', sanitizeForLogging(error))
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch travel data' },
-        { status: 500 }
-      )
-    }
+    const entries = await prisma.travelEntry.findMany({
+      where,
+      orderBy: { entryDate: 'asc' },
+    })
 
     // Analyze travel patterns
     const patterns = analyzeTravelPatterns(entries || [])

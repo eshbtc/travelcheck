@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
-import { requireAuth } from '../../auth/middleware'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { TravelHistorySchema, validateInput, sanitizeForLogging } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
@@ -19,19 +19,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: travelHistory, error } = await supabase
-      .from('travel_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Supabase error:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to get travel history' },
-        { status: 500 }
-      )
-    }
+    const travelHistory = await prisma.travelHistory.findUnique({
+      where: { userId: user.id },
+    })
 
     return NextResponse.json({
       success: true,
@@ -64,9 +54,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     console.log('Travel history save request:', sanitizeForLogging(body))
-    
+
     const { passportData, flightData } = body
-    
+
     // Validate input data
     const validation = validateInput(TravelHistorySchema, { passportData, flightData })
     if (!validation.success) {
@@ -77,24 +67,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert travel history
-    const { data, error } = await supabase
-      .from('travel_history')
-      .upsert({
-        user_id: user.id,
-        passport_data: passportData,
-        flight_data: flightData,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Supabase error:', sanitizeForLogging(error))
-      return NextResponse.json(
-        { success: false, error: 'Failed to save travel history' },
-        { status: 500 }
-      )
-    }
+    const data = await prisma.travelHistory.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        passportData: passportData as any,
+        flightData: flightData as any,
+      },
+      update: {
+        passportData: passportData as any,
+        flightData: flightData as any,
+      },
+    })
 
     return NextResponse.json({
       success: true,

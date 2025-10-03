@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -28,14 +28,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the passport scan
-    const { data: scan, error: scanError } = await supabase
-      .from('passport_scans')
-      .select('*')
-      .eq('id', scanId)
-      .eq('user_id', user.id)
-      .single()
+    const scan = await prisma.passportScan.findUnique({
+      where: {
+        id: scanId,
+        userId: user.id,
+      },
+    })
 
-    if (scanError || !scan) {
+    if (!scan) {
       return NextResponse.json(
         { success: false, error: 'Passport scan not found' },
         { status: 404 }
@@ -79,22 +79,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Store the analysis
-    const { error: updateError } = await supabase
-      .from('passport_scans')
-      .update({
-        analysis_results: enhancedAnalysis,
-        confidence_score: enhancedAnalysis.confidence.overall,
-        processing_status: 'completed'
-      })
-      .eq('id', scanId)
-
-    if (updateError) {
-      console.error('Error storing passport analysis:', updateError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to store analysis' },
-        { status: 500 }
-      )
-    }
+    await prisma.passportScan.update({
+      where: { id: scanId },
+      data: {
+        analysisResults: enhancedAnalysis as any,
+        confidenceScore: enhancedAnalysis.confidence.overall,
+        processingStatus: 'completed',
+      },
+    })
 
     return NextResponse.json({
       success: true,

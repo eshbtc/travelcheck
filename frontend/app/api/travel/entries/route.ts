@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -24,30 +24,21 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const entryType = searchParams.get('entry_type')
 
-    let query = supabase
-      .from('travel_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('entry_date', { ascending: false })
-      .range(offset, offset + limit - 1)
-
+    // Build Prisma where clause
+    const where: any = { userId: user.id }
     if (status) {
-      query = query.eq('status', status)
+      where.status = status
     }
-
     if (entryType) {
-      query = query.eq('entry_type', entryType)
+      where.entryType = entryType
     }
 
-    const { data: entries, error } = await query
-
-    if (error) {
-      console.error('Error fetching travel entries:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch travel entries' },
-        { status: 500 }
-      )
-    }
+    const entries = await prisma.travelEntry.findMany({
+      where,
+      orderBy: { entryDate: 'desc' },
+      skip: offset,
+      take: limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -111,49 +102,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('travel_entries')
-      .insert({
-        user_id: user.id,
-        entry_type,
-        source_type: 'manual',
-        country_code,
-        country_name,
+    const entry = await prisma.travelEntry.create({
+      data: {
+        userId: user.id,
+        entryType: entry_type,
+        sourceType: 'manual',
+        countryCode: country_code,
+        countryName: country_name,
         city,
-        airport_code,
-        entry_date,
-        exit_date,
-        entry_time,
-        exit_time,
+        airportCode: airport_code,
+        entryDate: new Date(entry_date),
+        exitDate: exit_date ? new Date(exit_date) : null,
+        entryTime: entry_time,
+        exitTime: exit_time,
         timezone,
         purpose,
-        transport_type,
+        transportType: transport_type,
         carrier,
-        flight_number,
-        confirmation_number,
+        flightNumber: flight_number,
+        confirmationNumber: confirmation_number,
         status: 'confirmed',
-        confidence_score: 1.0,
-        is_verified: true,
-        manual_override: true,
+        confidenceScore: 1.0,
+        isVerified: true,
+        manualOverride: true,
         notes,
         tags: tags || [],
         metadata: {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-
-    if (error) {
-      console.error('Error creating travel entry:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to create travel entry' },
-        { status: 500 }
-      )
-    }
+      },
+    })
 
     return NextResponse.json({
       success: true,
-      entry: data[0],
+      entry,
     })
   } catch (error) {
     console.error('Error creating travel entry:', error)

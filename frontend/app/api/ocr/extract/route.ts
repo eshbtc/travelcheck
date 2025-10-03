@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 // Simple OCR simulation - in production you'd use Google Vision API
 function simulateOCR(imageData: string): {
@@ -88,35 +88,26 @@ export async function POST(request: NextRequest) {
     const ocrResult = simulateOCR(imageData)
 
     // Save passport scan to database
-    const { data: savedScan, error } = await supabase
-      .from('passport_scans')
-      .insert({
-        user_id: user.id,
-        file_name: file_name || 'passport_scan.jpg',
-        ocr_text: ocrResult.extractedText,
-        passport_info: ocrResult.structuredData,
-        confidence_score: ocrResult.confidence,
-        processing_status: 'completed'
-      })
-      .select()
-
-    if (error) {
-      console.error('Error saving passport scan:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to save passport scan' },
-        { status: 500 }
-      )
-    }
+    const savedScan = await prisma.passportScan.create({
+      data: {
+        userId: user.id,
+        fileName: file_name || 'passport_scan.jpg',
+        ocrText: ocrResult.extractedText,
+        passportInfo: ocrResult.structuredData as any,
+        confidenceScore: ocrResult.confidence,
+        processingStatus: 'completed',
+      },
+    })
 
     return NextResponse.json({
       success: true,
       data: {
-        id: savedScan[0].id,
+        id: savedScan.id,
         extractedText: ocrResult.extractedText,
         structuredData: ocrResult.structuredData,
         confidence: ocrResult.confidence,
-        file_name: file_name || 'passport_scan.jpg'
-      }
+        file_name: file_name || 'passport_scan.jpg',
+      },
     })
   } catch (error) {
     console.error('Error extracting passport data:', error)

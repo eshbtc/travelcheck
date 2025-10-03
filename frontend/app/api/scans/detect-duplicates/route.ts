@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
 // Enhanced duplicate detection specifically for passport scans
@@ -62,14 +62,14 @@ export async function POST(request: NextRequest) {
 
     if (scanId) {
       // Analyze specific scan for duplicates
-      const { data: targetScan, error: scanError } = await supabase
-        .from('passport_scans')
-        .select('*')
-        .eq('id', scanId)
-        .eq('user_id', user.id)
-        .single()
+      const targetScan = await prisma.passportScan.findUnique({
+        where: {
+          id: scanId,
+          userId: user.id,
+        },
+      })
 
-      if (scanError || !targetScan) {
+      if (!targetScan) {
         return NextResponse.json(
           { success: false, error: 'Scan not found' },
           { status: 404 }
@@ -77,35 +77,21 @@ export async function POST(request: NextRequest) {
       }
 
       // Get all other scans by the same user
-      const { data: otherScans, error: otherScansError } = await supabase
-        .from('passport_scans')
-        .select('*')
-        .eq('user_id', user.id)
-        .neq('id', scanId)
-        .order('created_at', { ascending: false })
-
-      if (otherScansError) {
-        return NextResponse.json(
-          { success: false, error: 'Failed to fetch scans for comparison' },
-          { status: 500 }
-        )
-      }
+      const otherScans = await prisma.passportScan.findMany({
+        where: {
+          userId: user.id,
+          id: { not: scanId },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
 
       scansToAnalyze = [targetScan, ...(otherScans || [])]
     } else {
       // Analyze all scans for duplicates
-      const { data: allScans, error: allScansError } = await supabase
-        .from('passport_scans')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (allScansError) {
-        return NextResponse.json(
-          { success: false, error: 'Failed to fetch scans' },
-          { status: 500 }
-        )
-      }
+      const allScans = await prisma.passportScan.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+      })
 
       scansToAnalyze = allScans || []
     }
@@ -200,38 +186,36 @@ export async function POST(request: NextRequest) {
     if (autoResolve) {
       for (const group of duplicates) {
         // Keep the scan with highest confidence score, mark others as duplicates
-        const scansToMark = group.duplicates.map(d => d.scan)
-        
+        const scansToMark = group.duplicates.map((d: any) => d.scan)
+
         for (const duplicateScan of scansToMark) {
-          await supabase
-            .from('passport_scans')
-            .update({
-              is_duplicate: true,
-              duplicate_of: group.original.id,
-              duplicate_confidence: group.confidence,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', duplicateScan.id)
-          
+          await prisma.passportScan.update({
+            where: { id: duplicateScan.id },
+            data: {
+              isDuplicate: true,
+              duplicateOf: group.original.id,
+              duplicateConfidence: group.confidence,
+            },
+          })
+
           resolved++
         }
       }
     }
 
     // Store duplicate detection results
-    await supabase
-      .from('duplicate_detection_results')
-      .insert({
-        user_id: user.id,
-        detection_type: 'passport_scans',
-        scan_id: scanId || null,
-        duplicates_found: duplicates.length,
-        auto_resolved: autoResolve,
-        resolved_count: resolved,
-        results: duplicates,
-        similarity_threshold: similarityThreshold,
-        created_at: new Date().toISOString()
-      })
+    await prisma.duplicateDetectionResult.create({
+      data: {
+        userId: user.id,
+        detectionType: 'passport_scans',
+        scanId: scanId || null,
+        duplicatesFound: duplicates.length,
+        autoResolved: autoResolve,
+        resolvedCount: resolved,
+        results: duplicates as any,
+        similarityThreshold: similarityThreshold,
+      },
+    })
 
     return NextResponse.json({
       success: true,

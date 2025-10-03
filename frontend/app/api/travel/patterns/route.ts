@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -17,18 +17,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: entries, error } = await supabase
-      .from('travel_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('entry_date', { ascending: true })
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch travel data' },
-        { status: 500 }
-      )
-    }
+    const entries = await prisma.travelEntry.findMany({
+      where: { userId: user.id },
+      orderBy: { entryDate: 'asc' },
+    })
 
     // Analyze travel patterns
     const patterns: any = {

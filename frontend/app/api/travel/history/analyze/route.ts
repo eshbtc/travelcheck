@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 interface TravelEntry {
   id: string
@@ -149,34 +149,16 @@ export async function POST(request: NextRequest) {
 
   try {
     // Get passport scans
-    const { data: passportScans, error: passportError } = await supabase
-      .from('passport_scans')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (passportError) {
-      console.error('Error fetching passport scans:', passportError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch passport data' },
-        { status: 500 }
-      )
-    }
+    const passportScans = await prisma.passportScan.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    })
 
     // Get flight emails
-    const { data: flightEmails, error: flightError } = await supabase
-      .from('flight_emails')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (flightError) {
-      console.error('Error fetching flight emails:', flightError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch flight data' },
-        { status: 500 }
-      )
-    }
+    const flightEmails = await prisma.flightEmail.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    })
 
     // Analyze and cross-reference data
     const travelHistory = await crossReferenceTravelData(
@@ -185,15 +167,18 @@ export async function POST(request: NextRequest) {
     )
 
     // Save analyzed travel history
-    const { error: saveError } = await supabase
-      .from('travel_history')
-      .upsert({
-        user_id: user.id,
-        analysis_data: travelHistory,
-        last_updated: new Date().toISOString(),
+    try {
+      await prisma.travelHistory.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          analysisData: travelHistory as any,
+        },
+        update: {
+          analysisData: travelHistory as any,
+        },
       })
-
-    if (saveError) {
+    } catch (saveError) {
       console.error('Error saving travel history:', saveError)
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth(request)
@@ -18,15 +18,11 @@ export async function POST(request: NextRequest) {
 
   try {
     // Get all travel data
-    const [entriesResult, scansResult, emailsResult] = await Promise.all([
-      supabase.from('travel_entries').select('*').eq('user_id', user.id),
-      supabase.from('passport_scans').select('*').eq('user_id', user.id),
-      supabase.from('flight_emails').select('*').eq('user_id', user.id)
+    const [entries, scans, emails] = await Promise.all([
+      prisma.travelEntry.findMany({ where: { userId: user.id } }),
+      prisma.passportScan.findMany({ where: { userId: user.id } }),
+      prisma.flightEmail.findMany({ where: { userId: user.id } }),
     ])
-
-    const entries = entriesResult.data || []
-    const scans = scansResult.data || []
-    const emails = emailsResult.data || []
 
     // Enhanced analysis with ML-style pattern detection
     const patterns: any = {
