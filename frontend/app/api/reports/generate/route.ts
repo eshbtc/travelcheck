@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 interface ReportParameters {
@@ -109,20 +109,23 @@ function generateTravelSummaryReport(entries: any[], parameters: ReportParameter
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
 
   try {
     const parameters: ReportParameters = await request.json()
 
     // Check entitlements unless admin
     const profile = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: userId },
       select: { role: true, email: true }
     })
     const isAdmin = (profile?.role || 'user') === 'admin'
 
     if (!isAdmin) {
       const ent = await prisma.billingEntitlement.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: userId },
         select: { status: true, reportCreditsBalance: true }
       })
 
@@ -150,7 +153,7 @@ export async function POST(request: NextRequest) {
     // Get travel entries for the date range
     const entries = await prisma.travelEntry.findMany({
       where: {
-        userId: session.user.id,
+        userId: userId,
         entryDate: {
           gte: new Date(parameters.startDate),
           lte: new Date(parameters.endDate)
@@ -196,7 +199,7 @@ export async function POST(request: NextRequest) {
     try {
       savedReport = await prisma.report.create({
         data: {
-          userId: session.user.id,
+          userId: userId,
           reportType: parameters.reportType,
           title: parameters.title,
           description: parameters.description || '',
@@ -214,7 +217,7 @@ export async function POST(request: NextRequest) {
     // Optional: decrement one-time report credit if available
     try {
       const ent = await prisma.billingEntitlement.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: userId },
         select: { id: true, reportCreditsBalance: true }
       })
       if (ent && typeof ent.reportCreditsBalance === 'number' && ent.reportCreditsBalance > 0) {

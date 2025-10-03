@@ -40,7 +40,7 @@ interface RecentActivityProps {
 }
 
 export function RecentActivity({ className = '' }: RecentActivityProps) {
-  const { user } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
   const router = useRouter()
 
   // Fetch real data from backend

@@ -28,7 +28,7 @@ export function Sidebar({ onClose, collapsed = false, onToggleCollapse }: Sideba
   const [createOpen, setCreateOpen] = useState(false)
   const createRef = useRef<HTMLDivElement | null>(null)
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
 
   const isAdmin = useMemo(() => {
     if (!user) return false

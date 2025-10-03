@@ -1,16 +1,16 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { 
-  IntegrationCard, 
-  ProviderFilters, 
-  IngestControls, 
-  IngestLogTable 
+import { useSession } from 'next-auth/react'
+import {
+  IntegrationCard,
+  ProviderFilters,
+  IngestControls,
+  IngestLogTable
 } from '@/components/integrations'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { 
+import {
   CogIcon,
   ClockIcon,
   BellIcon,
@@ -20,7 +20,8 @@ import { useIntegrations, useConnectionStatus, useIngestionReadiness } from '@/h
 import type { IngestParams } from '@/services/integrationService'
 
 export default function IntegrationsPage() {
-  const { user } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
   const [selectedProviders, setSelectedProviders] = useState<string[]>([
     'booking.com',
     'hotels.com',

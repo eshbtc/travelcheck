@@ -1,26 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { TravelHistorySchema, validateInput, sanitizeForLogging } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const travelHistory = await prisma.travelHistory.findUnique({
-      where: { userId: user.id },
+      where: { userId: userId },
     })
 
     return NextResponse.json({
@@ -37,19 +28,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -68,9 +50,9 @@ export async function POST(request: NextRequest) {
 
     // Upsert travel history
     const data = await prisma.travelHistory.upsert({
-      where: { userId: user.id },
+      where: { userId: userId },
       create: {
-        userId: user.id,
+        userId: userId,
         passportData: passportData as any,
         flightData: flightData as any,
       },

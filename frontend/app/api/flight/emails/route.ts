@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const { searchParams } = new URL(request.url)
@@ -25,7 +16,7 @@ export async function GET(request: NextRequest) {
     const airline = searchParams.get('airline')
 
     const whereClause: any = {
-      userId: user.id,
+      userId: userId,
     }
 
     if (status) {
@@ -64,19 +55,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const { searchParams } = new URL(request.url)
@@ -92,7 +74,7 @@ export async function DELETE(request: NextRequest) {
     const result = await prisma.flightEmail.deleteMany({
       where: {
         id: emailId,
-        userId: user.id, // Security check
+        userId: userId, // Security check
       },
     })
 

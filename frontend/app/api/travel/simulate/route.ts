@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
@@ -206,24 +206,15 @@ function calculateScenarioImpact(beforeResult: any, afterResult: any, purpose: a
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
     console.log('Scenario simulation request:', sanitizeForLogging({ 
-      userId: user.id, 
+      userId: userId, 
       scenarioName: body.name,
       changesCount: body.changes?.length,
       purposesCount: body.purposes?.length
@@ -242,7 +233,7 @@ export async function POST(request: NextRequest) {
 
     // Get user's current travel entries
     const originalEntries = await prisma.travelEntry.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       orderBy: { entryDate: 'asc' },
     })
 
@@ -330,7 +321,7 @@ export async function POST(request: NextRequest) {
       meta: {
         simulatedAt: new Date().toISOString(),
         scenarioId,
-        userId: user.id
+        userId: userId
       }
     })
   } catch (error) {

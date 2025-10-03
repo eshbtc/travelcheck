@@ -19,6 +19,7 @@ async function syncUserGmail(userId: string): Promise<{ success: boolean; count:
 
     let syncCount = 0
     for (const acct of accounts) {
+      if (!acct.refreshToken) continue
       const refreshToken = decrypt(acct.refreshToken)
       if (!refreshToken) continue
 
@@ -126,6 +127,7 @@ async function syncUserOffice365(userId: string): Promise<{ success: boolean; co
 
     let syncCount = 0
     for (const acct of accounts) {
+      if (!acct.accessToken) continue
       const accessToken = decrypt(acct.accessToken)
       if (!accessToken) continue
 

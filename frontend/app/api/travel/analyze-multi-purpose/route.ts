@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
@@ -203,23 +203,14 @@ function analyzeRule(ruleId: string, country: string, entries: any[], options: a
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
-    console.log('Multi-purpose analysis request:', sanitizeForLogging({ userId: user.id, purposes: body.purposes?.length }))
+    console.log('Multi-purpose analysis request:', sanitizeForLogging({ userId: userId, purposes: body.purposes?.length }))
     
     // Validate input data
     const validation = validateInput(AnalyzeMultiPurposeSchema, body)
@@ -235,7 +226,7 @@ export async function POST(request: NextRequest) {
     // Get user's travel entries
     const entries = await prisma.travelEntry.findMany({
       where: {
-        userId: user.id
+        userId: userId
       },
       orderBy: {
         entryDate: 'asc'

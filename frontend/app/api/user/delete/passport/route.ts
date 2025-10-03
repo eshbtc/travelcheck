@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../../auth/middleware'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function DELETE(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const { searchParams } = new URL(request.url)
@@ -33,7 +24,7 @@ export async function DELETE(request: NextRequest) {
     await prisma.passportScan.deleteMany({
       where: {
         id: scanId,
-        userId: user.id, // Security check - only delete user's own scans
+        userId: userId, // Security check - only delete user's own scans
       },
     })
 

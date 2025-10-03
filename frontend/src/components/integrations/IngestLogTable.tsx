@@ -38,7 +38,7 @@ interface IngestLogEntry {
 }
 
 export function IngestLogTable({ className = '' }: IngestLogTableProps) {
-  const { user } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
   const [selectedProvider, setSelectedProvider] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
 

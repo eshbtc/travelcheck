@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
@@ -215,23 +215,14 @@ function generateRecommendations(entries: any[], patterns: any, insights: any[])
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
-    console.log('Travel insights request:', sanitizeForLogging({ userId: user.id, options: Object.keys(body) }))
+    console.log('Travel insights request:', sanitizeForLogging({ userId: userId, options: Object.keys(body) }))
     
     // Validate input data
     const validation = validateInput(GetInsightsSchema, body)
@@ -245,7 +236,7 @@ export async function POST(request: NextRequest) {
     const options = validation.data!
 
     // Build Prisma where clause with optional filters
-    const where: any = { userId: user.id }
+    const where: any = { userId: userId }
 
     // Apply time range filter
     if (options.timeRange?.start || options.timeRange?.end) {
@@ -294,10 +285,10 @@ export async function POST(request: NextRequest) {
     // Calculate summary statistics
     const summary = {
       totalEntries: entries?.length || 0,
-      uniqueCountries: new Set(entries?.map(e => e.country_code || e.country_name) || []).size,
+      uniqueCountries: new Set(entries?.map(e => e.countryCode || e.countryName) || []).size,
       dateRange: entries?.length ? {
-        earliest: entries[0]?.entry_date,
-        latest: entries[entries.length - 1]?.entry_date
+        earliest: entries[0]?.entryDate,
+        latest: entries[entries.length - 1]?.entryDate
       } : null,
       insightsSummary: {
         total: insights.length,
@@ -324,8 +315,8 @@ export async function POST(request: NextRequest) {
         seasonalDistribution: patterns.seasonalPatterns,
         travelFrequency: {
           totalTrips: entries?.length || 0,
-          averageTripsPerYear: entries?.length ? 
-            Math.round((entries.length / ((new Date().getFullYear() - new Date(entries[0].entry_date).getFullYear() + 1)) * 10)) / 10 : 0
+          averageTripsPerYear: entries?.length && entries[0]?.entryDate ?
+            Math.round((entries.length / ((new Date().getFullYear() - new Date(entries[0].entryDate).getFullYear() + 1)) * 10)) / 10 : 0
         }
       },
       meta: {

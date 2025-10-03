@@ -39,7 +39,7 @@ interface StatusTilesProps {
 }
 
 export function StatusTiles({ className = '', loading = false }: StatusTilesProps) {
-  const { user } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
 
   // Fetch real data from backend
   const { data: integrationStatus, isLoading: integrationLoading } = useQuery({

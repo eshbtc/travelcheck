@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
     const report = await prisma.report.findFirst({
       where: {
         id: reportId,
-        userId: session.user.id
+        userId: userId
       }
     })
 

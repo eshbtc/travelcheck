@@ -1,28 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '../../auth/middleware'
+import { requireAuth } from '@/lib/api-auth'
 import { UserProfileSchema, validateInput, sanitizeForLogging } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
   // Authenticate user
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     // Get user profile from Prisma
     const profile = await prisma.user.findUnique({
-      where: { id: user.id },
+      where: { id: userId },
     })
 
     if (!profile) {
@@ -47,19 +38,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   // Authenticate user
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -78,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Update user profile in Prisma
     const updatedUser = await prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: {
         ...profileData,
         updatedAt: new Date(),

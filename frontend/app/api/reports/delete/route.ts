@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
@@ -10,6 +10,9 @@ const DeleteReportSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
     await prisma.report.deleteMany({
       where: {
         id: reportId,
-        userId: session.user.id
+        userId: userId
       }
     })
 

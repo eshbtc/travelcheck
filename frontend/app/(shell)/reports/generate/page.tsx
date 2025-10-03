@@ -1,14 +1,15 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { ReportForm } from '@/components/reports/ReportForm'
 import { ReportPreview } from '@/components/reports/ReportPreview'
 import { toast } from 'react-hot-toast'
 import type { UniversalReport } from '@/types/universal'
 
 export default function ReportGeneratePage() {
-  const { user } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
   const [generatedReport, setGeneratedReport] = useState<UniversalReport | null>(null)
 
   const handleReportGenerated = (report: UniversalReport) => {

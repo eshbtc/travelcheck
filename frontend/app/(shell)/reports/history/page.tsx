@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { ReportHistoryList } from '@/components/reports/ReportHistoryList'
 import { ReportPreview } from '@/components/reports/ReportPreview'
 import { toast } from 'react-hot-toast'
@@ -9,7 +9,8 @@ import type { UniversalReport } from '@/types/universal'
 import { universalTravelService } from '@/services/universalService'
 
 export default function ReportHistoryPage() {
-  const { user } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
   const [reports, setReports] = useState<UniversalReport[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedReport, setSelectedReport] = useState<UniversalReport | null>(null)

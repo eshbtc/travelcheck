@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
+import { requireAuth } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     // Build Microsoft OAuth URL
@@ -22,7 +13,7 @@ export async function POST(request: NextRequest) {
     const redirectUri = process.env.OFFICE365_REDIRECT_URI
     const scopes = 'offline_access Mail.Read'
     const responseType = 'code'
-    const state = user.id
+    const state = userId
 
     const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
       `client_id=${encodeURIComponent(clientId!)}&` +

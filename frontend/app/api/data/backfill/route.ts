@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 async function isAdmin(userId: string): Promise<boolean> {
@@ -16,9 +16,12 @@ async function isAdmin(userId: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
 
   // Admin only operation
-  if (!(await isAdmin(session.user.id))) {
+  if (!(await isAdmin(userId))) {
     return NextResponse.json(
       { success: false, error: 'Admin access required' },
       { status: 403 }
@@ -37,10 +40,18 @@ export async function POST(request: NextRequest) {
 
     switch (operation) {
       case 'timestamps':
-        // Backfill missing timestamps
+        // Backfill entries where createdAt is suspiciously old (likely needs backfill)
+        const oneYearAgo = new Date()
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+
         const entriesWithoutTimestamps = await prisma.travelEntry.findMany({
           where: {
-            createdAt: null
+            createdAt: {
+              lt: oneYearAgo
+            },
+            entryDate: {
+              not: null
+            }
           },
           select: {
             id: true,
@@ -49,7 +60,7 @@ export async function POST(request: NextRequest) {
         })
 
         for (const entry of entriesWithoutTimestamps) {
-          if (!dryRun) {
+          if (!dryRun && entry.entryDate) {
             try {
               await prisma.travelEntry.update({
                 where: { id: entry.id },
@@ -114,9 +125,12 @@ export async function POST(request: NextRequest) {
 
       case 'user_settings':
         // Backfill missing user settings
+        // Note: settings has a default value in schema, so checking for empty object
         const usersWithoutSettings = await prisma.user.findMany({
           where: {
-            settings: null
+            settings: {
+              equals: {}
+            }
           },
           select: {
             id: true,
@@ -198,7 +212,7 @@ export async function POST(request: NextRequest) {
     if (!dryRun) {
       await prisma.systemLog.create({
         data: {
-          userId: session.user.id,
+          userId: userId,
           operation: 'data_backfill',
           details: {
             operation,

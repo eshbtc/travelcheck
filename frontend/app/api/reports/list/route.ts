@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function OPTIONS(request: NextRequest) {
@@ -14,7 +14,9 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await requireAuth(request)
+  const authResult = await requireAuth(request)
+  if (authResult instanceof NextResponse) return authResult
+  const session = authResult
 
   try {
     const { searchParams } = new URL(request.url)

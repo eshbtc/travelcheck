@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const { searchParams } = new URL(request.url)
@@ -25,7 +16,7 @@ export async function GET(request: NextRequest) {
     const entryType = searchParams.get('entry_type')
 
     // Build Prisma where clause
-    const where: any = { userId: user.id }
+    const where: any = { userId: userId }
     if (status) {
       where.status = status
     }
@@ -59,19 +50,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -104,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     const entry = await prisma.travelEntry.create({
       data: {
-        userId: user.id,
+        userId: userId,
         entryType: entry_type,
         sourceType: 'manual',
         countryCode: country_code,

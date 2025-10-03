@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 interface TravelEntry {
@@ -65,7 +65,9 @@ function generateUSCISTrips(entries: TravelEntry[]): any[] {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await requireAuth(request)
+  const authResult = await requireAuth(request)
+  if (authResult instanceof NextResponse) return authResult
+  const session = authResult
 
   try {
     const body = await request.json()
@@ -96,8 +98,8 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate USCIS report
-    const trips = generateUSCISTrips(entries || [])
-    const totalDaysOutside = calculateDaysOutside(entries || [], startDate, endDate)
+    const trips = generateUSCISTrips((entries || []) as any)
+    const totalDaysOutside = calculateDaysOutside((entries || []) as any, startDate, endDate)
     const totalTrips = trips.length
 
     // Calculate physical presence

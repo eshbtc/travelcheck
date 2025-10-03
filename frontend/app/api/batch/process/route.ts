@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -56,7 +48,7 @@ export async function POST(request: NextRequest) {
         // Save to database
         const savedScan = await prisma.passportScan.create({
           data: {
-            userId: user.id,
+            userId: userId,
             fileName: imageFile.filename || `batch_${batchId}_${i + 1}.jpg`,
             fileUrl: `placeholder://batch_${batchId}_${i + 1}`, // Placeholder URL
             ocrText: mockExtraction.ocrText,
@@ -91,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Save batch processing record
     await prisma.batchOperation.create({
       data: {
-        userId: user.id,
+        userId: userId,
         batchId,
         operationType: 'passport_processing',
         status: batchStatus.failed === 0 ? 'completed' : 'partial',

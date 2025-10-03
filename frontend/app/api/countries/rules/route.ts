@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
+import { requireAuth } from '@/lib/api-auth'
 import { validateInput, sanitizeForLogging } from '@/lib/validation'
 import { z } from 'zod'
 
@@ -230,19 +230,10 @@ const COUNTRY_RULES: Record<string, Array<{
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const { searchParams } = new URL(request.url)
@@ -264,7 +255,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('Get country rules request:', sanitizeForLogging({ country, userId: user.id }))
+    console.log('Get country rules request:', sanitizeForLogging({ country, userId: userId }))
 
     // Get rules for the specified country
     const rules = COUNTRY_RULES[country] || []
@@ -293,23 +284,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
-    console.log('Bulk country rules request:', sanitizeForLogging({ userId: user.id, countries: body.countries }))
+    console.log('Bulk country rules request:', sanitizeForLogging({ userId: userId, countries: body.countries }))
     
     const { countries } = body
 

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -21,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (type === 'all' || type === 'scans') {
       const deletedScans = await prisma.passportScan.deleteMany({
         where: {
-          userId: session.user.id,
+          userId: userId,
           createdAt: { lt: cutoffDate },
           confidenceScore: { lt: 0.3 }
         }
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (type === 'all' || type === 'emails') {
       const deletedEmails = await prisma.flightEmail.deleteMany({
         where: {
-          userId: session.user.id,
+          userId: userId,
           processingStatus: 'completed',
           createdAt: { lt: cutoffDate }
         }
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
     if (type === 'all' || type === 'reports') {
       const deletedReports = await prisma.report.deleteMany({
         where: {
-          userId: session.user.id,
+          userId: userId,
           createdAt: { lt: cutoffDate }
         }
       })
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (type === 'all' || type === 'duplicates') {
       const updatedDuplicates = await prisma.duplicateGroup.updateMany({
         where: {
-          userId: session.user.id,
+          userId: userId,
           status: 'pending',
           similarityScore: { lt: 0.6 },
           createdAt: { lt: cutoffDate }
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Log cleanup operation
     await prisma.systemLog.create({
       data: {
-        userId: session.user.id,
+        userId: userId,
         operation: 'cache_cleanup',
         details: {
           type,

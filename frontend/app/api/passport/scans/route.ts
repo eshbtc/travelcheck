@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const scans = await prisma.passportScan.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -37,19 +28,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -60,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const data = await prisma.passportScan.create({
       data: {
-        userId: user.id,
+        userId: userId,
         fileUrl,
         analysisResults: analysisResults as any,
         extractedStamps: extractedStamps as any,
@@ -73,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Create travel entries from extracted stamps
     if (extractedStamps.length > 0) {
       const travelEntries = extractedStamps.map((stamp: any) => ({
-        userId: user.id,
+        userId: userId,
         entryType: 'passport_stamp',
         sourceId: data.id,
         sourceType: 'passport_scan',

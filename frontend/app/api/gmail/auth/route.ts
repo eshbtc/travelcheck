@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
+import { requireAuth } from '@/lib/api-auth'
 import { google } from 'googleapis'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const oauth2Client = new google.auth.OAuth2(
@@ -32,7 +23,7 @@ export async function POST(request: NextRequest) {
       access_type: 'offline',
       prompt: 'consent',
       scope: scopes,
-      state: user.id, // Use user ID as state
+      state: userId, // Use user ID as state
     })
 
     return NextResponse.json({

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
@@ -26,25 +26,16 @@ function encrypt(text: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
     const { code, state } = body
 
-    if (!code || state !== user.id) {
+    if (!code || state !== userId) {
       return NextResponse.json(
         { success: false, error: 'Invalid authorization code or state' },
         { status: 400 }
@@ -103,13 +94,13 @@ export async function POST(request: NextRequest) {
     const account = await prisma.emailAccount.upsert({
       where: {
         userId_provider_email: {
-          userId: user.id,
+          userId: userId,
           provider: 'office365',
           email: emailAddress || '',
         },
       },
       create: {
-        userId: user.id,
+        userId: userId,
         provider: 'office365',
         email: emailAddress || '',
         accessToken: JSON.stringify(encrypt(tokens.access_token || '')),

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 // Simple OCR simulation - in production you'd use Google Vision API
@@ -51,19 +51,10 @@ function simulateOCR(imageData: string): {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -90,8 +81,9 @@ export async function POST(request: NextRequest) {
     // Save passport scan to database
     const savedScan = await prisma.passportScan.create({
       data: {
-        userId: user.id,
+        userId: userId,
         fileName: file_name || 'passport_scan.jpg',
+        fileUrl: imageData.substring(0, 100) + "...", // Store first 100 chars as placeholder
         ocrText: ocrResult.extractedText,
         passportInfo: ocrResult.structuredData as any,
         confidenceScore: ocrResult.confidence,

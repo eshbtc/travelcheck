@@ -23,7 +23,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
 
 export function QuickActions() {
-  const { user } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
   const router = useRouter()
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
 

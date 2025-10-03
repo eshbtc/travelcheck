@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
@@ -94,18 +94,10 @@ function condenseData(travelData: any): any {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session // Auth failed
 
-  const { user } = authResult
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const { travelData } = await request.json()
@@ -119,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check rate limit
-    const canProceed = await checkRateLimit(user.id)
+    const canProceed = await checkRateLimit(userId)
     if (!canProceed) {
       return NextResponse.json({ 
         success: false, 
@@ -150,7 +142,7 @@ export async function POST(request: NextRequest) {
       const maxAge = CACHE_TTL_HOURS * 60 * 60 * 1000
 
       if (cacheAge < maxAge) {
-        await logUsage(user.id, true, dataSize)
+        await logUsage(userId, true, dataSize)
         return NextResponse.json({
           success: true,
           data: cachedResult.result,
@@ -204,7 +196,7 @@ export async function POST(request: NextRequest) {
     // Cache the result
     await prisma.aiCache.upsert({
       where: {
-        cacheKey_endpoint: {
+        ai_cache_unique: {
           cacheKey,
           endpoint: 'analyze-patterns'
         }
@@ -212,7 +204,7 @@ export async function POST(request: NextRequest) {
       create: {
         cacheKey,
         endpoint: 'analyze-patterns',
-        userId: user.id,
+        userId: userId,
         result: parsedData
       },
       update: {
@@ -221,7 +213,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    await logUsage(user.id, false, dataSize)
+    await logUsage(userId, false, dataSize)
 
     return NextResponse.json({
       success: true,
@@ -233,7 +225,7 @@ export async function POST(request: NextRequest) {
     // Log the error for monitoring
     await prisma.aiUsageLog.create({
       data: {
-        userId: user.id,
+        userId: userId,
         endpoint: 'analyze-patterns',
         cacheHit: false,
         errorMessage: error instanceof Error ? error.message : 'Unknown error'

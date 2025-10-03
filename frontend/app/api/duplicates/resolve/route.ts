@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -32,7 +23,7 @@ export async function POST(request: NextRequest) {
     const group = await prisma.duplicateGroup.findFirst({
       where: {
         id: groupId,
-        userId: user.id
+        userId: userId
       }
     })
 
@@ -111,7 +102,7 @@ export async function POST(request: NextRequest) {
         await prisma.travelEntry.deleteMany({
           where: {
             id: { in: itemsToDelete },
-            userId: user.id // Additional security check
+            userId: userId // Additional security check
           }
         })
 
@@ -145,7 +136,7 @@ export async function POST(request: NextRequest) {
       data: {
         status: 'resolved',
         resolutionAction,
-        resolvedBy: user.id,
+        resolvedBy: userId,
         resolvedAt: new Date(),
         metadata: {
           ...(group.metadata as object || {}),

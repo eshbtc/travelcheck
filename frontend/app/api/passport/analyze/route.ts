@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -31,7 +23,7 @@ export async function POST(request: NextRequest) {
     const scan = await prisma.passportScan.findUnique({
       where: {
         id: scanId,
-        userId: user.id,
+        userId: userId,
       },
     })
 
@@ -50,9 +42,9 @@ export async function POST(request: NextRequest) {
         lighting: Math.random() * 0.2 + 0.8, // 0.8-1.0
         distortion: Math.random() * 0.1 // 0.0-0.1
       },
-      extractedData: scan.passport_info || {},
+      extractedData: scan.passportInfo || {},
       confidence: {
-        overall: scan.confidence_score || 0.8,
+        overall: scan.confidenceScore || 0.8,
         fields: {
           passportNumber: Math.random() * 0.2 + 0.8,
           name: Math.random() * 0.15 + 0.85,
@@ -71,10 +63,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Add recommendations based on analysis
-    if (enhancedAnalysis.scanQuality.clarity < 0.8) {
+    const clarityValue = typeof enhancedAnalysis.scanQuality.clarity === 'number'
+      ? enhancedAnalysis.scanQuality.clarity
+      : Number(enhancedAnalysis.scanQuality.clarity)
+    const overallConfidence = typeof enhancedAnalysis.confidence.overall === 'number'
+      ? enhancedAnalysis.confidence.overall
+      : Number(enhancedAnalysis.confidence.overall)
+
+    if (clarityValue < 0.8) {
       enhancedAnalysis.recommendations.push('Consider rescanning with better lighting')
     }
-    if (enhancedAnalysis.confidence.overall < 0.7) {
+    if (overallConfidence < 0.7) {
       enhancedAnalysis.recommendations.push('Manual verification recommended')
     }
 

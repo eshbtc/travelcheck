@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 interface TravelEntry {
@@ -133,45 +133,36 @@ async function crossReferenceTravelData(
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     // Get passport scans
     const passportScans = await prisma.passportScan.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       orderBy: { createdAt: 'desc' },
     })
 
     // Get flight emails
     const flightEmails = await prisma.flightEmail.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       orderBy: { createdAt: 'desc' },
     })
 
     // Analyze and cross-reference data
     const travelHistory = await crossReferenceTravelData(
-      passportScans || [],
-      flightEmails || []
+      (passportScans || []) as any,
+      (flightEmails || []) as any
     )
 
     // Save analyzed travel history
     try {
       await prisma.travelHistory.upsert({
-        where: { userId: user.id },
+        where: { userId: userId },
         create: {
-          userId: user.id,
+          userId: userId,
           analysisData: travelHistory as any,
         },
         update: {

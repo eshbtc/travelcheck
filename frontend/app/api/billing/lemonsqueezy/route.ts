@@ -170,19 +170,8 @@ export async function POST(request: NextRequest) {
     }
 
     // TODO: Map product/variant IDs to internal SKUs and provision entitlements accordingly
-    // For MVP, we log an audit row if an audit table exists; otherwise no-op
-    try {
-      await prisma.auditLog.create({
-        data: {
-          category: 'billing',
-          action: 'lemonsqueezy_webhook',
-          details: { eventName, customerEmail, productId, variantId, subscriptionStatus, meta },
-        }
-      })
-    } catch (e) {
-      // Table may not exist in early MVP or might not be set up; ignore
-      console.warn('Audit log insert error:', (e as Error).message)
-    }
+    // Audit logging removed - no auditLog table in schema
+    // Future: consider adding SystemLog entry or dedicated audit table if needed
 
     // Return success with plan mapping & user reference for logs
     return NextResponse.json({ ok: true, plan, userId })

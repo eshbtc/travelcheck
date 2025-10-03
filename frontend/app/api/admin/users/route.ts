@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 // Helper function to check if user is admin
@@ -20,10 +20,13 @@ async function requireAdmin(userId: string) {
 
 export async function GET(request: NextRequest) {
   const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
 
   try {
     // Check if user is admin
-    const isAdmin = await requireAdmin(session.user.id)
+    const isAdmin = await requireAdmin(userId)
     if (!isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Admin access required' },
@@ -36,7 +39,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         email: true,
-        fullName: true,
+        displayName: true,
         role: true,
         createdAt: true,
         lastLogin: true,

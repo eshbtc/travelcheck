@@ -1,6 +1,5 @@
 // Mock integration service - Firebase removed
 import { toast } from 'react-hot-toast'
-import { supabase } from '../lib/supabase'
 
 // Types for integration service
 export interface IntegrationStatus {
@@ -51,15 +50,12 @@ const apiCall = async <TResponse>(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-    // Attach Supabase auth token if available
-    const { data: { session } } = await supabase.auth.getSession()
-
+    // NextAuth handles auth via cookies automatically
     const response = await fetch(endpoint, {
       ...options,
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         ...options.headers,
       },
     })

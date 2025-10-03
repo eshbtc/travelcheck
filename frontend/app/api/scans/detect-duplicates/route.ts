@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
@@ -41,18 +41,10 @@ function calculateStructuredDataSimilarity(data1: any, data2: any): number {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -65,7 +57,7 @@ export async function POST(request: NextRequest) {
       const targetScan = await prisma.passportScan.findUnique({
         where: {
           id: scanId,
-          userId: user.id,
+          userId: userId,
         },
       })
 
@@ -79,7 +71,7 @@ export async function POST(request: NextRequest) {
       // Get all other scans by the same user
       const otherScans = await prisma.passportScan.findMany({
         where: {
-          userId: user.id,
+          userId: userId,
           id: { not: scanId },
         },
         orderBy: { createdAt: 'desc' },
@@ -89,7 +81,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Analyze all scans for duplicates
       const allScans = await prisma.passportScan.findMany({
-        where: { userId: user.id },
+        where: { userId: userId },
         orderBy: { createdAt: 'desc' },
       })
 
@@ -206,7 +198,7 @@ export async function POST(request: NextRequest) {
     // Store duplicate detection results
     await prisma.duplicateDetectionResult.create({
       data: {
-        userId: user.id,
+        userId: userId,
         detectionType: 'passport_scans',
         scanId: scanId || null,
         duplicatesFound: duplicates.length,

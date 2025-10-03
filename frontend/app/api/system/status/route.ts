@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '../../auth/middleware'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 // Cache system status for 30 seconds
@@ -7,12 +7,8 @@ export const revalidate = 30
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  if (authResult instanceof NextResponse) return authResult
+  const session = authResult
 
   try {
     // Check database connectivity

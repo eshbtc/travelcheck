@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast'
 import type { PresenceDay } from '@/types/universal'
 
 export function useTravelData() {
-  const { user } = useAuth()
+  const { data: session } = useSession(); const user = session?.user
   const [presenceDays, setPresenceDays] = useState<PresenceDay[]>([])
   const [isLoading, setIsLoading] = useState(true)
 

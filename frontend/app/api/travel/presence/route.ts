@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 interface TravelEntry {
@@ -65,19 +65,10 @@ function calculatePresence(entries: TravelEntry[], country: string, startDate: s
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json()
@@ -98,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Get travel entries
     const entries = await prisma.travelEntry.findMany({
       where: {
-        userId: user.id,
+        userId: userId,
         entryDate: {
           gte: new Date(startDate),
           lte: new Date(endDate),
@@ -108,7 +99,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Calculate presence
-    const presence = calculatePresence(entries || [], country, startDate, endDate)
+    const presence = calculatePresence((entries || []) as any, country, startDate, endDate)
 
     // Calculate tax residency implications
     const taxResidencyAnalysis = {

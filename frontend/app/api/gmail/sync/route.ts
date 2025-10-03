@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { google } from 'googleapis'
 import crypto from 'crypto'
@@ -179,19 +179,10 @@ async function createTravelEntries(userId: string, flightEmailId: string, flight
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     const body = await request.json().catch(() => ({}))
@@ -200,7 +191,7 @@ export async function POST(request: NextRequest) {
     // Get user's Gmail accounts (optionally a specific account)
     const emailAccounts = await prisma.emailAccount.findMany({
       where: {
-        userId: user.id,
+        userId: userId,
         provider: 'gmail',
         isActive: true,
         ...(accountId && { id: accountId }),
@@ -265,7 +256,7 @@ export async function POST(request: NextRequest) {
           const extractedFlights = await extractFlightInfo(emailContent, subject)
 
           flightEmails.push({
-            userId: user.id,
+            userId: userId,
             emailAccountId: account.id,
             messageId: m.id,
             subject,
@@ -292,7 +283,7 @@ export async function POST(request: NextRequest) {
           if (insertResult.count > 0) {
             const insertedEmails = await prisma.flightEmail.findMany({
               where: {
-                userId: user.id,
+                userId: userId,
                 emailAccountId: account.id,
                 messageId: {
                   in: flightEmails.map(e => e.messageId),
@@ -307,9 +298,9 @@ export async function POST(request: NextRequest) {
 
             const travelEntries = []
             for (const email of insertedEmails) {
-              if (email.flightData) {
+              if (email.flightData && email.dateReceived) {
                 const entries = await createTravelEntries(
-                  user.id,
+                  userId,
                   email.id,
                   email.flightData,
                   email.dateReceived.toISOString()
@@ -349,7 +340,7 @@ export async function POST(request: NextRequest) {
     // Update error status
     const accounts = await prisma.emailAccount.findMany({
       where: {
-        userId: user.id,
+        userId: userId,
         provider: 'gmail',
       },
       select: { id: true },

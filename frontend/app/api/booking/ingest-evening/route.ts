@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 async function isAdmin(user: any): Promise<boolean> {
@@ -15,21 +15,13 @@ async function isAdmin(user: any): Promise<boolean> {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   // Admin only operation
-  if (!(await isAdmin(user))) {
+  if (!(await isAdmin(userId))) {
     return NextResponse.json(
       { success: false, error: 'Admin access required' },
       { status: 403 }
@@ -115,24 +107,9 @@ export async function POST(request: NextRequest) {
         if (analysisResponse.ok) {
           const analysisData = await analysisResponse.json()
 
-          // Store analysis results
-          await prisma.travelAnalysisCache.upsert({
-            where: {
-              userId_analysisType: {
-                userId: userToken.userId,
-                analysisType: 'evening_batch',
-              },
-            },
-            create: {
-              userId: userToken.userId,
-              analysisType: 'evening_batch',
-              analysisData,
-            },
-            update: {
-              analysisData,
-              updatedAt: new Date(),
-            },
-          })
+          // Store analysis results - removed travelAnalysisCache (not in schema)
+          // Analysis data is already stored in TravelHistory model
+          // Future: consider adding dedicated cache table if needed
 
           // Run duplicate detection
           const duplicateResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/travel/detect-duplicates`, {
@@ -201,7 +178,7 @@ export async function POST(request: NextRequest) {
     // Log the evening batch operation
     await prisma.systemLog.create({
       data: {
-        userId: user.id,
+        userId: userId,
         operation: 'evening_booking_ingest',
         details: {
           results,

@@ -1,26 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request)
-  if (authResult.error) {
-    return NextResponse.json(
-      { success: false, error: authResult.error },
-      { status: authResult.status || 401 }
-    )
-  }
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
 
-  const { user } = authResult
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 401 })
-  }
+  const userId = session.user.id
 
   try {
     // Get booking ingestion statistics
     const flightEmails = await prisma.flightEmail.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       select: {
         id: true,
         processingStatus: true,
@@ -34,7 +25,7 @@ export async function GET(request: NextRequest) {
     })
 
     const passportScans = await prisma.passportScan.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       select: {
         id: true,
         processingStatus: true,
@@ -46,7 +37,7 @@ export async function GET(request: NextRequest) {
     })
 
     const travelEntries = await prisma.travelEntry.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       select: {
         id: true,
         entryType: true,
@@ -65,7 +56,7 @@ export async function GET(request: NextRequest) {
       pending: flightEmails?.filter(e => e.processingStatus === 'pending').length || 0,
       failed: flightEmails?.filter(e => e.processingStatus === 'failed').length || 0,
       averageConfidence: flightEmails && flightEmails.length > 0
-        ? flightEmails.reduce((sum, e) => sum + (e.confidenceScore || 0), 0) / flightEmails.length : 0,
+        ? flightEmails.reduce((sum, e) => sum + (Number(e.confidenceScore) || 0), 0) / flightEmails.length : 0,
       recent: flightEmails?.slice(0, 10).map(e => ({
         id: e.id,
         airline: e.airline,
@@ -82,7 +73,7 @@ export async function GET(request: NextRequest) {
       pending: passportScans?.filter(s => s.processingStatus === 'pending').length || 0,
       failed: passportScans?.filter(s => s.processingStatus === 'failed').length || 0,
       averageConfidence: passportScans && passportScans.length > 0
-        ? passportScans.reduce((sum, s) => sum + (s.confidenceScore || 0), 0) / passportScans.length : 0
+        ? passportScans.reduce((sum, s) => sum + (Number(s.confidenceScore) || 0), 0) / passportScans.length : 0
     }
 
     const travelEntriesStats = {
