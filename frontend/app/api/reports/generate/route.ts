@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
-import { prisma } from '@/lib/prisma'
+import { requireAuth } from '../../../../src/lib/api-auth'
+import { prisma } from '../../../../src/lib/prisma'
 
 interface ReportParameters {
   reportType: 'presence' | 'travel_summary' | 'tax_residency' | 'visa_compliance' | 'custom'

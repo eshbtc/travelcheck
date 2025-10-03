@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
-import { validateInput, sanitizeForLogging } from '@/lib/validation'
+import { requireAuth } from '../../../../src/lib/api-auth'
+import { validateInput, sanitizeForLogging } from '../../../../src/lib/validation'
 import { z } from 'zod'
 
 const GetCountryRulesSchema = z.object({

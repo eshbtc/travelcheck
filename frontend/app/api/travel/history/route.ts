@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
-import { prisma } from '@/lib/prisma'
-import { TravelHistorySchema, validateInput, sanitizeForLogging } from '@/lib/validation'
+import { requireAuth } from '../../../../src/lib/api-auth'
+import { prisma } from '../../../../src/lib/prisma'
+import { TravelHistorySchema, validateInput, sanitizeForLogging } from '../../../../src/lib/validation'
 
 export async function GET(request: NextRequest) {
   const session = await requireAuth(request)

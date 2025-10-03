@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { requireAuth } from '@/lib/api-auth'
-import { prisma } from '@/lib/prisma'
+import { requireAuth } from '../../../../src/lib/api-auth'
+import { prisma } from '../../../../src/lib/prisma'
 import crypto from 'crypto'
 
 // Configuration

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/api-auth'
-import { UserProfileSchema, validateInput, sanitizeForLogging } from '@/lib/validation'
+import { prisma } from '../../../../src/lib/prisma'
+import { requireAuth } from '../../../../src/lib/api-auth'
+import { UserProfileSchema, validateInput, sanitizeForLogging } from '../../../../src/lib/validation'
 
 export async function GET(request: NextRequest) {
   // Authenticate user

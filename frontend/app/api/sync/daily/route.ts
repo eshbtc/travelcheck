@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { decrypt } from '@/lib/crypto'
+import { prisma } from '../../../../src/lib/prisma'
+import { decrypt } from '../../../../src/lib/crypto'
 import { google } from 'googleapis'
 
 async function syncUserGmail(userId: string): Promise<{ success: boolean; count: number; error?: string }> {

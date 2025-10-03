@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '../../../../src/lib/prisma'
 
 // Verify HMAC signature from Lemon Squeezy
 function verifySignature(rawBody: string, signature: string | null, secret: string | undefined) {

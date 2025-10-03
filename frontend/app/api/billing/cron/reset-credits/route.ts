@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '../../../../../src/lib/prisma'
 
 function isAuthorized(req: NextRequest): boolean {
   const token = process.env.CRON_SECRET
