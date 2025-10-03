@@ -1,0 +1,9 @@
+# Railway configuration for monorepo
+# This tells Railway to build from the frontend directory
+
+[build]
+builder = "NIXPACKS"
+watchPatterns = ["frontend/**"]
+
+[deploy]
+# Railway should detect the service in the frontend directory
