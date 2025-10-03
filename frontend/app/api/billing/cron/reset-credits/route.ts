@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 function isAuthorized(req: NextRequest): boolean {
   const token = process.env.CRON_SECRET
@@ -21,48 +21,44 @@ export async function POST(req: NextRequest) {
     const year = now.getFullYear()
 
     // Fetch active entitlements
-    const { data: ents, error } = await supabase
-      .from('billing_entitlements')
-      .select('*')
-      .eq('status', 'active')
-
-    if (error) throw error
+    const ents = await prisma.billingEntitlement.findMany({
+      where: { status: 'active' }
+    })
 
     const updated: string[] = []
 
-    for (const ent of ents || []) {
-      const plan: string = ent.plan_code || ''
+    for (const ent of ents) {
+      const plan: string = ent.planCode || ''
       const isFirm = ['firm_starter', 'firm_growth', 'firm_scale'].includes(plan)
       const isPersonalAnnual = plan === 'personal_annual'
       const updates: any = {}
       let shouldUpdate = false
 
       if (isFirm) {
-        const last = ent.last_monthly_reset_at ? new Date(ent.last_monthly_reset_at) : null
+        const last = ent.lastMonthlyResetAt ? new Date(ent.lastMonthlyResetAt) : null
         if (!last || last < firstOfMonth) {
-          const quota = ent.report_credits_monthly_quota || 0
-          updates.report_credits_balance = (ent.report_credits_balance || 0) + quota
-          updates.last_monthly_reset_at = now.toISOString()
+          const quota = ent.reportCreditsMonthlyQuota || 0
+          updates.reportCreditsBalance = (ent.reportCreditsBalance || 0) + quota
+          updates.lastMonthlyResetAt = now
           shouldUpdate = true
         }
       }
 
       if (isPersonalAnnual) {
-        const lastYear = ent.last_annual_reset_year || 0
+        const lastYear = ent.lastAnnualResetYear || 0
         if (lastYear !== year) {
-          const annual = ent.annual_included_reports ?? 1
-          updates.report_credits_balance = (updates.report_credits_balance ?? ent.report_credits_balance ?? 0) + annual
-          updates.last_annual_reset_year = year
+          const annual = ent.annualIncludedReports ?? 1
+          updates.reportCreditsBalance = (updates.reportCreditsBalance ?? ent.reportCreditsBalance ?? 0) + annual
+          updates.lastAnnualResetYear = year
           shouldUpdate = true
         }
       }
 
       if (shouldUpdate) {
-        const { error: upErr } = await supabase
-          .from('billing_entitlements')
-          .update(updates)
-          .eq('id', ent.id)
-        if (upErr) throw upErr
+        await prisma.billingEntitlement.update({
+          where: { id: ent.id },
+          data: updates
+        })
         updated.push(ent.id)
       }
     }

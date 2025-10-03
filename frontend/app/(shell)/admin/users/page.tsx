@@ -2,15 +2,17 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
-import { supabaseService } from '@/services/supabaseService'
+import { useSession } from 'next-auth/react'
 import { toast } from 'react-hot-toast'
 
 export default function AdminUsersPage() {
   const router = useRouter()
-  const { user, isLoading } = useAuth()
+  const { data: session, status } = useSession()
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<any[]>([])
+
+  const isLoading = status === 'loading'
+  const user = session?.user
 
   const adminEmails = useMemo(() => (
     (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
@@ -27,16 +29,17 @@ export default function AdminUsersPage() {
   }, [user, adminEmails])
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (status === 'unauthenticated') {
       router.push('/auth/login')
     }
-  }, [isLoading, user, router])
+  }, [status, router])
 
   const loadUsers = React.useCallback(async () => {
     if (!user) return
     setLoading(true)
     try {
-      const res = await supabaseService.listUsers()
+      const response = await fetch('/api/admin/users')
+      const res = await response.json()
       if (res?.success && Array.isArray(res.users)) {
         setUsers(res.users)
       } else {
@@ -78,7 +81,12 @@ export default function AdminUsersPage() {
   const handleSetRole = async (targetUserId: string, role: 'admin' | 'user') => {
     const tid = toast.loading('Updating role...')
     try {
-      const res = await supabaseService.setUserRole(targetUserId, role)
+      const response = await fetch('/api/admin/users/set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: targetUserId, role })
+      })
+      const res = await response.json()
       if (res?.success) {
         toast.success('Role updated', { id: tid })
         setUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, role } : u))

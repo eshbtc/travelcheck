@@ -3,8 +3,7 @@
 import React, { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams, useParams } from 'next/navigation'
 import { OAuthCallback } from '@/components/auth/OAuthCallback'
-import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { useSession } from 'next-auth/react'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,42 +11,17 @@ function CallbackHandler() {
   const router = useRouter()
   const params = useSearchParams()
   const routeParams = useParams<{ provider: string }>()
-  const { user, session, isLoading } = useAuth()
+  const { data: session, status } = useSession()
   const [handled, setHandled] = useState(false)
+
+  const isLoading = status === 'loading'
+  const user = session?.user
 
   useEffect(() => {
     if (handled) return
 
     const handleAuthCallback = async () => {
       try {
-        // Check if this is a Supabase OAuth callback (has access_token in URL hash)
-        const urlParams = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = urlParams.get('access_token')
-
-        if (accessToken) {
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          const { data: { session } } = await supabase.auth.getSession()
-          if (session) {
-            let attempts = 0
-            const maxAttempts = 10
-            while (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 500))
-              if (user && !isLoading) {
-                window.history.replaceState({}, document.title, '/dashboard')
-                router.replace('/dashboard')
-                return
-              }
-              attempts++
-            }
-            window.history.replaceState({}, document.title, '/dashboard')
-            router.replace('/dashboard')
-            return
-          } else {
-            router.replace('/auth/login?error=oauth_callback_failed')
-            return
-          }
-        }
-
         // Handle email integration callbacks (path-based provider)
         const code = params?.get('code')
         const state = params?.get('state')
@@ -60,7 +34,6 @@ function CallbackHandler() {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session?.access_token}`
               },
               body: JSON.stringify({ code, state })
             })
@@ -73,7 +46,10 @@ function CallbackHandler() {
             console.error('Integration callback error:', error)
             router.replace('/integrations?error=integration_failed')
           }
-        } else if (!code) {
+        } else if (status === 'authenticated') {
+          // User is authenticated, redirect to dashboard
+          router.replace('/dashboard')
+        } else if (status === 'unauthenticated' && !code) {
           router.replace('/auth/login')
         }
       } catch (error) {
@@ -84,8 +60,10 @@ function CallbackHandler() {
       }
     }
 
-    handleAuthCallback()
-  }, [handled, router, params, routeParams, user, session, isLoading])
+    if (status !== 'loading') {
+      handleAuthCallback()
+    }
+  }, [handled, router, params, routeParams, user, session, status])
 
   return (
     <div className="min-h-screen bg-bg-secondary flex items-center justify-center">

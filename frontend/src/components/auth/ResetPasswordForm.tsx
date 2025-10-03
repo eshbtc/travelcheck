@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
-import { supabase } from '@/lib/supabase'
 
 export function ResetPasswordForm() {
   const router = useRouter()
@@ -14,18 +13,13 @@ export function ResetPasswordForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [token, setToken] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check if we have the required tokens for password reset
-    const accessToken = searchParams?.get('access_token')
-    const refreshToken = searchParams?.get('refresh_token')
-
-    if (accessToken && refreshToken) {
-      // Set the session from URL params
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      })
+    // Get the reset token from URL params
+    const resetToken = searchParams?.get('token')
+    if (resetToken) {
+      setToken(resetToken)
     }
   }, [searchParams])
 
@@ -43,16 +37,27 @@ export function ResetPasswordForm() {
       return
     }
 
+    if (!token) {
+      setError('Invalid or missing reset token')
+      return
+    }
+
     setSubmitting(true)
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password })
       })
 
-      if (error) throw error
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update password')
+      }
 
       setSuccess(true)
-      
+
       // Redirect to login page after a brief delay
       setTimeout(() => {
         router.push('/auth/login')

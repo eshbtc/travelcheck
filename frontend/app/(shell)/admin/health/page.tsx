@@ -2,13 +2,12 @@
 
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
-import { supabaseService } from '@/services/supabaseService'
+import { useSession } from 'next-auth/react'
 
 type Status = Record<string, any>
 
 export default function AdminHealthPage() {
-  const { user, isLoading } = useAuth()
+  const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<Status | null>(null)
@@ -16,19 +15,27 @@ export default function AdminHealthPage() {
   const [ping, setPing] = useState<Status | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const isLoading = sessionStatus === 'loading'
+  const user = session?.user
+
   useEffect(() => {
-    if (!isLoading && !user) router.push('/auth/login')
-  }, [isLoading, user, router])
+    if (sessionStatus === 'unauthenticated') router.push('/auth/login')
+  }, [sessionStatus, router])
 
   useEffect(() => {
     const run = async () => {
       try {
         setLoading(true)
-        const [sys, admin, hc] = await Promise.all([
-          supabaseService.getSystemStatus().catch(() => null),
-          supabaseService.getSystemStatus().catch(() => null), // Using same call for now
-          supabaseService.healthCheck().catch(() => null),
+        const [sysRes, adminRes, hcRes] = await Promise.all([
+          fetch('/api/system/status').catch(() => null),
+          fetch('/api/system/status').catch(() => null), // Using same call for now
+          fetch('/api/health').catch(() => null),
         ])
+
+        const sys = sysRes ? await sysRes.json() : null
+        const admin = adminRes ? await adminRes.json() : null
+        const hc = hcRes ? await hcRes.json() : null
+
         setStatus(sys)
         setAdminStatus(admin)
         setPing(hc)

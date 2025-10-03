@@ -14,16 +14,7 @@ import {
   WifiIcon,
   DocumentTextIcon
 } from '@heroicons/react/24/outline'
-import { 
-  getDuplicateResults, 
-  generateSmartSuggestions,
-  getSystemStatus
-} from '@/services/supabaseService'
-import { 
-  getIntegrationStatus,
-  getBookingIngestionStatus
-} from '@/services/integrationService'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 
 interface Alert {
   id: string
@@ -43,38 +34,55 @@ interface AlertListProps {
 }
 
 export function AlertList({ className = '' }: AlertListProps) {
-  const { user } = useAuth()
+  const { data: session } = useSession()
   const router = useRouter()
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set())
 
-  // Fetch real data from backend
+  const user = session?.user
+
+  // Fetch real data from backend via API routes
   const { data: duplicates, isLoading: duplicatesLoading } = useQuery({
     queryKey: ['duplicates'],
-    queryFn: getDuplicateResults,
+    queryFn: async () => {
+      const res = await fetch('/api/duplicates/list')
+      return res.json()
+    },
     enabled: !!user
   })
 
   const { data: suggestions, isLoading: suggestionsLoading } = useQuery({
     queryKey: ['suggestions'],
-    queryFn: generateSmartSuggestions,
+    queryFn: async () => {
+      const res = await fetch('/api/ai/generate-suggestions')
+      return res.json()
+    },
     enabled: !!user
   })
 
   const { data: systemStatus, isLoading: systemLoading } = useQuery({
     queryKey: ['systemStatus'],
-    queryFn: getSystemStatus,
+    queryFn: async () => {
+      const res = await fetch('/api/system/status')
+      return res.json()
+    },
     enabled: !!user
   })
 
   const { data: integrationStatus, isLoading: integrationLoading } = useQuery({
     queryKey: ['integrationStatus'],
-    queryFn: getIntegrationStatus,
+    queryFn: async () => {
+      const res = await fetch('/api/integration/status')
+      return res.json()
+    },
     enabled: !!user
   })
 
   const { data: bookingStatus, isLoading: bookingLoading } = useQuery({
     queryKey: ['bookingStatus'],
-    queryFn: getBookingIngestionStatus,
+    queryFn: async () => {
+      const res = await fetch('/api/booking/ingestion-status')
+      return res.json()
+    },
     enabled: !!user
   })
 

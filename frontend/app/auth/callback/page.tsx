@@ -3,15 +3,14 @@
 import React, { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { OAuthCallback } from '@/components/auth/OAuthCallback'
-import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { useSession } from 'next-auth/react'
 
 export const dynamic = 'force-dynamic'
 
 function CallbackHandler() {
   const router = useRouter()
   const params = useSearchParams()
-  const { user, session, isLoading } = useAuth()
+  const { data: session, status } = useSession()
   const [handled, setHandled] = useState(false)
 
   useEffect(() => {
@@ -19,33 +18,6 @@ function CallbackHandler() {
 
     const handleAuthCallback = async () => {
       try {
-        // Check if this is a Supabase OAuth callback (has access_token in URL)
-        const urlParams = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = urlParams.get('access_token')
-        
-        if (accessToken) {
-          // This is a Supabase OAuth callback
-          // Clear the hash from URL to clean up the address bar
-          window.history.replaceState({}, document.title, window.location.pathname)
-          
-          // Wait a moment for Supabase to process the auth state
-          await new Promise(resolve => setTimeout(resolve, 1500))
-          
-          // Check if we have a session
-          const { data: { session } } = await supabase.auth.getSession()
-          
-          if (session) {
-            // Session exists, redirect to dashboard
-            // The AuthContext will automatically redirect us if we're on an auth page
-            router.push('/dashboard')
-            return
-          } else {
-            // No session, something went wrong
-            router.replace('/auth/login?error=oauth_callback_failed')
-            return
-          }
-        }
-
         // Handle email integration callbacks (Gmail/Office365)
         const code = params?.get('code')
         const state = params?.get('state')
@@ -56,7 +28,7 @@ function CallbackHandler() {
           provider = match ? match[1] : null
         }
 
-        if (code && user) {
+        if (code && session) {
           // This is an email integration callback
           try {
             if (provider === 'gmail') {
@@ -65,11 +37,10 @@ function CallbackHandler() {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session?.access_token}`
                 },
                 body: JSON.stringify({ code, state })
               })
-              
+
               if (response.ok) {
                 router.replace('/integrations?success=gmail_connected')
               } else {
@@ -81,11 +52,10 @@ function CallbackHandler() {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session?.access_token}`
                 },
                 body: JSON.stringify({ code, state })
               })
-              
+
               if (response.ok) {
                 router.replace('/integrations?success=office365_connected')
               } else {
@@ -96,8 +66,11 @@ function CallbackHandler() {
             console.error('Integration callback error:', error)
             router.replace('/integrations?error=integration_failed')
           }
-        } else if (!code && !accessToken) {
-          // No callback parameters, redirect to login
+        } else if (status === 'authenticated') {
+          // User is authenticated via NextAuth, redirect to dashboard
+          router.push('/dashboard')
+        } else if (status === 'unauthenticated' && !code) {
+          // No callback parameters and not authenticated, redirect to login
           router.replace('/auth/login')
         }
       } catch (error) {
@@ -108,8 +81,10 @@ function CallbackHandler() {
       }
     }
 
-    handleAuthCallback()
-  }, [handled, router, params, user, session, isLoading])
+    if (status !== 'loading') {
+      handleAuthCallback()
+    }
+  }, [handled, router, params, session, status])
 
   return (
     <div className="min-h-screen bg-bg-secondary flex items-center justify-center">

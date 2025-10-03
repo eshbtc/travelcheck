@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { supabaseAdmin as supabase } from '@/lib/supabase-server'
+import { prisma } from '@/lib/prisma'
 
 // Verify HMAC signature from Lemon Squeezy
 function verifySignature(rawBody: string, signature: string | null, secret: string | undefined) {
@@ -35,34 +35,33 @@ function planFromVariant(v?: number | null): string | null {
 
 async function findUserIdByEmail(email: string | null): Promise<string | null> {
   if (!email) return null
-  const { data: user } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle()
+  const user = await prisma.user.findFirst({
+    where: { email },
+    select: { id: true }
+  })
   return user?.id || null
 }
 
-async function upsertEntitlements(userId: string, updates: Partial<{ plan_code: string; status: string; report_credits_balance: number; report_credits_monthly_quota: number; seats_limit: number; api_minimum_cents: number }>) {
+async function upsertEntitlements(userId: string, updates: Partial<{ planCode: string; status: string; reportCreditsBalance: number; reportCreditsMonthlyQuota: number; seatsLimit: number; apiMinimumCents: number }>) {
   // Try update; if missing, insert
-  const { data: existing } = await supabase
-    .from('billing_entitlements')
-    .select('id, report_credits_balance')
-    .eq('user_id', userId)
-    .maybeSingle()
+  const existing = await prisma.billingEntitlement.findFirst({
+    where: { userId },
+    select: { id: true, reportCreditsBalance: true }
+  })
+
   if (existing) {
-    const inc = updates.report_credits_balance
-    const newBalance = typeof inc === 'number' ? (existing.report_credits_balance || 0) + inc : undefined
+    const inc = updates.reportCreditsBalance
+    const newBalance = typeof inc === 'number' ? (existing.reportCreditsBalance || 0) + inc : undefined
     const patch: any = { ...updates }
-    if (typeof newBalance === 'number') patch.report_credits_balance = newBalance
-    await supabase
-      .from('billing_entitlements')
-      .update(patch)
-      .eq('id', existing.id)
+    if (typeof newBalance === 'number') patch.reportCreditsBalance = newBalance
+    await prisma.billingEntitlement.update({
+      where: { id: existing.id },
+      data: patch
+    })
   } else {
-    await supabase
-      .from('billing_entitlements')
-      .insert({ user_id: userId, status: 'active', ...updates } as any)
+    await prisma.billingEntitlement.create({
+      data: { userId, status: 'active', ...updates }
+    })
   }
 }
 
@@ -83,12 +82,11 @@ export async function POST(request: NextRequest) {
 
     // Idempotency: hash raw body and store in billing_webhook_events
     const dedupeHash = crypto.createHash('sha256').update(rawBody, 'utf8').digest('hex')
-    const exists = await supabase
-      .from('billing_webhook_events')
-      .select('id')
-      .eq('dedupe_hash', dedupeHash)
-      .maybeSingle()
-    if (exists.data) {
+    const exists = await prisma.billingWebhookEvent.findFirst({
+      where: { dedupeHash },
+      select: { id: true }
+    })
+    if (exists) {
       return NextResponse.json({ ok: true, deduped: true })
     }
 
@@ -105,24 +103,27 @@ export async function POST(request: NextRequest) {
 
     // Basic abuse throttle: limit bursts per customer
     if (customerEmail) {
-      const since = new Date(Date.now() - 10_000).toISOString()
-      const { count } = await supabase
-        .from('billing_webhook_events')
-        .select('id', { count: 'exact', head: true })
-        .eq('customer_email', customerEmail)
-        .gt('received_at', since)
-      if ((count || 0) > 5) {
+      const since = new Date(Date.now() - 10_000)
+      const count = await prisma.billingWebhookEvent.count({
+        where: {
+          customerEmail,
+          receivedAt: { gt: since }
+        }
+      })
+      if (count > 5) {
         return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 })
       }
     }
 
     // Persist webhook envelope for audit/idempotency
-    await supabase.from('billing_webhook_events').insert({
-      dedupe_hash: dedupeHash,
-      event_name: eventName,
-      customer_email: customerEmail,
-      raw: payload
-    } as any)
+    await prisma.billingWebhookEvent.create({
+      data: {
+        dedupeHash,
+        eventName,
+        customerEmail,
+        raw: payload
+      }
+    })
 
     // Minimal event routing for MVP
     const plan = planFromVariant(variantId)
@@ -130,32 +131,36 @@ export async function POST(request: NextRequest) {
     if (userId && plan) {
       if (eventName.includes('order') && plan.startsWith('one_time_')) {
         // Grant one report credit for one-time purchase
-        await upsertEntitlements(userId, { plan_code: plan, report_credits_balance: 1 })
+        await upsertEntitlements(userId, { planCode: plan, reportCreditsBalance: 1 })
       }
       if (eventName.includes('subscription_created') || eventName.includes('subscription_payment_success')) {
         // Personal / Firm subscriptions
         const quota = plan === 'firm_starter' ? 10 : plan === 'firm_growth' ? 30 : plan === 'firm_scale' ? 100 : 0
-        await upsertEntitlements(userId, { plan_code: plan, status: 'active', report_credits_monthly_quota: quota })
+        await upsertEntitlements(userId, { planCode: plan, status: 'active', reportCreditsMonthlyQuota: quota })
         // Upsert subscription record if possible
         const lemonSubId = data?.id?.toString?.() || undefined
         if (lemonSubId) {
-          const { data: sub } = await supabase
-            .from('billing_subscriptions')
-            .select('id')
-            .eq('lemon_subscription_id', lemonSubId)
-            .maybeSingle()
+          const sub = await prisma.billingSubscription.findFirst({
+            where: { lemonSubscriptionId: lemonSubId },
+            select: { id: true }
+          })
           const payloadSub: any = {
-            user_id: userId,
-            lemon_subscription_id: lemonSubId,
-            product_id: productId || undefined,
-            variant_id: variantId || undefined,
-            plan_code: plan,
+            userId,
+            lemonSubscriptionId: lemonSubId,
+            productId: productId || undefined,
+            variantId: variantId || undefined,
+            planCode: plan,
             status: subscriptionStatus || 'active',
           }
           if (sub) {
-            await supabase.from('billing_subscriptions').update(payloadSub).eq('id', sub.id)
+            await prisma.billingSubscription.update({
+              where: { id: sub.id },
+              data: payloadSub
+            })
           } else {
-            await supabase.from('billing_subscriptions').insert(payloadSub)
+            await prisma.billingSubscription.create({
+              data: payloadSub
+            })
           }
         }
       }
@@ -167,18 +172,15 @@ export async function POST(request: NextRequest) {
     // TODO: Map product/variant IDs to internal SKUs and provision entitlements accordingly
     // For MVP, we log an audit row if an audit table exists; otherwise no-op
     try {
-      const { error } = await supabase
-        .from('audit_logs')
-        .insert({
+      await prisma.auditLog.create({
+        data: {
           category: 'billing',
           action: 'lemonsqueezy_webhook',
           details: { eventName, customerEmail, productId, variantId, subscriptionStatus, meta },
-        } as any)
-      if (error) {
-        // Table may not exist in early MVP; ignore
-        console.warn('Audit log insert failed:', error.message)
-      }
+        }
+      })
     } catch (e) {
+      // Table may not exist in early MVP or might not be set up; ignore
       console.warn('Audit log insert error:', (e as Error).message)
     }
 
