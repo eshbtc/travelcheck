@@ -1,5 +1,6 @@
-import { supabaseService } from "@/services/supabaseService"
 'use client'
+
+import { supabaseService } from "@/services/supabaseService"
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { 

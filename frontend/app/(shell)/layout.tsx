@@ -2,6 +2,8 @@ import React from 'react'
 import { AppShell } from '../../src/components/layout/AppShell'
 import { AuthGuard } from '../../src/components/layout/AuthGuard'
 
+export const dynamic = 'force-dynamic'
+
 export default function ShellLayout({
   children,
 }: {
