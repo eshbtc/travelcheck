@@ -6,13 +6,13 @@ cmds = ["npm ci --legacy-peer-deps"]
 
 [phases.build]
 cmds = [
-  "echo '=== Debug: Checking tsconfig.json ==='",
-  "cat tsconfig.json | grep -A 5 paths || echo 'tsconfig.json not found or no paths'",
-  "echo '=== Debug: Checking if src/lib/utils.ts exists ==='",
-  "ls -la src/lib/utils.ts || echo 'src/lib/utils.ts not found'",
-  "echo '=== Debug: Current directory ==='",
-  "pwd",
-  "echo '=== Starting build ==='",
+  "echo '=== Railway Build Debug ==='",
+  "echo 'Current directory:' && pwd",
+  "echo 'Directory contents:' && ls -la",
+  "echo 'Checking src directory:' && ls -la src/ || echo 'ERROR: src/ directory not found!'",
+  "echo 'Checking src/lib:' && ls -la src/lib/ || echo 'ERROR: src/lib/ directory not found!'",
+  "echo 'Checking app directory:' && ls -la app/ || echo 'ERROR: app/ directory not found!'",
+  "echo '=== End Debug ==='",
   "rm -rf .next",
   "npm run build"
 ]
