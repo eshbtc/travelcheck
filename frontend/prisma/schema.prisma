@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,4 +8,584 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE USER & AUTH MODELS
+// ============================================================================
+
+model User {
+  id          String    @id @db.Uuid
+  email       String    @unique
+  role        String?   @default("user")
+  displayName String?   @map("display_name")
+  photoUrl    String?   @map("photo_url")
+  provider    String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lastLogin   DateTime? @map("last_login")
+  settings    Json      @default("{}")
+
+  // Relations
+  preferences               UserPreference?
+  emailAccounts             EmailAccount[]
+  flightEmails              FlightEmail[]
+  travelHistory             TravelHistory?
+  passportScans             PassportScan[]
+  travelEntries             TravelEntry[]
+  reports                   Report[]
+  reportTemplates           ReportTemplate[]
+  duplicateGroups           DuplicateGroup[]
+  duplicateDetectionResults DuplicateDetectionResult[]
+  batchOperations           BatchOperation[]
+  batchJobs                 BatchJob[]
+  systemLogs                SystemLog[]
+  aiCache                   AiCache[]
+  aiUsageLogs               AiUsageLog[]
+  billingCustomer           BillingCustomer?
+  billingSubscriptions      BillingSubscription[]
+  billingEntitlement        BillingEntitlement?
+  resolvedDuplicateGroups   DuplicateGroup[]           @relation("ResolvedBy")
+
+  // NextAuth relations
+  accounts Account[]
+  sessions Session[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model UserPreference {
+  userId      String   @id @map("user_id") @db.Uuid
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ============================================================================
+// NEXTAUTH MODELS (Prisma Adapter)
+// ============================================================================
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================================
+// EMAIL & FLIGHT MODELS
+// ============================================================================
+
+model EmailAccount {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  provider       String
+  email          String
+  accessToken    String?   @map("access_token")
+  refreshToken   String?   @map("refresh_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  scope          String?
+  isActive       Boolean   @default(true) @map("is_active")
+  lastSync       DateTime? @map("last_sync")
+  syncStatus     String?   @default("pending") @map("sync_status")
+  errorMessage   String?   @map("error_message")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flightEmails FlightEmail[]
+
+  @@unique([userId, provider, email])
+  @@index([userId])
+  @@index([provider])
+  @@index([isActive])
+  @@index([userId, provider, isActive])
+  @@map("email_accounts")
+}
+
+model FlightEmail {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  emailAccountId     String?   @map("email_account_id") @db.Uuid
+  messageId          String?   @map("message_id")
+  threadId           String?   @map("thread_id")
+  subject            String?
+  sender             String?
+  recipient          String?
+  bodyText           String?   @map("body_text")
+  bodyHtml           String?   @map("body_html")
+  attachments        Json      @default("[]")
+  flightData         Json?     @map("flight_data")
+  bookingData        Json?     @map("booking_data")
+  parsedData         Json?     @map("parsed_data")
+  confidenceScore    Decimal?  @map("confidence_score") @db.Decimal
+  processingStatus   String?   @default("pending") @map("processing_status")
+  isProcessed        Boolean   @default(false) @map("is_processed")
+  dateReceived       DateTime? @map("date_received")
+  dateFlight         DateTime? @map("date_flight")
+  airline            String?
+  flightNumber       String?   @map("flight_number")
+  departureAirport   String?   @map("departure_airport")
+  arrivalAirport     String?   @map("arrival_airport")
+  confirmationNumber String?   @map("confirmation_number")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: SetNull)
+
+  @@unique([emailAccountId, messageId], name: "flight_emails_account_message_unique")
+  @@index([userId])
+  @@index([isProcessed])
+  @@index([dateFlight])
+  @@index([airline])
+  @@index([emailAccountId, messageId])
+  @@map("flight_emails")
+}
+
+// ============================================================================
+// TRAVEL & PASSPORT MODELS
+// ============================================================================
+
+model TravelHistory {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @unique @map("user_id") @db.Uuid
+  passportData     Json     @default("{}") @map("passport_data")
+  flightData       Json     @default("{}") @map("flight_data")
+  emailData        Json     @default("{}") @map("email_data")
+  manualEntries    Json     @default("[]") @map("manual_entries")
+  computedPresence Json     @default("{}") @map("computed_presence")
+  summaryStats     Json     @default("{}") @map("summary_stats")
+  analysisData     Json     @default("{}") @map("analysis_data")
+  lastUpdated      DateTime @default(now()) @map("last_updated")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("travel_history")
+}
+
+model PassportScan {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  fileName            String?  @map("file_name")
+  fileUrl             String   @map("file_url")
+  fileSize            Int?     @map("file_size")
+  mimeType            String?  @map("mime_type")
+  analysisResults     Json     @default("{}") @map("analysis_results")
+  extractedStamps     Json     @default("[]") @map("extracted_stamps")
+  processingStatus    String?  @default("pending") @map("processing_status")
+  confidenceScore     Decimal? @map("confidence_score") @db.Decimal
+  manualCorrections   Json     @default("{}") @map("manual_corrections")
+  isVerified          Boolean  @default(false) @map("is_verified")
+  ocrText             String?  @map("ocr_text")
+  passportInfo        Json     @default("{}") @map("passport_info")
+  isDuplicate         Boolean  @default(false) @map("is_duplicate")
+  duplicateOf         String?  @map("duplicate_of") @db.Uuid
+  duplicateConfidence Decimal? @map("duplicate_confidence") @db.Decimal
+  batchId             String?  @map("batch_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  duplicateOfScan           PassportScan?              @relation("DuplicateScans", fields: [duplicateOf], references: [id], onDelete: SetNull)
+  duplicateScans            PassportScan[]             @relation("DuplicateScans")
+  duplicateDetectionResults DuplicateDetectionResult[]
+
+  @@index([userId])
+  @@index([processingStatus])
+  @@index([isDuplicate])
+  @@index([duplicateOf])
+  @@index([batchId])
+  @@map("passport_scans")
+}
+
+model TravelEntry {
+  id         String  @id @default(uuid()) @db.Uuid
+  userId     String  @map("user_id") @db.Uuid
+  entryType  String  @map("entry_type")
+  sourceId   String? @map("source_id") @db.Uuid
+  sourceType String? @map("source_type")
+
+  // Location data
+  countryCode String? @map("country_code")
+  countryName String? @map("country_name")
+  city        String?
+  airportCode String? @map("airport_code")
+
+  // Date data
+  entryDate DateTime? @map("entry_date") @db.Date
+  exitDate  DateTime? @map("exit_date") @db.Date
+  entryTime DateTime? @map("entry_time") @db.Time
+  exitTime  DateTime? @map("exit_time") @db.Time
+  timezone  String?
+
+  // Travel details
+  purpose            String?
+  transportType      String? @map("transport_type")
+  carrier            String?
+  flightNumber       String? @map("flight_number")
+  confirmationNumber String? @map("confirmation_number")
+
+  // Status and validation
+  status          String?  @default("pending")
+  confidenceScore Decimal? @map("confidence_score") @db.Decimal
+  isVerified      Boolean  @default(false) @map("is_verified")
+  manualOverride  Boolean  @default(false) @map("manual_override")
+
+  // Additional data
+  notes    String?
+  tags     String[]
+  metadata Json     @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceId, entryType, countryCode, entryDate], name: "travel_entries_source_unique")
+  @@index([userId])
+  @@index([entryType])
+  @@index([countryCode])
+  @@index([entryDate])
+  @@index([status])
+  @@map("travel_entries")
+}
+
+// ============================================================================
+// REPORTING MODELS
+// ============================================================================
+
+model Report {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  reportType    String    @map("report_type")
+  title         String
+  description   String?
+  parameters    Json      @default("{}")
+  reportData    Json      @map("report_data")
+  fileFormat    String?   @default("json") @map("file_format")
+  fileUrl       String?   @map("file_url")
+  status        String?   @default("generated")
+  expiresAt     DateTime? @map("expires_at")
+  downloadCount Int       @default(0) @map("download_count")
+  isPublic      Boolean   @default(false) @map("is_public")
+  shareToken    String?   @unique @map("share_token")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reportType])
+  @@index([status])
+  @@map("reports")
+}
+
+model ReportTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String
+  description String   @default("")
+  category    String
+  country     String
+  template    Json     @default("{}")
+  preview     String?
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([category])
+  @@index([country])
+  @@index([isPublic])
+  @@map("report_templates")
+}
+
+// ============================================================================
+// DUPLICATE DETECTION MODELS
+// ============================================================================
+
+model DuplicateGroup {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  groupType        String    @map("group_type")
+  similarityScore  Decimal?  @map("similarity_score") @db.Decimal
+  status           String?   @default("pending")
+  resolutionAction String?   @map("resolution_action")
+  resolvedBy       String?   @map("resolved_by") @db.Uuid
+  resolvedAt       DateTime? @map("resolved_at")
+  metadata         Json      @default("{}")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resolver       User?           @relation("ResolvedBy", fields: [resolvedBy], references: [id])
+  duplicateItems DuplicateItem[]
+
+  @@map("duplicate_groups")
+}
+
+model DuplicateItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  itemType        String   @map("item_type")
+  itemId          String   @map("item_id") @db.Uuid
+  isPrimary       Boolean  @default(false) @map("is_primary")
+  confidenceScore Decimal? @map("confidence_score") @db.Decimal
+  metadata        Json     @default("{}")
+
+  // Relations
+  group DuplicateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("duplicate_items")
+}
+
+model DuplicateDetectionResult {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  detectionType       String   @map("detection_type")
+  scanId              String?  @map("scan_id") @db.Uuid
+  duplicatesFound     Int      @default(0) @map("duplicates_found")
+  autoResolved        Boolean  @default(false) @map("auto_resolved")
+  resolvedCount       Int      @default(0) @map("resolved_count")
+  results             Json     @default("[]")
+  similarityThreshold Decimal  @default(0.8) @map("similarity_threshold") @db.Decimal
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan PassportScan? @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("duplicate_detection_results")
+}
+
+// ============================================================================
+// BATCH PROCESSING MODELS
+// ============================================================================
+
+model BatchOperation {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  batchId       String   @map("batch_id")
+  operationType String   @map("operation_type")
+  status        String?  @default("pending")
+  results       Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([batchId])
+  @@index([status])
+  @@map("batch_operations")
+}
+
+model BatchJob {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  jobType      String    @map("job_type")
+  status       String?   @default("pending")
+  metadata     Json      @default("{}")
+  errorMessage String?   @map("error_message")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([jobType])
+  @@map("batch_jobs")
+}
+
+// ============================================================================
+// SYSTEM & MONITORING MODELS
+// ============================================================================
+
+model SystemLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  operation String
+  details   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([operation])
+  @@map("system_logs")
+}
+
+model HealthCheck {
+  id        String   @id @default(uuid()) @db.Uuid
+  status    String?  @default("healthy")
+  lastCheck DateTime @default(now()) @map("last_check")
+  metadata  Json     @default("{}")
+
+  @@map("health_check")
+}
+
+// ============================================================================
+// AI MODELS
+// ============================================================================
+
+model AiCache {
+  id        String   @id @default(uuid()) @db.Uuid
+  cacheKey  String   @map("cache_key")
+  endpoint  String
+  userId    String?  @map("user_id") @db.Uuid
+  result    Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([cacheKey, endpoint], name: "ai_cache_unique")
+  @@index([userId, endpoint])
+  @@map("ai_cache")
+}
+
+model AiUsageLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  endpoint     String
+  cacheHit     Boolean  @default(false) @map("cache_hit")
+  dataSize     Int?     @map("data_size")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([endpoint])
+  @@map("ai_usage_logs")
+}
+
+// ============================================================================
+// BILLING MODELS
+// ============================================================================
+
+model BillingCustomer {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  email           String   @unique
+  lemonCustomerId String?  @map("lemon_customer_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("billing_customers")
+}
+
+model BillingSubscription {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  lemonSubscriptionId String?   @unique @map("lemon_subscription_id")
+  productId           Int?      @map("product_id")
+  variantId           Int?      @map("variant_id")
+  planCode            String?   @map("plan_code")
+  status              String?
+  currentPeriodEnd    DateTime? @map("current_period_end")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("billing_subscriptions")
+}
+
+model BillingEntitlement {
+  id                        String    @id @default(uuid()) @db.Uuid
+  userId                    String    @unique @map("user_id") @db.Uuid
+  planCode                  String?   @map("plan_code")
+  status                    String?   @default("active")
+  reportCreditsBalance      Int       @default(0) @map("report_credits_balance")
+  reportCreditsMonthlyQuota Int       @default(0) @map("report_credits_monthly_quota")
+  seatsLimit                Int       @default(0) @map("seats_limit")
+  apiMinimumCents           Int       @default(0) @map("api_minimum_cents")
+  lastMonthlyResetAt        DateTime? @map("last_monthly_reset_at")
+  lastAnnualResetYear       Int?      @map("last_annual_reset_year")
+  annualIncludedReports     Int       @default(1) @map("annual_included_reports")
+  effectiveAt               DateTime  @default(now()) @map("effective_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("billing_entitlements")
+}
+
+model BillingWebhookEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  dedupeHash    String   @unique @map("dedupe_hash")
+  eventName     String?  @map("event_name")
+  customerEmail String?  @map("customer_email")
+  receivedAt    DateTime @default(now()) @map("received_at")
+  raw           Json?
+
+  @@index([receivedAt(sort: Desc)])
+  @@map("billing_webhook_events")
 }
