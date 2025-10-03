@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../auth/middleware'
 import { supabaseAdmin as supabase } from '@/lib/supabase-server'
 
+// Cache system status for 30 seconds
+export const revalidate = 30
+
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
   if (authResult.error) {
@@ -60,6 +63,10 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       version: '2.0.0-supabase',
       components: systemStatus,
+    }, {
+      headers: {
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+      }
     })
   } catch (error) {
     console.error('Error getting system status:', error)

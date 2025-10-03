@@ -258,11 +258,48 @@ export class ErrorHandler {
 
   // Report error to external service
   private reportError(error: AppError): void {
-    // TODO: Implement crash reporting service integration
-    // Example: Firebase Crashlytics, Sentry, etc.
-    
-    // For now, just log to console
+    // Send to Sentry if available
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      (window as any).Sentry.captureException(
+        new Error(error.message),
+        {
+          tags: {
+            errorCode: error.code,
+            context: error.context || 'unknown'
+          },
+          extra: {
+            details: error.details,
+            userId: error.userId,
+            timestamp: error.timestamp
+          },
+          level: this.getSeverityLevel(error.code)
+        }
+      )
+    }
+
+    // Log to console as fallback
     console.error('Error reported:', error)
+  }
+
+  // Get Sentry severity level based on error code
+  private getSeverityLevel(code: string): 'fatal' | 'error' | 'warning' | 'info' {
+    // Fatal errors that crash the app
+    if (code.includes('INTERNAL') || code.includes('UNKNOWN')) {
+      return 'fatal'
+    }
+
+    // Server/network errors are high priority
+    if (code.includes('SERVER') || code.includes('NETWORK') || code.includes('TIMEOUT')) {
+      return 'error'
+    }
+
+    // Auth and permission errors are warnings
+    if (code.includes('AUTH') || code.includes('PERMISSION')) {
+      return 'warning'
+    }
+
+    // Everything else is info
+    return 'info'
   }
 
   // Get error log

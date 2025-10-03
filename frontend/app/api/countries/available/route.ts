@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Cache this static data for 1 hour
+export const revalidate = 3600
+
 const COUNTRIES = [
   { code: 'US', name: 'United States', continent: 'North America' },
   { code: 'CA', name: 'Canada', continent: 'North America' },
@@ -68,6 +71,10 @@ export async function GET(request: NextRequest) {
       byContinent,
       total: filteredCountries.length,
       continents: Array.from(new Set(COUNTRIES.map(c => c.continent)))
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
+      }
     })
   } catch (error) {
     console.error('Error fetching available countries:', error)

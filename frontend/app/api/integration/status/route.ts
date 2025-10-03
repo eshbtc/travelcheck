@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../auth/middleware'
 import { supabaseAdmin as supabase } from '@/lib/supabase-server'
 
+// Cache integration status for 60 seconds (changes infrequently)
+export const revalidate = 60
+
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
   if (authResult.error) {
@@ -72,6 +75,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       integrations: integrationStatus,
+    }, {
+      headers: {
+        'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+      }
     })
   } catch (error) {
     console.error('Error getting integration status:', error)

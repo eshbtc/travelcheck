@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { 
-  ChevronLeftIcon, 
+import Image from 'next/image'
+import {
+  ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
   ArrowDownTrayIcon,
@@ -64,22 +65,27 @@ export function PassportScanCarousel({
     return null
   }
 
-  const buildSignedUrls = async (items: PassportScan[]) => {
-    const entries: Array<[string, string]> = []
-    for (const scan of items) {
+  const buildSignedUrls = useCallback(async (items: PassportScan[]) => {
+    // Parallelize signed URL generation for faster load
+    const promises = items.map(async (scan) => {
       const raw = scan.file_url
       const path = raw ? extractPathFromUrl(raw) : null
       if (path) {
         try {
           const signed = await getOrCreateSignedUrl(path, 60 * 60)
-          if (signed) entries.push([scan.id, signed])
+          if (signed) return [scan.id, signed] as [string, string]
         } catch (_) {}
       }
-    }
+      return null
+    })
+
+    const results = await Promise.all(promises)
+    const entries = results.filter((entry): entry is [string, string] => entry !== null)
+
     if (entries.length) {
       setSignedUrls(prev => ({ ...prev, ...Object.fromEntries(entries) }))
     }
-  }
+  }, [])
 
   const loadPassportScans = useCallback(async () => {
     setIsLoading(true)
@@ -99,7 +105,7 @@ export function PassportScanCarousel({
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [buildSignedUrls])
 
   useEffect(() => {
     loadPassportScans()
@@ -244,10 +250,14 @@ export function PassportScanCarousel({
             <div className="relative">
               <div className="w-80 h-64 bg-gray-100 rounded-lg overflow-hidden">
                 {selectedScan && (signedUrls[selectedScan.id] || selectedScan.file_url) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`${signedUrls[selectedScan.id] || selectedScan.file_url}`}
+                  <Image
+                    src={signedUrls[selectedScan.id] || selectedScan.file_url || ''}
                     alt={selectedScan.file_name || 'Passport scan'}
+                    width={320}
+                    height={256}
+                    quality={75}
+                    loading="eager"
+                    priority
                     className="w-full h-full object-contain"
                   />
                 ) : (
@@ -371,10 +381,13 @@ export function PassportScanCarousel({
                 }`}
               >
                 {scan && (signedUrls[scan.id] || scan.file_url) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`${signedUrls[scan.id] || scan.file_url}`}
+                  <Image
+                    src={signedUrls[scan.id] || scan.file_url || ''}
                     alt={scan.file_name || 'Scan'}
+                    width={64}
+                    height={64}
+                    quality={60}
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -405,10 +418,13 @@ export function PassportScanCarousel({
               </Button>
             </div>
             <div className="p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`${signedUrls[selectedScan.id] || selectedScan.file_url || ''}`}
+              <Image
+                src={signedUrls[selectedScan.id] || selectedScan.file_url || ''}
                 alt={selectedScan.file_name || 'Passport scan'}
+                width={896}
+                height={384}
+                quality={90}
+                loading="eager"
                 className="max-w-full max-h-96 object-contain mx-auto"
               />
             </div>
