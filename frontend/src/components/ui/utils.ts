@@ -1,2 +1,6 @@
-// Re-export utils from lib for components that can't resolve path aliases
-export * from '../../lib/utils'
+// Inline utility functions for Railway build compatibility
+import { type ClassValue, clsx } from 'clsx'
+
+export function cn(...inputs: ClassValue[]) {
+  return clsx(inputs)
+}
