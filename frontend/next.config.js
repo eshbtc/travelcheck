@@ -8,10 +8,19 @@ const nextConfig = {
   output: 'standalone',
   productionBrowserSourceMaps: true, // Enable source maps for Sentry
   webpack: (config, { isServer }) => {
+    // Ensure path aliases work in all build environments
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': path.resolve(__dirname, 'src'),
+      '@': path.join(__dirname, 'src'),
     }
+
+    // Also add fallback for node_modules resolution
+    config.resolve.modules = [
+      ...(config.resolve.modules || []),
+      path.join(__dirname, 'node_modules'),
+      path.join(__dirname, 'src'),
+    ]
+
     return config
   },
   generateBuildId: async () => {
