@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
-import { cn } from '@/lib/utils'
+import { cn } from '../../lib/utils'
 
 export interface Column<T> {
   key: keyof T | string
