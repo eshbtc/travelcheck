@@ -35,7 +35,38 @@ railway variables | grep DATABASE_URL
 
 ---
 
-### Step 2: Create Application Service
+### Step 2: Add Minio Storage Service
+
+**✅ Already Added!** You mentioned you've already deployed Minio. Here's how to configure it:
+
+1. **Verify Minio is running:**
+   - In Railway dashboard, you should see your Minio service
+   - Check that it's deployed and running
+
+2. **Create the bucket:**
+   - Access Minio Console:
+     - Get Minio public URL from Railway (Settings → Networking)
+     - Login with `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` from Variables tab
+   - Create bucket named: `travel-check-uploads`
+   - Set bucket policy to **public** (for serving images)
+
+3. **Get Minio connection details:**
+   - Railway automatically provides these variables to all services:
+     - `MINIO_ROOT_USER`
+     - `MINIO_ROOT_PASSWORD`
+     - `MINIO_HOST`
+     - `MINIO_PORT`
+
+4. **These variables will be used in Step 3** to configure S3-compatible storage
+
+**Verify:**
+```bash
+railway variables | grep MINIO
+```
+
+---
+
+### Step 3: Create Application Service
 
 1. In Railway dashboard, click **"+ New"** → **Empty Service**
 2. Name it: `travel-check-frontend` or `web`
@@ -57,7 +88,7 @@ railway up
 
 ---
 
-### Step 3: Configure Environment Variables
+### Step 4: Configure Environment Variables
 
 Go to the service → **Variables** tab and add these variables:
 
@@ -87,12 +118,16 @@ OFFICE365_CLIENT_ID=your-office365-client-id
 OFFICE365_CLIENT_SECRET=your-office365-client-secret
 OFFICE365_REDIRECT_URI=https://your-railway-domain.up.railway.app/auth/callback?provider=office365
 
-# Cloudflare R2 Storage
-R2_ACCOUNT_ID=your-cloudflare-account-id
-R2_ACCESS_KEY_ID=your-r2-access-key-id
-R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
-R2_BUCKET_NAME=travel-check-uploads
-R2_PUBLIC_URL=https://your-bucket.r2.dev
+# Minio Storage (Railway automatically provides these when you add Minio service)
+# Railway will inject: MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, MINIO_HOST, MINIO_PORT
+# You need to add these manually:
+S3_ENDPOINT=http://${MINIO_HOST}:${MINIO_PORT}
+S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+S3_BUCKET_NAME=travel-check-uploads
+S3_REGION=us-east-1
+S3_FORCE_PATH_STYLE=true
+S3_PUBLIC_URL=https://your-minio-service.up.railway.app
 
 # Google AI
 GOOGLE_AI_API_KEY=your-google-ai-api-key
@@ -120,7 +155,7 @@ NEXT_PUBLIC_ENABLE_EMAIL_INTEGRATION=true
 
 ---
 
-### Step 4: Run Database Migrations
+### Step 5: Run Database Migrations
 
 **Option A: Via Railway CLI**
 ```bash
@@ -145,7 +180,7 @@ railway run npx prisma migrate deploy
 
 ---
 
-### Step 5: Deploy the Application
+### Step 6: Deploy the Application
 
 **If using GitHub integration:**
 - Push your code to the `main` branch
@@ -163,7 +198,7 @@ railway logs --follow
 
 ---
 
-### Step 6: Verify Deployment
+### Step 7: Verify Deployment
 
 1. **Get the deployment URL:**
    - Go to service → **Settings** → **Domains**
@@ -196,7 +231,7 @@ railway logs --follow
 
 ---
 
-### Step 7: Update OAuth Redirect URIs
+### Step 8: Update OAuth Redirect URIs
 
 After getting your Railway domain, update redirect URIs in:
 
@@ -217,7 +252,7 @@ After getting your Railway domain, update redirect URIs in:
 
 ---
 
-### Step 8: Configure Custom Domain (Optional)
+### Step 9: Configure Custom Domain (Optional)
 
 1. **Add custom domain in Railway:**
    - Service → Settings → Domains
