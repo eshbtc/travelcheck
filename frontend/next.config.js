@@ -7,23 +7,12 @@ const nextConfig = {
   trailingSlash: true,
   output: 'standalone',
   productionBrowserSourceMaps: true, // Enable source maps for Sentry
-  webpack: (config, { isServer, dir }) => {
-    // Use 'dir' parameter instead of __dirname for reliable path resolution in all build environments
-    // This ensures the alias works correctly in Railway's Docker/Nixpacks builds
+  webpack: (config) => {
+    // Ensure path aliases work - use absolute path from __dirname
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': path.resolve(dir, 'src'),
-      '@/lib': path.resolve(dir, 'src/lib'),
-      '@/components': path.resolve(dir, 'src/components'),
+      '@': path.join(__dirname, 'src'),
     }
-
-    // Also add fallback for node_modules resolution
-    config.resolve.modules = [
-      ...(config.resolve.modules || []),
-      path.resolve(dir, 'node_modules'),
-      path.resolve(dir, 'src'),
-    ]
-
     return config
   },
   generateBuildId: async () => {
