@@ -155,7 +155,7 @@ export function ResolutionCenter({
 
   const runDuplicateDetection = async () => {
     try {
-      const result = await detectDuplicateScans()
+      const result = await supabaseService.detectDuplicateScans()
       if (result.success) {
         toast.success('Duplicate detection completed')
         await loadResolutionData()

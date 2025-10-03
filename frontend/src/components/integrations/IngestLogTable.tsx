@@ -17,7 +17,7 @@ import { Button } from '../ui/Button'
 import { Skeleton, SkeletonTable } from '../ui/Skeleton'
 import { EmptyState } from '../ui/EmptyState'
 import { getBookingIngestionStatus } from '@/services/integrationService'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 
 interface IngestLogTableProps {
   className?: string

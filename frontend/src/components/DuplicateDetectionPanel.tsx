@@ -31,7 +31,7 @@ export const DuplicateDetectionPanel: React.FC<DuplicateDetectionPanelProps> = (
   const loadDuplicateResults = async () => {
     try {
       setLoading(true);
-      const result = await getDuplicateResults();
+      const result = await supabaseService.getDuplicateResults();
       if (result.success && result.data) {
         setDuplicates(result.data);
       }
@@ -45,7 +45,7 @@ export const DuplicateDetectionPanel: React.FC<DuplicateDetectionPanelProps> = (
   const runDuplicateDetection = async () => {
     try {
       setDetecting(true);
-      const result = await detectDuplicateScans();
+      const result = await supabaseService.detectDuplicateScans();
       if (result.success && result.data) {
         setDuplicates(result.data || []);
         if (onRefresh) onRefresh();
@@ -59,7 +59,7 @@ export const DuplicateDetectionPanel: React.FC<DuplicateDetectionPanelProps> = (
 
   const handleResolveDuplicate = async (duplicateId: string, action: string) => {
     try {
-      const result = await resolveDuplicate(duplicateId, action as 'keep_first' | 'keep_second' | 'keep_both');
+      const result = await supabaseService.resolveDuplicate(duplicateId, action as 'keep_first' | 'keep_second' | 'keep_both');
       if (result.success) {
         // Remove resolved duplicate from list
         setDuplicates(prev => prev.filter(d => d.id !== duplicateId));

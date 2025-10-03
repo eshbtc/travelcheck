@@ -33,7 +33,7 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
   const loadSmartSuggestions = async () => {
     try {
       setLoading(true);
-      const result = await generateSmartSuggestions();
+      const result = await supabaseService.generateSmartSuggestions();
       if (result.success) {
         setSuggestions({
           success: result.success,
@@ -50,7 +50,7 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
 
   const loadTravelPatterns = async () => {
     try {
-      const result = await analyzeTravelPatterns();
+      const result = await supabaseService.analyzeTravelPatterns();
       if (result.success) {
         setTravelPatterns({
           success: result.success,

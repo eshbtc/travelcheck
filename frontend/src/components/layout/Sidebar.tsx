@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Logo } from '../ui/Logo'
 import { Button } from '../ui/Button'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import {
   HomeIcon,
   PlusIcon,

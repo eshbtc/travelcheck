@@ -98,7 +98,7 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
         type: img.file.type
       }));
 
-      const result = await optimizeBatchProcessing(imageDataArray);
+      const result = await supabaseService.optimizeBatchProcessing(imageDataArray);
       if (result.success) {
         setOptimization(result);
       }
@@ -121,7 +121,7 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
         fileName: img.file.name
       }));
 
-      const result = await processBatchPassportImages(imageDataArray);
+      const result = await supabaseService.processBatchPassportImages(imageDataArray);
       if (result.success) {
         setProcessingResult(result);
         if (onProcessingComplete) {

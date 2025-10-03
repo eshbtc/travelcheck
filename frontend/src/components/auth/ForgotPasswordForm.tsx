@@ -3,10 +3,8 @@
 import React, { useState } from 'react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
-import { useAuth } from '@/contexts/AuthContext'
 
 export function ForgotPasswordForm() {
-  const { resetPassword } = useAuth()
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +15,18 @@ export function ForgotPasswordForm() {
     setError(null)
     setSubmitting(true)
     try {
-      await resetPassword(email)
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset email')
+      }
+
       setSent(true)
     } catch (err: any) {
       setError(err?.message || 'Failed to send reset email')

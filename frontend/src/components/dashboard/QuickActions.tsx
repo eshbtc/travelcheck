@@ -19,7 +19,7 @@ import {
   getIntegrationStatus
 } from '@/services/integrationService'
 import { universalTravelService } from '@/services/universalService'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { toast } from 'react-hot-toast'
 
 export function QuickActions() {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { universalTravelService } from '@/services/universalService'
 import { toast } from 'react-hot-toast'
 import type { PresenceDay } from '@/types/universal'

@@ -23,11 +23,14 @@ export class UniversalTravelService {
     } = {}
   ): Promise<UniversalReport> {
     try {
-      const result = await supabaseService.apiCall('generateUniversalReport', {
-        reportType,
-        country,
-        dateRange,
-        ...options
+      const result = await supabaseService.apiCall('/api/reports/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          reportType,
+          country,
+          dateRange,
+          ...options
+        })
       });
       
       if (!result.success) {
@@ -53,7 +56,10 @@ export class UniversalTravelService {
    * Ingest hotel bookings from Gmail
    */
   async ingestGmailBookings(options: { maxResults?: number; query?: string } = {}): Promise<{ success: boolean; ingested: number; messageIds: string[] }>{
-    const res = await supabaseService.apiCall('ingestGmailBookings', options);
+    const res = await supabaseService.apiCall('/api/gmail/ingest', {
+      method: 'POST',
+      body: JSON.stringify(options)
+    });
     if (res && res.data && typeof res.data === 'object' && 'success' in res.data) return res.data as { success: boolean; ingested: number; messageIds: string[] };
     return { success: true, ingested: 0, messageIds: [] };
   }

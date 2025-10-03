@@ -2,10 +2,10 @@
 
 import React, { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth()
+  const { data: session, status } = useSession(); const user = session?.user; const isLoading = status === "loading"
   const router = useRouter()
   const pathname = usePathname()
 

@@ -61,8 +61,8 @@ export function TravelHistoryViewer({
     try {
       // Load all data sources in parallel
       const [passportResult, flightResult] = await Promise.all([
-        getPassportScans(),
-        getFlightEmails()
+        supabaseService.getPassportScans(),
+        supabaseService.getFlightEmails()
       ])
 
       const items: TravelItem[] = []

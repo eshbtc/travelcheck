@@ -5,7 +5,7 @@ import { Sidebar } from './Sidebar'
 import { CommandPalette } from './CommandPalette'
 import { SearchBar } from '../ui/SearchBar'
 import { createPortal } from 'react-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { BellIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, UserIcon, XMarkIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 
 interface AppShellProps {

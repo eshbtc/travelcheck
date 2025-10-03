@@ -18,8 +18,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { getPassportScans } from '@/services/supabaseService'
-import { getOrCreateSignedUrl } from '@/services/signedUrlCache'
+import { supabaseService } from "@/services/supabaseService"
 import { toast } from 'react-hot-toast'
 import type { PassportScan } from '@/types/universal'
 
@@ -68,13 +67,9 @@ export function PassportScanCarousel({
   const buildSignedUrls = useCallback(async (items: PassportScan[]) => {
     // Parallelize signed URL generation for faster load
     const promises = items.map(async (scan) => {
-      const raw = scan.file_url
-      const path = raw ? extractPathFromUrl(raw) : null
-      if (path) {
-        try {
-          const signed = await getOrCreateSignedUrl(path, 60 * 60)
-          if (signed) return [scan.id, signed] as [string, string]
-        } catch (_) {}
+      // R2 URLs are either public or server generates signed URLs
+      if (scan.file_url) {
+        return [scan.id, scan.file_url] as [string, string]
       }
       return null
     })
@@ -90,7 +85,7 @@ export function PassportScanCarousel({
   const loadPassportScans = useCallback(async () => {
     setIsLoading(true)
     try {
-      const result = await getPassportScans()
+      const result = await supabaseService.getPassportScans()
       if (result.success && result.data) {
         setScans(result.data)
         if (result.data.length > 0) {

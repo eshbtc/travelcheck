@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
-import { useAuth } from '@/contexts/AuthContext'
 
 export function RegisterForm() {
-  const { register, loginWithGoogle, loginWithAzure, isLoading } = useAuth()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,8 +24,24 @@ export function RegisterForm() {
     }
     setSubmitting(true)
     try {
-      await register(email, password, fullName)
-      router.replace('/dashboard')
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name: fullName })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed')
+      }
+
+      // Auto-login after successful registration
+      await signIn('credentials', {
+        email,
+        password,
+        callbackUrl: '/dashboard'
+      })
     } catch (err: any) {
       setError(err?.message || 'Registration failed')
     } finally {
@@ -38,8 +53,7 @@ export function RegisterForm() {
     setError(null)
     setSubmitting(true)
     try {
-      await loginWithGoogle()
-      // Redirect handled by AuthProvider
+      await signIn('google', { callbackUrl: '/dashboard' })
     } catch (err: any) {
       setError(err?.message || 'Google sign-in failed')
       setSubmitting(false)
@@ -116,7 +130,7 @@ export function RegisterForm() {
           type="submit"
           variant="primary"
           className="w-full"
-          disabled={submitting || isLoading}
+          disabled={submitting}
         >
           {submitting ? 'Creating account…' : 'Create account'}
         </Button>
@@ -134,7 +148,7 @@ export function RegisterForm() {
           variant="outline"
           className="w-full"
           onClick={onGoogle}
-          disabled={submitting || isLoading}
+          disabled={submitting}
         >
           Continue with Google
         </Button>
@@ -147,13 +161,13 @@ export function RegisterForm() {
             setError(null)
             setSubmitting(true)
             try {
-              await loginWithAzure()
+              await signIn('azure-ad', { callbackUrl: '/dashboard' })
             } catch (err: any) {
               setError(err?.message || 'Microsoft sign-up failed')
               setSubmitting(false)
             }
           }}
-          disabled={submitting || isLoading}
+          disabled={submitting}
         >
           Continue with Microsoft
         </Button>

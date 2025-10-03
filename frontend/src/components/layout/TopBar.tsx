@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '../../contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { Logo } from '../ui/Logo'
 import { Button } from '../ui/Button'
 import {

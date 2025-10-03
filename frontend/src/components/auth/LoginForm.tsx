@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
-import { useAuth } from '@/contexts/AuthContext'
 
 export function LoginForm() {
-  const { login, loginWithGoogle, loginWithAzure, isLoading } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -19,7 +18,16 @@ export function LoginForm() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        throw new Error(result.error)
+      }
+
       router.replace('/dashboard')
     } catch (err: any) {
       setError(err?.message || 'Failed to sign in')
@@ -32,8 +40,7 @@ export function LoginForm() {
     setError(null)
     setSubmitting(true)
     try {
-      await loginWithGoogle()
-      // Redirect will occur via AuthProvider or after popup
+      await signIn('google', { callbackUrl: '/dashboard' })
     } catch (err: any) {
       setError(err?.message || 'Google sign-in failed')
       setSubmitting(false)
@@ -119,13 +126,13 @@ export function LoginForm() {
             setError(null)
             setSubmitting(true)
             try {
-              await loginWithAzure()
+              await signIn('azure-ad', { callbackUrl: '/dashboard' })
             } catch (err: any) {
               setError(err?.message || 'Azure sign-in failed')
               setSubmitting(false)
             }
           }}
-          disabled={submitting || isLoading}
+          disabled={submitting}
         >
           Continue with Microsoft
         </Button>

@@ -19,7 +19,7 @@ import {
   getIntegrationStatus
 } from '@/services/integrationService'
 import { UniversalTravelService } from '@/services/universalService'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 
 interface ActivityItem {
   id: string

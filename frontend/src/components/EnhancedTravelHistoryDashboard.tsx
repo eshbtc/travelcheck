@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { analyzeEnhancedTravelHistory } from '@/services/supabaseService';
+import { supabaseService } from "@/services/supabaseService"
 import { universalTravelService } from '@/services/universalService';
 import type { 
   AvailableCountriesResult 
@@ -45,7 +45,7 @@ export const EnhancedTravelHistoryDashboard: React.FC<EnhancedTravelHistoryDashb
   const loadTravelHistory = async () => {
     try {
       setLoading(true);
-      const result = await analyzeEnhancedTravelHistory();
+      const result = await supabaseService.analyzeEnhancedTravelHistory();
       if (result.success && result.data) {
         setTravelData(result.data as TravelHistoryData);
       }
