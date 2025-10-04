@@ -35,19 +35,48 @@ function decrypt(obj: any) {
 
 // Helper function to extract email content
 function extractEmailContent(payload: any): string {
+  console.log('[extractEmailContent] Starting extraction...')
+  console.log('[extractEmailContent] Payload type:', typeof payload)
+  console.log('[extractEmailContent] Payload has body:', !!payload?.body)
+  console.log('[extractEmailContent] Payload has parts:', !!payload?.parts)
+
   let content = ''
 
-  if (payload.body && payload.body.data) {
-    content = Buffer.from(payload.body.data, 'base64').toString()
-  } else if (payload.parts) {
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/plain' && part.body && part.body.data) {
-        content += Buffer.from(part.body.data, 'base64').toString()
-      }
-    }
-  }
+  try {
+    if (payload.body && payload.body.data) {
+      console.log('[extractEmailContent] Using payload.body.data')
+      content = Buffer.from(payload.body.data, 'base64').toString()
+      console.log('[extractEmailContent] Content extracted from body, length:', content.length)
+    } else if (payload.parts) {
+      console.log('[extractEmailContent] Using payload.parts')
+      console.log('[extractEmailContent] Parts type:', typeof payload.parts)
+      console.log('[extractEmailContent] Parts isArray:', Array.isArray(payload.parts))
+      console.log('[extractEmailContent] Parts length:', payload.parts?.length)
 
-  return content
+      if (!Array.isArray(payload.parts)) {
+        console.error('[extractEmailContent] CRITICAL: payload.parts is not an array!')
+        console.error('[extractEmailContent] Parts value:', payload.parts)
+        return content
+      }
+
+      for (const part of payload.parts) {
+        console.log('[extractEmailContent] Processing part, mimeType:', part.mimeType)
+        if (part.mimeType === 'text/plain' && part.body && part.body.data) {
+          console.log('[extractEmailContent] Extracting text/plain part')
+          content += Buffer.from(part.body.data, 'base64').toString()
+        }
+      }
+      console.log('[extractEmailContent] Content extracted from parts, total length:', content.length)
+    } else {
+      console.log('[extractEmailContent] No body or parts found')
+    }
+
+    return content
+  } catch (error) {
+    console.error('[extractEmailContent] Error during extraction:', error)
+    console.error('[extractEmailContent] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    return content
+  }
 }
 
 // Normalize and validate date strings to ISO-8601 format (YYYY-MM-DD)
@@ -208,41 +237,72 @@ function normalizeDate(dateStr: string): string | null {
 
 // Mock flight extraction (replace with real AI/NLP service)
 async function extractFlightInfo(emailContent: string, subject: string) {
-  // Simple pattern matching for demo - in production use proper AI/NLP
-  const combinedText = `${subject} ${emailContent}`
+  console.log('[extractFlightInfo] Starting flight info extraction...')
+  console.log('[extractFlightInfo] Email content length:', emailContent?.length || 0)
+  console.log('[extractFlightInfo] Subject:', subject)
 
-  const flightPatterns = {
-    airline: /(?:airline|carrier)[:\s]+([a-z\s]+)|^([a-z\s]{2,20})\s+flight|(\b(?:american|delta|united|southwest|jetblue|alaska|spirit|frontier)\b)/i,
-    flightNumber: /flight[:\s#]*([a-z]{2}\d{3,4})|(\b[a-z]{2}\s*\d{3,4}\b)/i,
-    confirmation: /confirmation[:\s#]*([a-z0-9]{6,})|booking[:\s#]*([a-z0-9]{6,})/i,
-    departure: /(?:depart|from)[:\s]*([a-z]{3})|(\b[A-Z]{3}\b)\s*(?:to|→)|departing\s*([a-z]{3})/i,
-    arrival: /(?:arrive|to|arriving)[:\s]*([a-z]{3})|(?:to|→)\s*(\b[A-Z]{3}\b)/i,
-    // Improved date pattern - capture full month names and various formats
-    date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w+\s+\d{1,2},?\s+\d{4})|(\d{1,2}\s+\w+\s+\d{4})|(\d{4}-\d{2}-\d{2})/i
-  }
+  try {
+    // Simple pattern matching for demo - in production use proper AI/NLP
+    const combinedText = `${subject} ${emailContent}`
+    console.log('[extractFlightInfo] Combined text length:', combinedText.length)
 
-  const extracted: any = {}
-  Object.entries(flightPatterns).forEach(([key, pattern]) => {
-    const match = combinedText.match(pattern)
-    if (match) {
-      // Get first non-undefined capture group
-      const rawValue = match.find((m, i) => i > 0 && m !== undefined)?.trim()
-
-      // Special handling for date fields - normalize to ISO-8601
-      if (key === 'date' && rawValue) {
-        const normalized = normalizeDate(rawValue)
-        if (normalized) {
-          extracted[key] = normalized
-        } else {
-          console.warn(`Failed to normalize date: "${rawValue}"`)
-        }
-      } else {
-        extracted[key] = rawValue
-      }
+    const flightPatterns = {
+      airline: /(?:airline|carrier)[:\s]+([a-z\s]+)|^([a-z\s]{2,20})\s+flight|(\b(?:american|delta|united|southwest|jetblue|alaska|spirit|frontier)\b)/i,
+      flightNumber: /flight[:\s#]*([a-z]{2}\d{3,4})|(\b[a-z]{2}\s*\d{3,4}\b)/i,
+      confirmation: /confirmation[:\s#]*([a-z0-9]{6,})|booking[:\s#]*([a-z0-9]{6,})/i,
+      departure: /(?:depart|from)[:\s]*([a-z]{3})|(\b[A-Z]{3}\b)\s*(?:to|→)|departing\s*([a-z]{3})/i,
+      arrival: /(?:arrive|to|arriving)[:\s]*([a-z]{3})|(?:to|→)\s*(\b[A-Z]{3}\b)/i,
+      // Improved date pattern - capture full month names and various formats
+      date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w+\s+\d{1,2},?\s+\d{4})|(\d{1,2}\s+\w+\s+\d{4})|(\d{4}-\d{2}-\d{2})/i
     }
-  })
 
-  return extracted
+    const extracted: any = {}
+    console.log('[extractFlightInfo] Processing patterns...')
+
+    Object.entries(flightPatterns).forEach(([key, pattern]) => {
+      console.log('[extractFlightInfo] Matching pattern for:', key)
+      const match = combinedText.match(pattern)
+      console.log('[extractFlightInfo] Match result for', key, ':', match ? 'found' : 'not found')
+
+      if (match) {
+        console.log('[extractFlightInfo] Match array for', key, ':', match)
+        console.log('[extractFlightInfo] Match array type:', typeof match)
+        console.log('[extractFlightInfo] Match isArray:', Array.isArray(match))
+
+        if (!Array.isArray(match)) {
+          console.error('[extractFlightInfo] CRITICAL: match is not an array for key:', key)
+          console.error('[extractFlightInfo] Match value:', match)
+          return
+        }
+
+        // Get first non-undefined capture group
+        console.log('[extractFlightInfo] About to call match.find() for key:', key)
+        const rawValue = match.find((m, i) => i > 0 && m !== undefined)?.trim()
+        console.log('[extractFlightInfo] Raw value for', key, ':', rawValue)
+
+        // Special handling for date fields - normalize to ISO-8601
+        if (key === 'date' && rawValue) {
+          console.log('[extractFlightInfo] Normalizing date:', rawValue)
+          const normalized = normalizeDate(rawValue)
+          console.log('[extractFlightInfo] Normalized date:', normalized)
+          if (normalized) {
+            extracted[key] = normalized
+          } else {
+            console.warn(`[extractFlightInfo] Failed to normalize date: "${rawValue}"`)
+          }
+        } else {
+          extracted[key] = rawValue
+        }
+      }
+    })
+
+    console.log('[extractFlightInfo] Extraction complete, extracted data:', extracted)
+    return extracted
+  } catch (error) {
+    console.error('[extractFlightInfo] Error during extraction:', error)
+    console.error('[extractFlightInfo] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    return {}
+  }
 }
 
 // Airport code to country mapping (basic set)
@@ -370,10 +430,14 @@ export async function POST(request: NextRequest) {
   const userId = session.user.id
 
   try {
+    console.log('[SYNC] Starting Gmail sync for user:', userId)
+
     const body = await request.json().catch(() => ({}))
     const { accountId } = body
+    console.log('[SYNC] Request body:', { accountId })
 
     // Get user's Gmail accounts (optionally a specific account)
+    console.log('[SYNC] Fetching email accounts...')
     const emailAccounts = await prisma.emailAccount.findMany({
       where: {
         userId: userId,
@@ -382,8 +446,10 @@ export async function POST(request: NextRequest) {
         ...(accountId && { id: accountId }),
       },
     })
+    console.log('[SYNC] Found email accounts:', emailAccounts?.length || 0)
 
     if (!emailAccounts || emailAccounts.length === 0) {
+      console.log('[SYNC] No Gmail accounts found')
       return NextResponse.json(
         { success: false, error: 'Gmail account not connected' },
         { status: 404 }
@@ -394,141 +460,242 @@ export async function POST(request: NextRequest) {
     let totalCount = 0
 
     for (const account of emailAccounts) {
-      const refreshToken = decrypt(account.refreshToken)
-      if (!refreshToken) {
+      console.log('[SYNC] Processing account:', account.id, account.email)
+
+      try {
+        const refreshToken = decrypt(account.refreshToken)
+        if (!refreshToken) {
+          console.error('[SYNC] Failed to decrypt refresh token for account:', account.id)
+          await prisma.emailAccount.update({
+            where: { id: account.id },
+            data: {
+              syncStatus: 'failed',
+              errorMessage: 'Invalid refresh token',
+              updatedAt: new Date(),
+            },
+          })
+          continue
+        }
+
+        console.log('[SYNC] Setting up OAuth2 client...')
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GMAIL_CLIENT_ID,
+          process.env.GMAIL_CLIENT_SECRET,
+          process.env.GMAIL_REDIRECT_URI,
+        )
+
+        oauth2Client.setCredentials({ refresh_token: refreshToken })
+        console.log('[SYNC] Refreshing access token...')
+        await oauth2Client.refreshAccessToken()
+
+        // Use Gmail API to fetch messages
+        console.log('[SYNC] Initializing Gmail API...')
+        const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+        const searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)'
+        console.log('[SYNC] Fetching messages with query:', searchQuery)
+        const { data: list } = await gmail.users.messages.list({ userId: 'me', q: searchQuery, maxResults: 50 })
+
+        console.log('[SYNC] Gmail API response - list:', list ? 'exists' : 'null')
+        console.log('[SYNC] Gmail API response - list.messages:', list?.messages ? `array with ${list.messages.length} items` : 'null/undefined')
+        console.log('[SYNC] Gmail API response - list.messages type:', typeof list?.messages)
+        console.log('[SYNC] Gmail API response - list.messages isArray:', Array.isArray(list?.messages))
+
+        const flightEmails: any[] = []
+        if (list && list.messages && Array.isArray(list.messages) && list.messages.length > 0) {
+          console.log('[SYNC] Processing', list.messages.length, 'messages...')
+
+          for (const m of list.messages) {
+            if (!m.id) {
+              console.log('[SYNC] Skipping message with no ID')
+              continue
+            }
+
+            console.log('[SYNC] Fetching message details for ID:', m.id)
+            try {
+              const messageData = await gmail.users.messages.get({
+                userId: 'me',
+                id: m.id,
+                format: 'full'
+              })
+
+              console.log('[SYNC] Message data received for ID:', m.id)
+              const email = messageData.data
+              const headers = email.payload?.headers || []
+              console.log('[SYNC] Headers count:', headers.length)
+
+              // Check if headers is actually an array before calling find
+              if (!Array.isArray(headers)) {
+                console.error('[SYNC] CRITICAL: headers is not an array! Type:', typeof headers)
+                console.error('[SYNC] Headers value:', headers)
+                continue
+              }
+
+              console.log('[SYNC] About to call headers.find() for Subject...')
+              const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
+              console.log('[SYNC] Subject extracted:', subject)
+
+              console.log('[SYNC] About to call headers.find() for From...')
+              const from = headers.find((h: any) => h.name === 'From')?.value || ''
+              console.log('[SYNC] From extracted:', from)
+
+              console.log('[SYNC] About to call headers.find() for Date...')
+              const date = headers.find((h: any) => h.name === 'Date')?.value || ''
+              console.log('[SYNC] Date extracted:', date)
+
+              console.log('[SYNC] Extracting email content...')
+              const emailContent = extractEmailContent(email.payload)
+              console.log('[SYNC] Email content extracted, length:', emailContent.length)
+
+              console.log('[SYNC] Extracting flight info...')
+              const extractedFlights = await extractFlightInfo(emailContent, subject)
+              console.log('[SYNC] Flight info extracted:', extractedFlights)
+
+              flightEmails.push({
+                userId: userId,
+                emailAccountId: account.id,
+                messageId: m.id,
+                subject,
+                sender: from,
+                recipient: account.email || '',
+                bodyText: emailContent,
+                flightData: extractedFlights,
+                parsedData: extractedFlights,
+                confidenceScore: 0.8,
+                processingStatus: 'completed',
+                isProcessed: true,
+                dateReceived: date ? new Date(date) : new Date(),
+              })
+              console.log('[SYNC] Flight email added to array, total count:', flightEmails.length)
+            } catch (messageError) {
+              console.error('[SYNC] Error processing message ID:', m.id)
+              console.error('[SYNC] Message error details:', messageError)
+              console.error('[SYNC] Message error stack:', messageError instanceof Error ? messageError.stack : 'No stack trace')
+              // Continue processing other messages
+            }
+          }
+
+          console.log('[SYNC] Finished processing messages, flight emails count:', flightEmails.length)
+
+          // Save to database using Prisma createMany with skipDuplicates
+          if (flightEmails.length > 0) {
+            console.log('[SYNC] Saving flight emails to database...')
+            const insertResult = await prisma.flightEmail.createMany({
+              data: flightEmails,
+              skipDuplicates: true,
+            })
+            console.log('[SYNC] Insert result count:', insertResult.count)
+
+            // Fetch the inserted emails to create travel entries
+            if (insertResult.count > 0 && flightEmails && Array.isArray(flightEmails) && flightEmails.length > 0) {
+              console.log('[SYNC] Creating message IDs array for travel entries...')
+              console.log('[SYNC] flightEmails type:', typeof flightEmails)
+              console.log('[SYNC] flightEmails isArray:', Array.isArray(flightEmails))
+              console.log('[SYNC] flightEmails length:', flightEmails?.length)
+              console.log('[SYNC] flightEmails sample (first item):', flightEmails[0])
+
+              console.log('[SYNC] About to call flightEmails.map()...')
+              const messageIds = (flightEmails.map(e => e?.messageId) || []).filter(Boolean)
+              console.log('[SYNC] Message IDs extracted:', messageIds)
+
+              if (!messageIds || messageIds.length === 0) {
+                console.warn('[SYNC] No valid message IDs found in flight emails')
+                continue
+              }
+
+              console.log('[SYNC] Fetching inserted emails from database...')
+              const insertedEmails = await prisma.flightEmail.findMany({
+                where: {
+                  userId: userId,
+                  emailAccountId: account.id,
+                  messageId: {
+                    in: messageIds,
+                  },
+                },
+                select: {
+                  id: true,
+                  flightData: true,
+                  dateReceived: true,
+                },
+              })
+              console.log('[SYNC] Fetched inserted emails count:', insertedEmails?.length || 0)
+
+              const travelEntries = []
+              console.log('[SYNC] Creating travel entries...')
+              for (const email of insertedEmails || []) {
+                console.log('[SYNC] Processing email for travel entry, ID:', email.id)
+                if (email.flightData && email.dateReceived) {
+                  console.log('[SYNC] Calling createTravelEntries...')
+                  const entries = await createTravelEntries(
+                    userId,
+                    email.id,
+                    email.flightData,
+                    email.dateReceived.toISOString()
+                  )
+                  console.log('[SYNC] Travel entries created:', entries?.length || 0)
+                  if (entries && Array.isArray(entries) && entries.length > 0) {
+                    travelEntries.push(...entries)
+                    console.log('[SYNC] Total travel entries now:', travelEntries.length)
+                  }
+                }
+              }
+
+              if (travelEntries.length > 0) {
+                console.log('[SYNC] Saving travel entries to database, count:', travelEntries.length)
+                await prisma.travelEntry.createMany({
+                  data: travelEntries,
+                  skipDuplicates: true,
+                })
+                console.log('[SYNC] Travel entries saved')
+              }
+            }
+          }
+        } else {
+          console.log('[SYNC] No messages to process (list check failed)')
+        }
+
+        const emailCount = Array.isArray(flightEmails) ? flightEmails.length : 0
+        console.log('[SYNC] Email count for account:', emailCount)
+        totalCount += emailCount
+        aggregateResults.push({ accountId: account.id, email: account.email || '', count: emailCount })
+
+        console.log('[SYNC] Updating account sync status to completed...')
+        await prisma.emailAccount.update({
+          where: { id: account.id },
+          data: {
+            lastSync: new Date(),
+            syncStatus: 'completed',
+            errorMessage: null,
+            updatedAt: new Date(),
+          },
+        })
+        console.log('[SYNC] Account sync status updated')
+      } catch (accountError) {
+        console.error('[SYNC] Error processing account:', account.id)
+        console.error('[SYNC] Account error details:', accountError)
+        console.error('[SYNC] Account error stack:', accountError instanceof Error ? accountError.stack : 'No stack trace')
+        console.error('[SYNC] Account error name:', accountError instanceof Error ? accountError.name : 'Unknown')
+        console.error('[SYNC] Account error message:', accountError instanceof Error ? accountError.message : 'Unknown error')
+
+        // Update account status to failed
         await prisma.emailAccount.update({
           where: { id: account.id },
           data: {
             syncStatus: 'failed',
-            errorMessage: 'Invalid refresh token',
+            errorMessage: accountError instanceof Error ? accountError.message : 'Unknown error',
             updatedAt: new Date(),
           },
         })
-        continue
       }
-
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GMAIL_CLIENT_ID,
-        process.env.GMAIL_CLIENT_SECRET,
-        process.env.GMAIL_REDIRECT_URI,
-      )
-
-      oauth2Client.setCredentials({ refresh_token: refreshToken })
-      await oauth2Client.refreshAccessToken()
-
-      // Use Gmail API to fetch messages
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
-      const searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)'
-      const { data: list } = await gmail.users.messages.list({ userId: 'me', q: searchQuery, maxResults: 50 })
-
-      const flightEmails: any[] = []
-      if (list.messages && list.messages.length) {
-        for (const m of list.messages) {
-          if (!m.id) continue
-          
-          const messageData = await gmail.users.messages.get({
-            userId: 'me',
-            id: m.id,
-            format: 'full'
-          })
-          
-          const email = messageData.data
-          const headers = email.payload?.headers || []
-          const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
-          const from = headers.find((h: any) => h.name === 'From')?.value || ''
-          const date = headers.find((h: any) => h.name === 'Date')?.value || ''
-          const emailContent = extractEmailContent(email.payload)
-          const extractedFlights = await extractFlightInfo(emailContent, subject)
-
-          flightEmails.push({
-            userId: userId,
-            emailAccountId: account.id,
-            messageId: m.id,
-            subject,
-            sender: from,
-            recipient: account.email || '',
-            bodyText: emailContent,
-            flightData: extractedFlights,
-            parsedData: extractedFlights,
-            confidenceScore: 0.8,
-            processingStatus: 'completed',
-            isProcessed: true,
-            dateReceived: date ? new Date(date) : new Date(),
-          })
-        }
-
-        // Save to database using Prisma createMany with skipDuplicates
-        if (flightEmails.length > 0) {
-          const insertResult = await prisma.flightEmail.createMany({
-            data: flightEmails,
-            skipDuplicates: true,
-          })
-
-          // Fetch the inserted emails to create travel entries
-          if (insertResult.count > 0 && flightEmails && flightEmails.length > 0) {
-            const messageIds = flightEmails.map(e => e.messageId).filter(Boolean)
-            if (messageIds.length === 0) {
-              console.warn('No valid message IDs found in flight emails')
-              continue
-            }
-
-            const insertedEmails = await prisma.flightEmail.findMany({
-              where: {
-                userId: userId,
-                emailAccountId: account.id,
-                messageId: {
-                  in: messageIds,
-                },
-              },
-              select: {
-                id: true,
-                flightData: true,
-                dateReceived: true,
-              },
-            })
-
-            const travelEntries = []
-            for (const email of insertedEmails || []) {
-              if (email.flightData && email.dateReceived) {
-                const entries = await createTravelEntries(
-                  userId,
-                  email.id,
-                  email.flightData,
-                  email.dateReceived.toISOString()
-                )
-                if (entries && entries.length > 0) {
-                  travelEntries.push(...entries)
-                }
-              }
-            }
-
-            if (travelEntries.length > 0) {
-              await prisma.travelEntry.createMany({
-                data: travelEntries,
-                skipDuplicates: true,
-              })
-            }
-          }
-        }
-      }
-
-      totalCount += flightEmails.length
-      aggregateResults.push({ accountId: account.id, email: account.email || '', count: flightEmails.length })
-
-      await prisma.emailAccount.update({
-        where: { id: account.id },
-        data: {
-          lastSync: new Date(),
-          syncStatus: 'completed',
-          errorMessage: null,
-          updatedAt: new Date(),
-        },
-      })
     }
 
+    console.log('[SYNC] Gmail sync completed successfully, total count:', totalCount)
     return NextResponse.json({ success: true, totalCount, results: aggregateResults })
   } catch (error) {
-    console.error('Error syncing Gmail:', error)
+    console.error('[SYNC] Top-level error syncing Gmail:', error)
+    console.error('[SYNC] Error type:', typeof error)
+    console.error('[SYNC] Error constructor:', error?.constructor?.name)
+    console.error('[SYNC] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    console.error('[SYNC] Error message:', error instanceof Error ? error.message : 'Unknown error')
 
     // Update error status
     const accounts = await prisma.emailAccount.findMany({

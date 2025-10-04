@@ -164,32 +164,32 @@ export const getIntegrationStatus = async (): Promise<IntegrationStatus[]> => {
 
 // Booking Ingestion
 export const ingestGmailBookings = async (params: IngestParams): Promise<IngestResult> => {
-  const result = await apiCall<{ success: boolean; count: number; emails: any[] }>('/api/gmail/sync', {
+  const result = await apiCall<{ success: boolean; totalCount: number; results: Array<{ accountId: string, email: string, count: number }> }>('/api/gmail/sync', {
     method: 'POST',
     body: JSON.stringify(params),
   })
-  
+
   return {
     provider: 'gmail',
-    emailsProcessed: result.count,
-    bookingsFound: result.emails.filter(e => e.flight_data && Object.keys(e.flight_data).length > 0).length,
+    emailsProcessed: result.totalCount || 0,
+    bookingsFound: result.totalCount || 0, // All processed emails are flight-related
     duplicates: 0, // Not tracked in current API
-    errors: 0, // Not tracked in current API  
+    errors: 0, // Not tracked in current API
     duration: 0, // Not tracked in current API
     lastProcessed: new Date().toISOString(),
   }
 }
 
 export const ingestOffice365Bookings = async (params: IngestParams): Promise<IngestResult> => {
-  const result = await apiCall<{ success: boolean; count: number; emails: any[] }>('/api/office365/sync', {
+  const result = await apiCall<{ success: boolean; totalCount: number; results: Array<{ accountId: string, email: string, count: number }> }>('/api/office365/sync', {
     method: 'POST',
     body: JSON.stringify(params),
   })
-  
+
   return {
     provider: 'office365',
-    emailsProcessed: result.count,
-    bookingsFound: result.emails.filter(e => e.flight_data && Object.keys(e.flight_data).length > 0).length,
+    emailsProcessed: result.totalCount || 0,
+    bookingsFound: result.totalCount || 0, // All processed emails are flight-related
     duplicates: 0, // Not tracked in current API
     errors: 0, // Not tracked in current API
     duration: 0, // Not tracked in current API

@@ -12,6 +12,19 @@ function getKey() {
   return crypto.createHash('sha256').update(raw).digest()
 }
 
+function encrypt(text: string) {
+  const key = getKey()
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return JSON.stringify({
+    iv: iv.toString('base64'),
+    data: encrypted.toString('base64'),
+    tag: tag.toString('base64')
+  })
+}
+
 function decrypt(obj: any) {
   if (!obj || typeof obj === 'string') {
     try {
@@ -21,9 +34,9 @@ function decrypt(obj: any) {
     }
   }
   if (!obj.iv || !obj.data || !obj.tag) return null
-  
+
   const iv = Buffer.from(obj.iv, 'base64')
-  const data = Buffer.from(obj.data, 'base64') 
+  const data = Buffer.from(obj.data, 'base64')
   const tag = Buffer.from(obj.tag, 'base64')
   const key = getKey()
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
@@ -187,13 +200,69 @@ export async function POST(request: NextRequest) {
     }
 
     const account = emailAccounts[0]
-    const accessToken = decrypt(account.accessToken)
+    let accessToken = decrypt(account.accessToken)
+    const refreshToken = decrypt(account.refreshToken)
 
-    if (!accessToken) {
+    if (!refreshToken) {
       return NextResponse.json(
-        { success: false, error: 'Invalid access token' },
+        { success: false, error: 'No refresh token available' },
         { status: 400 }
       )
+    }
+
+    // Check if token is expired and refresh if necessary
+    const tokenExpiresAt = account.tokenExpiresAt
+    const now = new Date()
+
+    if (!accessToken || !tokenExpiresAt || tokenExpiresAt < now) {
+      console.log('[Office365 Sync] Token expired or missing, refreshing...')
+
+      // Refresh the access token
+      const tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+      const tokenParams = new URLSearchParams({
+        client_id: process.env.OFFICE365_CLIENT_ID!,
+        client_secret: process.env.OFFICE365_CLIENT_SECRET!,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+        scope: 'offline_access User.Read Mail.Read',
+      })
+
+      const tokenResponse = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: tokenParams,
+      })
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text()
+        console.error('[Office365 Sync] Token refresh failed:', errorText)
+        return NextResponse.json(
+          { success: false, error: 'Failed to refresh Office365 token. Please reconnect your account.' },
+          { status: 401 }
+        )
+      }
+
+      const tokens = await tokenResponse.json()
+      accessToken = tokens.access_token
+
+      // Update the stored tokens
+      const encryptedAccessToken = encrypt(tokens.access_token)
+      const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : account.refreshToken
+      const newExpiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000)
+
+      await prisma.emailAccount.update({
+        where: { id: account.id },
+        data: {
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken,
+          tokenExpiresAt: newExpiresAt,
+          updatedAt: new Date(),
+        },
+      })
+
+      console.log('[Office365 Sync] Token refreshed successfully')
     }
 
     // Fetch messages from Microsoft Graph API with server-side filtering
