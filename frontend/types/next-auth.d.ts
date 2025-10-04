@@ -1,46 +1,42 @@
-/**
- * NextAuth Type Augmentation
- *
- * Extends NextAuth types to include custom fields in Session and User.
- * This allows TypeScript to recognize the `id` field on session.user.
- */
-
-import 'next-auth'
-import 'next-auth/jwt'
+import { DefaultSession, DefaultUser } from 'next-auth'
+import { JWT, DefaultJWT } from 'next-auth/jwt'
 
 declare module 'next-auth' {
   /**
-   * Extends the built-in session.user type with custom fields
+   * Extends the built-in session types to include custom fields
    */
   interface Session {
     user: {
       id: string
       email: string
-      name: string | null
-      image: string | null
+      name?: string | null
+      image?: string | null
+      role?: string
+      provider?: string
     }
   }
 
   /**
-   * Extends the User type returned from providers
+   * Extends the built-in user types to include custom fields
    */
-  interface User {
+  interface User extends DefaultUser {
     id: string
-    email: string
-    name: string | null
-    image: string | null
+    role?: string
+    provider?: string
+    displayName?: string
+    photoUrl?: string
+    passwordHash?: string
+    lastLogin?: Date
   }
 }
 
 declare module 'next-auth/jwt' {
   /**
-   * Extends the JWT token with custom fields
+   * Extends the built-in JWT types to include custom fields
    */
-  interface JWT {
-    id: string
-    email: string
-    name: string
-    picture: string
+  interface JWT extends DefaultJWT {
+    id?: string
+    role?: string
     provider?: string
     accessToken?: string
     refreshToken?: string

@@ -17,6 +17,13 @@ datasource db {
 model User {
   id           String    @id @db.Uuid
   email        String    @unique
+
+  // NextAuth standard fields (required by PrismaAdapter)
+  name          String?   // Synced with displayName
+  emailVerified DateTime? @map("email_verified")
+  image         String?   // Synced with photoUrl
+
+  // Custom application fields
   role         String?   @default("user")
   displayName  String?   @map("display_name")
   photoUrl     String?   @map("photo_url")

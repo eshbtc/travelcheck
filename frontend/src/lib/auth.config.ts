@@ -16,21 +16,7 @@ const prisma = new PrismaClient()
  * JWT strategy for stateless authentication with encrypted tokens.
  */
 export const authOptions: NextAuthOptions = {
-  adapter: {
-    ...PrismaAdapter(prisma),
-    createUser: async (data: any) => {
-      return prisma.user.create({
-        data: {
-          id: crypto.randomUUID(),
-          email: data.email,
-          displayName: data.name,
-          photoUrl: data.image,
-          provider: 'oauth',
-          role: 'user',
-        },
-      })
-    },
-  } as any,
+  adapter: PrismaAdapter(prisma),
 
   providers: [
     GoogleProvider({
@@ -105,12 +91,12 @@ export const authOptions: NextAuthOptions = {
           data: { lastLogin: new Date() },
         })
 
-        // Return user object for session
+        // Return user object for session (using NextAuth standard fields)
         return {
           id: user.id,
           email: user.email,
-          name: user.displayName,
-          image: user.photoUrl,
+          name: user.name || user.displayName,
+          image: user.image || user.photoUrl,
         }
       },
     }),
@@ -124,7 +110,31 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 
   callbacks: {
-    async jwt({ token, account, profile }) {
+    async signIn({ user, account, profile }) {
+      // Sync custom fields on sign-in to ensure consistency between NextAuth and custom fields
+      if (user.id && account) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { role: true },
+        })
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            // Sync NextAuth standard fields to custom fields for backward compatibility
+            displayName: user.name || (profile as any)?.name,
+            photoUrl: user.image || (profile as any)?.picture || (profile as any)?.avatar_url,
+            provider: account.provider,
+            lastLogin: new Date(),
+            // Set default role only if not already set
+            ...(existingUser && !existingUser.role && { role: 'user' }),
+          },
+        })
+      }
+      return true
+    },
+
+    async jwt({ token, account, profile, user }) {
       // Store OAuth tokens in JWT for API access
       if (account) {
         token.accessToken = account.access_token
@@ -137,6 +147,11 @@ export const authOptions: NextAuthOptions = {
         token.email = profile.email || ''
         token.name = profile.name || ''
         token.picture = (profile as any).picture || (profile as any).avatar_url
+      }
+
+      // Include user ID from initial sign-in
+      if (user) {
+        token.sub = user.id
       }
 
       return token
