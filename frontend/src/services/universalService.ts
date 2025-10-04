@@ -27,8 +27,10 @@ export class UniversalTravelService {
         method: 'POST',
         body: JSON.stringify({
           reportType,
-          country,
-          dateRange,
+          title: typeof reportType === 'object' && 'purpose' in reportType ? reportType.purpose : 'Travel Report',
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+          countries: country !== 'Global' ? [country] : undefined,
           ...options
         })
       });

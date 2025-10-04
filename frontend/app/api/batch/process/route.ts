@@ -8,6 +8,21 @@ export async function POST(request: NextRequest) {
 
   const userId = session.user.id
 
+  // Check database connection
+  try {
+    await prisma.$queryRaw`SELECT 1`
+  } catch (dbError) {
+    console.error('[Batch Process] Database connection failed:', dbError)
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Database unavailable',
+        details: 'Unable to connect to database. Please try again later.'
+      },
+      { status: 503 }
+    )
+  }
+
   // Validate request has body
   let body: any
 
@@ -142,19 +157,25 @@ export async function POST(request: NextRequest) {
           confidence: Math.random() * 0.3 + 0.7 // Random confidence 0.7-1.0
         }
 
-        // Save to database
-        const savedScan = await prisma.passportScan.create({
-          data: {
-            userId: userId,
-            fileName: imageFile.filename || `batch_${batchId}_${i + 1}.jpg`,
-            fileUrl: `placeholder://batch_${batchId}_${i + 1}`, // Placeholder URL
-            ocrText: mockExtraction.ocrText,
-            passportInfo: mockExtraction.passportInfo,
-            confidenceScore: mockExtraction.confidence,
-            processingStatus: 'completed',
-            batchId
-          }
-        })
+        // Save to database with error handling
+        let savedScan
+        try {
+          savedScan = await prisma.passportScan.create({
+            data: {
+              userId: userId,
+              fileName: imageFile.filename || `batch_${batchId}_${i + 1}.jpg`,
+              fileUrl: `placeholder://batch_${batchId}_${i + 1}`, // Placeholder URL
+              ocrText: mockExtraction.ocrText,
+              passportInfo: mockExtraction.passportInfo as any,
+              confidenceScore: mockExtraction.confidence,
+              processingStatus: 'completed',
+              batchId
+            }
+          })
+        } catch (dbError) {
+          console.error(`[Batch Process] Database error for file ${i + 1}:`, dbError)
+          throw new Error(`Database save failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`)
+        }
 
         results.push({
           filename: imageFile.filename,
@@ -190,19 +211,24 @@ export async function POST(request: NextRequest) {
       duration: new Date(batchStatus.endTime).getTime() - new Date(batchStatus.startTime).getTime()
     })
 
-    // Save batch processing record
-    await prisma.batchOperation.create({
-      data: {
-        userId: userId,
-        batchId,
-        operationType: 'passport_processing',
-        status: batchStatus.failed === 0 ? 'completed' : 'partial',
-        results: {
-          ...batchStatus,
-          files: results
+    // Save batch processing record with error handling
+    try {
+      await prisma.batchOperation.create({
+        data: {
+          userId: userId,
+          batchId,
+          operationType: 'passport_processing',
+          status: batchStatus.failed === 0 ? 'completed' : 'partial',
+          results: {
+            ...batchStatus,
+            files: results
+          } as any
         }
-      }
-    })
+      })
+    } catch (batchOpError) {
+      console.warn('[Batch Process] Failed to save batch operation record:', batchOpError)
+      // Continue anyway - the actual processing succeeded
+    }
 
     return NextResponse.json({
       success: true,

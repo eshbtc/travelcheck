@@ -14,22 +14,8 @@ async function isAdmin(user: any): Promise<boolean> {
   return userDoc?.role === 'admin'
 }
 
-export async function POST(request: NextRequest) {
-  const session = await requireAuth(request)
-  if (session instanceof NextResponse) return session
-
-  const userId = session.user.id
-
-  // Admin only operation
-  if (!(await isAdmin(userId))) {
-    return NextResponse.json(
-      { success: false, error: 'Admin access required' },
-      { status: 403 }
-    )
-  }
-
+async function handleOptimization(userId: string, body: any) {
   try {
-    const body = await request.json()
     const { 
       operation = 'analyze', 
       batchSize = 50,
@@ -284,4 +270,51 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+export async function GET(request: NextRequest) {
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
+
+  // Admin only operation
+  if (!(await isAdmin(userId))) {
+    return NextResponse.json(
+      { success: false, error: 'Admin access required' },
+      { status: 403 }
+    )
+  }
+
+  // Parse query parameters
+  const { searchParams } = new URL(request.url)
+  const operation = searchParams.get('operation') || 'analyze'
+  const batchSize = parseInt(searchParams.get('batchSize') || '50', 10)
+  const priorityUser = searchParams.get('priorityUser') || null
+  const optimizationType = searchParams.get('optimizationType') || 'performance'
+
+  return handleOptimization(userId, {
+    operation,
+    batchSize,
+    priorityUser,
+    optimizationType
+  })
+}
+
+export async function POST(request: NextRequest) {
+  const session = await requireAuth(request)
+  if (session instanceof NextResponse) return session
+
+  const userId = session.user.id
+
+  // Admin only operation
+  if (!(await isAdmin(userId))) {
+    return NextResponse.json(
+      { success: false, error: 'Admin access required' },
+      { status: 403 }
+    )
+  }
+
+  const body = await request.json()
+  return handleOptimization(userId, body)
 }

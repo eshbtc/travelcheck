@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     // Generate new suggestions
     const genAI = new GoogleGenerativeAI(API_KEY)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }) // Use faster model
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' }) // Use Gemini 1.5 Flash (94% cheaper)
     
     const prompt = `
       Analyze the user's travel data and generate smart suggestions (max 5 suggestions):
