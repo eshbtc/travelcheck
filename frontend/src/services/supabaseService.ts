@@ -148,7 +148,7 @@ class SupabaseServiceStub {
     console.log('[SupabaseService] Sending POST to /api/batch/process')
 
     try {
-      const response = await fetch('/api/batch/process', {
+      const response = await fetch('/api/batch/process/', {
         method: 'POST',
         body: formData
         // Note: Do NOT set Content-Type header - browser will set it with boundary

@@ -23,7 +23,7 @@ export class UniversalTravelService {
     } = {}
   ): Promise<UniversalReport> {
     try {
-      const result = await supabaseService.apiCall('/api/reports/generate', {
+      const result = await supabaseService.apiCall('/api/reports/generate/', {
         method: 'POST',
         body: JSON.stringify({
           reportType,
