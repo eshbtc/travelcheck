@@ -143,23 +143,79 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    if (!parameters.reportType || !parameters.startDate || !parameters.endDate) {
+    // Validate required parameters with better error messages
+    if (!parameters.reportType) {
       return NextResponse.json(
-        { success: false, error: 'Missing required parameters: reportType, startDate, endDate' },
+        { success: false, error: 'Missing required parameter: reportType' },
+        { status: 400 }
+      )
+    }
+    if (!parameters.startDate) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required parameter: startDate' },
+        { status: 400 }
+      )
+    }
+    if (!parameters.endDate) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required parameter: endDate' },
+        { status: 400 }
+      )
+    }
+
+    // Validate date formats
+    const startDateTest = new Date(parameters.startDate)
+    const endDateTest = new Date(parameters.endDate)
+    if (isNaN(startDateTest.getTime())) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid startDate format. Expected ISO-8601 date string.' },
+        { status: 400 }
+      )
+    }
+    if (isNaN(endDateTest.getTime())) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid endDate format. Expected ISO-8601 date string.' },
+        { status: 400 }
+      )
+    }
+
+    // Normalize reportType to string if it's an object
+    let reportTypeString: string
+    if (typeof parameters.reportType === 'object' && parameters.reportType !== null) {
+      if ('category' in parameters.reportType) {
+        const reportObj = parameters.reportType as { category: string; purpose?: string }
+        reportTypeString = reportObj.category
+        // Auto-generate title from purpose if available
+        if (!parameters.title && reportObj.purpose) {
+          parameters.title = reportObj.purpose
+        }
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Invalid reportType object. Expected { category: string, purpose?: string }' },
+          { status: 400 }
+        )
+      }
+    } else if (typeof parameters.reportType === 'string') {
+      reportTypeString = parameters.reportType
+    } else {
+      return NextResponse.json(
+        { success: false, error: 'reportType must be a string or object with category field' },
+        { status: 400 }
+      )
+    }
+
+    // Validate reportTypeString is a valid type
+    const validReportTypes = ['presence', 'travel_summary', 'tax_residency', 'visa_compliance', 'custom']
+    if (!validReportTypes.includes(reportTypeString)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid reportType. Must be one of: ${validReportTypes.join(', ')}` },
         { status: 400 }
       )
     }
 
     // Auto-generate title if not provided
     if (!parameters.title) {
-      if (typeof parameters.reportType === 'object' && 'category' in parameters.reportType) {
-        // If reportType is an object with category and purpose
-        const reportObj = parameters.reportType as { category: string; purpose?: string }
-        parameters.title = reportObj.purpose || `${reportObj.category} Report`
-      } else {
-        // If reportType is a string
-        parameters.title = `${String(parameters.reportType).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Report`
-      }
+      parameters.title = `${reportTypeString.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Report`
     }
 
     // Get travel entries for the date range
@@ -177,9 +233,9 @@ export async function POST(request: NextRequest) {
       orderBy: { entryDate: 'asc' }
     })
 
-    // Generate report based on type
+    // Generate report based on type (use normalized string)
     let reportData
-    switch (parameters.reportType) {
+    switch (reportTypeString) {
       case 'presence':
         reportData = generatePresenceReport(entries || [], parameters)
         break
@@ -206,16 +262,19 @@ export async function POST(request: NextRequest) {
         reportData = generateTravelSummaryReport(entries || [], parameters)
     }
 
-    // Save report to database
+    // Save report to database (use normalized reportTypeString)
     let savedReport
     try {
       savedReport = await prisma.report.create({
         data: {
           userId: userId,
-          reportType: parameters.reportType,
+          reportType: reportTypeString,
           title: parameters.title,
           description: parameters.description || '',
-          parameters: parameters as any,
+          parameters: {
+            ...parameters,
+            reportType: reportTypeString // Save normalized version
+          } as any,
           reportData: reportData as any,
           fileFormat: parameters.format || 'json',
           status: 'generated'

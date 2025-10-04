@@ -465,13 +465,19 @@ export async function POST(request: NextRequest) {
           })
 
           // Fetch the inserted emails to create travel entries
-          if (insertResult.count > 0) {
+          if (insertResult.count > 0 && flightEmails && flightEmails.length > 0) {
+            const messageIds = flightEmails.map(e => e.messageId).filter(Boolean)
+            if (messageIds.length === 0) {
+              console.warn('No valid message IDs found in flight emails')
+              continue
+            }
+
             const insertedEmails = await prisma.flightEmail.findMany({
               where: {
                 userId: userId,
                 emailAccountId: account.id,
                 messageId: {
-                  in: flightEmails.map(e => e.messageId),
+                  in: messageIds,
                 },
               },
               select: {
@@ -482,7 +488,7 @@ export async function POST(request: NextRequest) {
             })
 
             const travelEntries = []
-            for (const email of insertedEmails) {
+            for (const email of insertedEmails || []) {
               if (email.flightData && email.dateReceived) {
                 const entries = await createTravelEntries(
                   userId,
@@ -490,7 +496,9 @@ export async function POST(request: NextRequest) {
                   email.flightData,
                   email.dateReceived.toISOString()
                 )
-                travelEntries.push(...entries)
+                if (entries && entries.length > 0) {
+                  travelEntries.push(...entries)
+                }
               }
             }
 

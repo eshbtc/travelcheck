@@ -98,7 +98,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!API_KEY) {
-      return NextResponse.json({ success: false, error: 'Google AI API key not configured' }, { status: 501 })
+      console.error('GOOGLE_AI_API_KEY environment variable is not set')
+      return NextResponse.json({
+        success: false,
+        error: 'AI service temporarily unavailable. Please contact support if this persists.',
+        technical_error: 'Google AI API key not configured'
+      }, { status: 503 })
     }
 
     // Check rate limit
@@ -160,18 +165,30 @@ export async function POST(request: NextRequest) {
       Keep responses concise and actionable.
     `
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const text = response.text()
-    
+    let result, response, text
+    try {
+      result = await model.generateContent(prompt)
+      response = await result.response
+      text = response.text()
+    } catch (apiError) {
+      console.error('Google AI API error:', apiError)
+      return NextResponse.json({
+        success: false,
+        error: 'AI service error. Please try again later.',
+        technical_error: apiError instanceof Error ? apiError.message : 'Unknown API error'
+      }, { status: 503 })
+    }
+
     let parsedData
     try {
       parsedData = JSON.parse(text)
-    } catch {
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', text)
       parsedData = {
         suggestions: [],
         conflictingData: [],
-        potentialGaps: []
+        potentialGaps: [],
+        _raw_response: text
       }
     }
 
