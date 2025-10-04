@@ -50,18 +50,90 @@ function extractEmailContent(payload: any): string {
   return content
 }
 
+// Normalize and validate date strings to ISO-8601 format (YYYY-MM-DD)
+function normalizeDate(dateStr: string): string | null {
+  if (!dateStr || typeof dateStr !== 'string') return null
+
+  // Remove extra whitespace
+  dateStr = dateStr.trim()
+
+  try {
+    // Try parsing as-is first
+    const parsed = new Date(dateStr)
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0]
+    }
+
+    // Handle various formats:
+    // 1. MM/DD/YYYY or MM-DD-YYYY or MM/DD/YY or MM-DD-YY
+    const slashOrDash = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/
+    let match = dateStr.match(slashOrDash)
+    if (match) {
+      let [, month, day, year] = match
+      // Convert 2-digit year to 4-digit
+      if (year.length === 2) {
+        const yearNum = parseInt(year, 10)
+        year = yearNum < 50 ? `20${year}` : `19${year}`
+      }
+      const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]
+      }
+    }
+
+    // 2. Month name formats: "January 20, 2025" or "Jan 20, 2025" or "20 January 2025"
+    const monthNames = /^(\w+)\s+(\d{1,2}),?\s+(\d{4})$/
+    match = dateStr.match(monthNames)
+    if (match) {
+      const [, month, day, year] = match
+      const date = new Date(`${month} ${day}, ${year}`)
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]
+      }
+    }
+
+    // 3. Reverse format: "20 January 2025"
+    const reverseMonth = /^(\d{1,2})\s+(\w+)\s+(\d{4})$/
+    match = dateStr.match(reverseMonth)
+    if (match) {
+      const [, day, month, year] = match
+      const date = new Date(`${month} ${day}, ${year}`)
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]
+      }
+    }
+
+    // 4. ISO-8601 format: "2025-08-30" or "20250830"
+    const iso = /^(\d{4})-?(\d{2})-?(\d{2})$/
+    match = dateStr.match(iso)
+    if (match) {
+      const [, year, month, day] = match
+      const date = new Date(`${year}-${month}-${day}`)
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error(`Date normalization failed for "${dateStr}":`, error)
+    return null
+  }
+}
+
 // Mock flight extraction (replace with real AI/NLP service)
 async function extractFlightInfo(emailContent: string, subject: string) {
   // Simple pattern matching for demo - in production use proper AI/NLP
   const combinedText = `${subject} ${emailContent}`
-  
+
   const flightPatterns = {
     airline: /(?:airline|carrier)[:\s]+([a-z\s]+)|^([a-z\s]{2,20})\s+flight|(\b(?:american|delta|united|southwest|jetblue|alaska|spirit|frontier)\b)/i,
     flightNumber: /flight[:\s#]*([a-z]{2}\d{3,4})|(\b[a-z]{2}\s*\d{3,4}\b)/i,
     confirmation: /confirmation[:\s#]*([a-z0-9]{6,})|booking[:\s#]*([a-z0-9]{6,})/i,
     departure: /(?:depart|from)[:\s]*([a-z]{3})|(\b[A-Z]{3}\b)\s*(?:to|→)|departing\s*([a-z]{3})/i,
     arrival: /(?:arrive|to|arriving)[:\s]*([a-z]{3})|(?:to|→)\s*(\b[A-Z]{3}\b)/i,
-    date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w{3}\s+\d{1,2},?\s+\d{4})/
+    // Improved date pattern - capture full month names and various formats
+    date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w+\s+\d{1,2},?\s+\d{4})|(\d{1,2}\s+\w+\s+\d{4})|(\d{4}-\d{2}-\d{2})/i
   }
 
   const extracted: any = {}
@@ -69,7 +141,19 @@ async function extractFlightInfo(emailContent: string, subject: string) {
     const match = combinedText.match(pattern)
     if (match) {
       // Get first non-undefined capture group
-      extracted[key] = match.find((m, i) => i > 0 && m !== undefined)?.trim()
+      const rawValue = match.find((m, i) => i > 0 && m !== undefined)?.trim()
+
+      // Special handling for date fields - normalize to ISO-8601
+      if (key === 'date' && rawValue) {
+        const normalized = normalizeDate(rawValue)
+        if (normalized) {
+          extracted[key] = normalized
+        } else {
+          console.warn(`Failed to normalize date: "${rawValue}"`)
+        }
+      } else {
+        extracted[key] = rawValue
+      }
     }
   })
 
@@ -92,29 +176,45 @@ const AIRPORT_COUNTRIES: Record<string, string> = {
 
 // Create travel entries from extracted flight data (Prisma format)
 async function createTravelEntries(userId: string, flightEmailId: string, flightData: any, emailDate: string) {
-  const entries = []
+  const entries: any[] = []
 
   if (flightData.departure && flightData.arrival && flightData.date) {
-    // Parse date
-    let entryDate: Date
+    // Validate and normalize the date - flightData.date should already be in ISO-8601 format
+    let entryDateStr: string
+
     try {
-      if (flightData.date.includes('/') || flightData.date.includes('-')) {
-        entryDate = new Date(flightData.date)
+      // If date is already in ISO-8601 format (YYYY-MM-DD), use it directly
+      if (/^\d{4}-\d{2}-\d{2}$/.test(flightData.date)) {
+        // Validate it's a valid date
+        const testDate = new Date(flightData.date)
+        if (isNaN(testDate.getTime())) {
+          throw new Error('Invalid date')
+        }
+        entryDateStr = flightData.date
       } else {
-        entryDate = new Date(flightData.date)
+        // Try to normalize the date
+        const normalized = normalizeDate(flightData.date)
+        if (normalized) {
+          entryDateStr = normalized
+        } else {
+          throw new Error('Date normalization failed')
+        }
       }
-      if (isNaN(entryDate.getTime())) {
-        entryDate = new Date(emailDate)
+    } catch (error) {
+      // Fallback to email received date
+      console.warn(`Invalid flight date "${flightData.date}" for email ${flightEmailId}, using email date as fallback`)
+      const fallbackDate = new Date(emailDate)
+      if (isNaN(fallbackDate.getTime())) {
+        // Skip this entry if we can't get a valid date
+        console.error(`Cannot create travel entry: both flight date and email date are invalid`)
+        return entries
       }
-    } catch {
-      entryDate = new Date(emailDate)
+      entryDateStr = fallbackDate.toISOString().split('T')[0]
     }
 
     // Extract country codes from airport codes
     const departureCountry = AIRPORT_COUNTRIES[flightData.departure.toUpperCase()] || 'UNKNOWN'
     const arrivalCountry = AIRPORT_COUNTRIES[flightData.arrival.toUpperCase()] || 'UNKNOWN'
-
-    const entryDateStr = entryDate.toISOString().split('T')[0]
 
     // Create departure entry (exit from departure country)
     if (departureCountry !== 'UNKNOWN') {
