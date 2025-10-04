@@ -437,9 +437,10 @@ export async function POST(request: NextRequest) {
       accountId,
       pageToken,
       syncFromDate,
-      maxResults = 200 // Default to 200, max cap at 500 for safety
+      maxResults = 200, // Default to 200, max cap at 500 for safety
+      syncAll = false, // Sync all pages automatically
     } = body
-    console.log('[SYNC] Request body:', { accountId, pageToken, syncFromDate, maxResults })
+    console.log('[SYNC] Request body:', { accountId, pageToken, syncFromDate, maxResults, syncAll })
 
     // Get user's Gmail accounts (optionally a specific account)
     console.log('[SYNC] Fetching email accounts...')
@@ -474,9 +475,19 @@ export async function POST(request: NextRequest) {
     }> = []
     let totalCount = 0
     let nextPageToken: string | null | undefined = null
+    let allPagesStats = {
+      totalFetched: 0,
+      totalAlreadyProcessed: 0,
+      totalNewlyAdded: 0,
+      totalFailed: 0,
+      pagesProcessed: 0,
+    }
 
     // Validate and cap maxResults
     const cappedMaxResults = Math.min(Math.max(1, maxResults), 500)
+
+    // Safety limit for syncAll to prevent infinite loops
+    const MAX_PAGES = 10
 
     for (const account of emailAccounts) {
       console.log('[SYNC] Processing account:', account.id, account.email)
@@ -780,6 +791,48 @@ export async function POST(request: NextRequest) {
 
     console.log('[SYNC] Gmail sync completed successfully, total count:', totalCount)
 
+    // If syncAll is enabled and there's a nextPageToken, continue fetching recursively
+    if (syncAll && nextPageToken && allPagesStats.pagesProcessed < MAX_PAGES) {
+      console.log('[SYNC] SyncAll enabled, fetching next page...')
+      allPagesStats.pagesProcessed++
+
+      // Make recursive call to fetch next page
+      try {
+        const nextPageResponse = await fetch(request.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...Object.fromEntries(request.headers),
+          },
+          body: JSON.stringify({
+            accountId,
+            pageToken: nextPageToken,
+            syncFromDate,
+            maxResults,
+            syncAll: true, // Keep syncAll enabled
+          }),
+        })
+
+        if (nextPageResponse.ok) {
+          const nextPageData = await nextPageResponse.json()
+
+          // Accumulate stats
+          if (nextPageData.stats) {
+            allPagesStats.totalFetched += nextPageData.stats.fetched || 0
+            allPagesStats.totalAlreadyProcessed += nextPageData.stats.alreadyProcessed || 0
+            allPagesStats.totalNewlyAdded += nextPageData.stats.newlyAdded || 0
+            allPagesStats.totalFailed += nextPageData.stats.failed || 0
+          }
+
+          // Update nextPageToken for final response
+          nextPageToken = nextPageData.nextPageToken
+        }
+      } catch (recursiveError) {
+        console.error('[SYNC] Error during recursive syncAll:', recursiveError)
+        // Don't fail the entire sync, just stop pagination
+      }
+    }
+
     // Calculate aggregate stats across all accounts
     const aggregateStats = aggregateResults.reduce(
       (acc, result) => ({
@@ -791,13 +844,22 @@ export async function POST(request: NextRequest) {
       { fetched: 0, alreadyProcessed: 0, newlyAdded: 0, failed: 0 }
     )
 
+    // If syncAll was used, include the accumulated stats
+    if (syncAll && allPagesStats.pagesProcessed > 0) {
+      aggregateStats.fetched += allPagesStats.totalFetched
+      aggregateStats.alreadyProcessed += allPagesStats.totalAlreadyProcessed
+      aggregateStats.newlyAdded += allPagesStats.totalNewlyAdded
+      aggregateStats.failed += allPagesStats.totalFailed
+    }
+
     return NextResponse.json({
       success: true,
-      totalCount,
+      totalCount: syncAll ? aggregateStats.newlyAdded : totalCount,
       stats: aggregateStats,
       results: aggregateResults,
       nextPageToken: nextPageToken || undefined,
-      hasMore: !!nextPageToken
+      hasMore: !!nextPageToken,
+      ...(syncAll && { pagesProcessed: allPagesStats.pagesProcessed + 1 }),
     })
   } catch (error) {
     console.error('[SYNC] Top-level error syncing Gmail:', error)

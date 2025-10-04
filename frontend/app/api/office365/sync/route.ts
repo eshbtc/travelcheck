@@ -184,11 +184,22 @@ export async function POST(request: NextRequest) {
       accountId,
       skipToken,
       syncFromDate,
-      maxResults = 200 // Default to 200, max cap at 500 for safety
+      maxResults = 200, // Default to 200, max cap at 500 for safety
+      syncAll = false, // Sync all pages automatically
     } = body
 
     // Validate and cap maxResults
     const cappedMaxResults = Math.min(Math.max(1, maxResults), 500)
+
+    // Safety limit for syncAll to prevent infinite loops
+    const MAX_PAGES = 10
+    let allPagesStats = {
+      totalFetched: 0,
+      totalAlreadyProcessed: 0,
+      totalNewlyAdded: 0,
+      totalFailed: 0,
+      pagesProcessed: 0,
+    }
 
     // Get user's Office365 account(s)
     const emailAccounts = await prisma.emailAccount.findMany({
@@ -330,7 +341,7 @@ export async function POST(request: NextRequest) {
 
     const json = await response.json()
     let items = json.value || []
-    const nextSkipToken = json['@odata.nextLink']
+    let nextSkipToken: string | null = json['@odata.nextLink']
       ? new URL(json['@odata.nextLink']).searchParams.get('$skiptoken')
       : null
 
@@ -471,28 +482,69 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // If syncAll is enabled and there's a nextSkipToken, continue fetching recursively
+    if (syncAll && nextSkipToken && allPagesStats.pagesProcessed < MAX_PAGES) {
+      console.log('[Office365 Sync] SyncAll enabled, fetching next page...')
+      allPagesStats.pagesProcessed++
+
+      // Make recursive call to fetch next page
+      try {
+        const nextPageResponse = await fetch(request.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...Object.fromEntries(request.headers),
+          },
+          body: JSON.stringify({
+            accountId,
+            skipToken: nextSkipToken,
+            syncFromDate,
+            maxResults,
+            syncAll: true, // Keep syncAll enabled
+          }),
+        })
+
+        if (nextPageResponse.ok) {
+          const nextPageData = await nextPageResponse.json()
+
+          // Accumulate stats
+          if (nextPageData.stats) {
+            allPagesStats.totalFetched += nextPageData.stats.fetched || 0
+            allPagesStats.totalAlreadyProcessed += nextPageData.stats.alreadyProcessed || 0
+            allPagesStats.totalNewlyAdded += nextPageData.stats.newlyAdded || 0
+            allPagesStats.totalFailed += nextPageData.stats.failed || 0
+          }
+
+          // Update nextSkipToken for final response
+          nextSkipToken = nextPageData.nextPageToken
+        }
+      } catch (recursiveError) {
+        console.error('[Office365 Sync] Error during recursive syncAll:', recursiveError)
+        // Don't fail the entire sync, just stop pagination
+      }
+    }
+
+    // Calculate final stats
+    const finalStats = {
+      fetched: fetchedCount + allPagesStats.totalFetched,
+      alreadyProcessed: alreadyProcessedCount + allPagesStats.totalAlreadyProcessed,
+      newlyAdded: newlyAddedCount + allPagesStats.totalNewlyAdded,
+      failed: failedCount + allPagesStats.totalFailed,
+    }
+
     return NextResponse.json({
       success: true,
-      totalCount: newlyAddedCount,
-      stats: {
-        fetched: fetchedCount,
-        alreadyProcessed: alreadyProcessedCount,
-        newlyAdded: newlyAddedCount,
-        failed: failedCount
-      },
+      totalCount: syncAll ? finalStats.newlyAdded : newlyAddedCount,
+      stats: finalStats,
       results: [{
         accountId: account.id,
         email: account.email || '',
         count: flightEmails.length,
-        stats: {
-          fetched: fetchedCount,
-          alreadyProcessed: alreadyProcessedCount,
-          newlyAdded: newlyAddedCount,
-          failed: failedCount
-        }
+        stats: finalStats,
       }],
       nextPageToken: nextSkipToken || undefined,
-      hasMore: !!nextSkipToken
+      hasMore: !!nextSkipToken,
+      ...(syncAll && { pagesProcessed: allPagesStats.pagesProcessed + 1 }),
     })
   } catch (error) {
     console.error('Error syncing Office365:', error)

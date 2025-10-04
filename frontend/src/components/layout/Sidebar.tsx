@@ -16,6 +16,7 @@ import {
   ExclamationTriangleIcon,
   XMarkIcon,
   ArrowUpTrayIcon,
+  InboxIcon,
 } from '@heroicons/react/24/outline'
 
 interface SidebarProps {
@@ -70,6 +71,7 @@ export function Sidebar({ onClose, collapsed = false, onToggleCollapse }: Sideba
     { name: 'Travel Calendar', href: '/travel/calendar', icon: ChartBarIcon },
     { name: 'Travel History', href: '/travel/history', icon: DocumentTextIcon },
     { name: 'Evidence', href: '/travel/evidence', icon: DocumentTextIcon },
+    { name: 'Emails', href: '/emails', icon: InboxIcon },
     { name: 'Travel Map', href: '/travel/map', icon: GlobeAltIcon },
     { name: 'Resolution Center', href: '/resolution', icon: ExclamationTriangleIcon },
     { name: 'Integrations', href: '/integrations', icon: EnvelopeIcon },

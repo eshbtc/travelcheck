@@ -14,6 +14,7 @@ export interface IngestParams {
   providers: string[]
   lookbackDays: number
   maxResults?: number
+  syncAll?: boolean
 }
 
 export interface IngestResult {
@@ -164,34 +165,58 @@ export const getIntegrationStatus = async (): Promise<IntegrationStatus[]> => {
 
 // Booking Ingestion
 export const ingestGmailBookings = async (params: IngestParams): Promise<IngestResult> => {
-  const result = await apiCall<{ success: boolean; totalCount: number; results: Array<{ accountId: string, email: string, count: number }> }>('/api/gmail/sync', {
+  const result = await apiCall<{
+    success: boolean
+    totalCount: number
+    results: Array<{ accountId: string, email: string, count: number }>
+    stats?: { fetched: number, alreadyProcessed: number, newlyAdded: number, failed: number }
+    pagesProcessed?: number
+  }>('/api/gmail/sync', {
     method: 'POST',
-    body: JSON.stringify(params),
-  })
+    body: JSON.stringify({
+      syncFromDate: params.lookbackDays
+        ? new Date(Date.now() - params.lookbackDays * 24 * 60 * 60 * 1000).toISOString()
+        : undefined,
+      maxResults: params.maxResults,
+      syncAll: params.syncAll,
+    }),
+  }, params.syncAll ? 300000 : 30000) // 5 min timeout for syncAll, 30 sec for normal
 
   return {
     provider: 'gmail',
-    emailsProcessed: result.totalCount || 0,
-    bookingsFound: result.totalCount || 0, // All processed emails are flight-related
-    duplicates: 0, // Not tracked in current API
-    errors: 0, // Not tracked in current API
+    emailsProcessed: result.stats?.fetched || result.totalCount || 0,
+    bookingsFound: result.stats?.newlyAdded || result.totalCount || 0,
+    duplicates: result.stats?.alreadyProcessed || 0,
+    errors: result.stats?.failed || 0,
     duration: 0, // Not tracked in current API
     lastProcessed: new Date().toISOString(),
   }
 }
 
 export const ingestOffice365Bookings = async (params: IngestParams): Promise<IngestResult> => {
-  const result = await apiCall<{ success: boolean; totalCount: number; results: Array<{ accountId: string, email: string, count: number }> }>('/api/office365/sync', {
+  const result = await apiCall<{
+    success: boolean
+    totalCount: number
+    results: Array<{ accountId: string, email: string, count: number }>
+    stats?: { fetched: number, alreadyProcessed: number, newlyAdded: number, failed: number }
+    pagesProcessed?: number
+  }>('/api/office365/sync', {
     method: 'POST',
-    body: JSON.stringify(params),
-  })
+    body: JSON.stringify({
+      syncFromDate: params.lookbackDays
+        ? new Date(Date.now() - params.lookbackDays * 24 * 60 * 60 * 1000).toISOString()
+        : undefined,
+      maxResults: params.maxResults,
+      syncAll: params.syncAll,
+    }),
+  }, params.syncAll ? 300000 : 30000) // 5 min timeout for syncAll, 30 sec for normal
 
   return {
     provider: 'office365',
-    emailsProcessed: result.totalCount || 0,
-    bookingsFound: result.totalCount || 0, // All processed emails are flight-related
-    duplicates: 0, // Not tracked in current API
-    errors: 0, // Not tracked in current API
+    emailsProcessed: result.stats?.fetched || result.totalCount || 0,
+    bookingsFound: result.stats?.newlyAdded || result.totalCount || 0,
+    duplicates: result.stats?.alreadyProcessed || 0,
+    errors: result.stats?.failed || 0,
     duration: 0, // Not tracked in current API
     lastProcessed: new Date().toISOString(),
   }
