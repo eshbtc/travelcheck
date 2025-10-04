@@ -18,8 +18,8 @@ interface ImageFile {
   hash?: string;
 }
 
-export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> = ({ 
-  onProcessingComplete 
+export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> = ({
+  onProcessingComplete
 }) => {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -28,6 +28,17 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
   const [processingResult, setProcessingResult] = useState<BatchProcessingResult | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Debug: Log whenever processingResult changes
+  React.useEffect(() => {
+    console.log('[BatchProcessingInterface] processingResult state changed:', {
+      hasResult: !!processingResult,
+      success: processingResult?.success,
+      hasData: !!processingResult?.data,
+      scansCount: processingResult?.data?.scans?.length,
+      scans: processingResult?.data?.scans
+    })
+  }, [processingResult])
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -103,23 +114,53 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
   const processBatch = async () => {
     if (images.length === 0) return;
 
+    console.log('[BatchProcessingInterface] ===== PROCESS BATCH START =====')
+    console.log('[BatchProcessingInterface] Images count:', images.length)
+
     try {
       setProcessing(true);
 
       // Extract files from images array
       const files = images.map(img => img.file);
+      console.log('[BatchProcessingInterface] Extracted files:', files.map(f => ({ name: f.name, size: f.size })))
 
+      console.log('[BatchProcessingInterface] Calling supabaseService.processBatchPassportImages...')
       const result = await supabaseService.processBatchPassportImages(files);
+
+      console.log('[BatchProcessingInterface] Got result from service:', {
+        success: result.success,
+        hasData: !!result.data,
+        scansCount: result.data?.scans?.length,
+        resultKeys: Object.keys(result),
+        dataKeys: result.data ? Object.keys(result.data) : []
+      })
+      console.log('[BatchProcessingInterface] Full result:', JSON.stringify(result, null, 2))
+
       if (result.success) {
+        console.log('[BatchProcessingInterface] Setting processing result state...')
+        console.log('[BatchProcessingInterface] Result.data.scans:', result.data?.scans)
+
         setProcessingResult(result);
+
+        console.log('[BatchProcessingInterface] Processing result state has been set')
+
         if (onProcessingComplete) {
+          console.log('[BatchProcessingInterface] Calling onProcessingComplete callback')
           onProcessingComplete(result);
         }
+      } else {
+        console.warn('[BatchProcessingInterface] Result was not successful:', result)
       }
     } catch (error) {
-      console.error('Error processing batch:', error);
+      console.error('[BatchProcessingInterface] Error processing batch:', error);
+      console.error('[BatchProcessingInterface] Error details:', {
+        type: error instanceof Error ? error.constructor.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
     } finally {
       setProcessing(false);
+      console.log('[BatchProcessingInterface] ===== PROCESS BATCH END =====')
     }
   };
 
@@ -344,12 +385,21 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
       )}
 
       {/* Processing Results */}
-      {processingResult && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Processing Results
-          </h3>
-          
+      {(() => {
+        console.log('[BatchProcessingInterface] Rendering - processingResult check:', {
+          hasProcessingResult: !!processingResult,
+          willRender: !!processingResult
+        })
+        return null
+      })()}
+      {processingResult && (() => {
+        console.log('[BatchProcessingInterface] Rendering results card with data:', processingResult.data)
+        return (
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Processing Results
+            </h3>
+
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-blue-50 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-blue-600">
@@ -425,7 +475,8 @@ export const BatchProcessingInterface: React.FC<BatchProcessingInterfaceProps> =
             )}
           </div>
         </Card>
-      )}
+        )
+      })()}
     </div>
   );
 };

@@ -266,6 +266,8 @@ export async function POST(request: NextRequest) {
       duration: new Date(batchStatus.endTime).getTime() - new Date(batchStatus.startTime).getTime()
     })
 
+    console.log('[Batch Process] Raw results array:', JSON.stringify(results, null, 2))
+
     // Save batch processing record with error handling
     try {
       await prisma.batchOperation.create({
@@ -286,17 +288,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Transform results to match UI expectations
-    const scans = results.map((result: any) => ({
-      fileName: result.fileName,
-      data: {
-        ...result.data,
-        confidence: result.data?.confidence ? Math.round(result.data.confidence * 100) : 0
-      },
-      status: result.success ? 'completed' : 'failed',
-      message: result.error || null
-    }))
+    // Note: results array has structure { filename, status, scanId, confidence }
+    const scans = results.map((result: any) => {
+      console.log('[Batch Process] Transforming result:', result)
 
-    return NextResponse.json({
+      return {
+        fileName: result.filename, // Use 'filename' not 'fileName'
+        data: {
+          confidence: result.confidence ? Math.round(result.confidence * 100) : 0
+        },
+        status: result.status === 'success' ? 'completed' : 'failed',
+        message: result.error || null,
+        cached: false // Not tracking cached in this implementation
+      }
+    })
+
+    console.log('[Batch Process] Transformed scans array:', JSON.stringify(scans, null, 2))
+
+    const responseData = {
       success: true,
       batchId,
       data: {
@@ -308,10 +317,12 @@ export async function POST(request: NextRequest) {
         duplicateCount: 0, // Not tracking duplicates yet
         errorCount: batchStatus.failed,
         scans,
-        errors: results.filter((r: any) => !r.success).map((r: any) => ({
-          fileName: r.fileName,
-          message: r.error || 'Processing failed'
-        }))
+        errors: results
+          .filter((r: any) => r.status === 'failed')
+          .map((r: any) => ({
+            fileName: r.filename,
+            message: r.error || 'Processing failed'
+          }))
       },
       summary: {
         total: batchStatus.total,
@@ -319,7 +330,12 @@ export async function POST(request: NextRequest) {
         failed: batchStatus.failed,
         successRate: (batchStatus.successful / batchStatus.total) * 100
       }
-    })
+    }
+
+    console.log('[Batch Process] Final response data:', JSON.stringify(responseData, null, 2))
+    console.log('[Batch Process] ===== RESPONSE SENT =====')
+
+    return NextResponse.json(responseData)
   } catch (error) {
     console.error('[Batch Process] Unexpected error:', error)
     console.error('[Batch Process] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
