@@ -14,8 +14,11 @@ cmds = [
   "echo 'Checking app directory:' && ls -la app/ || echo 'ERROR: app/ directory not found!'",
   "echo '=== End Debug ==='",
   "rm -rf .next",
-  "npm run build"
+  "echo 'Generating Prisma client without migrations...'",
+  "npx prisma generate",
+  "echo 'Building Next.js application...'",
+  "NODE_OPTIONS='--max-old-space-size=4096' next build"
 ]
 
 [start]
-cmd = "npm start"
+cmd = "./start.sh"
