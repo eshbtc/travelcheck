@@ -26,20 +26,21 @@ function encrypt(text: string) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const session = await requireAuth(request)
   if (session instanceof NextResponse) return session
 
   const userId = session.user.id
 
   try {
-    const body = await request.json()
-    const { code, state } = body
+    // Get code and state from query parameters
+    const { searchParams } = new URL(request.url)
+    const code = searchParams.get('code')
+    const state = searchParams.get('state')
 
     if (!code || state !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid authorization code or state' },
-        { status: 400 }
+      return NextResponse.redirect(
+        new URL('/integrations?error=Invalid authorization', request.url)
       )
     }
 
@@ -93,21 +94,19 @@ export async function POST(request: NextRequest) {
 
     if (!account) {
       console.error('Error storing Gmail tokens')
-      return NextResponse.json(
-        { success: false, error: 'Failed to store account information' },
-        { status: 500 }
+      return NextResponse.redirect(
+        new URL('/integrations?error=Failed to store account', request.url)
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Gmail account connected successfully',
-    })
+    // Redirect back to integrations page with success message
+    return NextResponse.redirect(
+      new URL('/integrations?success=Gmail connected', request.url)
+    )
   } catch (error) {
     console.error('Error handling Gmail callback:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to connect Gmail account' },
-      { status: 500 }
+    return NextResponse.redirect(
+      new URL('/integrations?error=Failed to connect Gmail', request.url)
     )
   }
 }
