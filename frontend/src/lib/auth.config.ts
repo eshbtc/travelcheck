@@ -21,11 +21,12 @@ export const authOptions: NextAuthOptions = {
     createUser: async (data: any) => {
       return prisma.user.create({
         data: {
-          ...data,
           id: crypto.randomUUID(),
+          email: data.email,
           displayName: data.name,
           photoUrl: data.image,
           provider: 'oauth',
+          role: 'user',
         },
       })
     },
