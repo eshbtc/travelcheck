@@ -235,25 +235,200 @@ function normalizeDate(dateStr: string): string | null {
   }
 }
 
-// Mock flight extraction (replace with real AI/NLP service)
-async function extractFlightInfo(emailContent: string, subject: string) {
+// Newsletter/marketing domain exclusion list
+const EXCLUDED_DOMAINS = [
+  'thepointsguy.com',
+  't.delta.com',
+  'marketing.united.com',
+  'newsletter',
+  'mailchimp',
+  'constantcontact',
+  'sendgrid.net',
+  'e.delta.com',
+  'e.united.com',
+  'info@',
+  'news@',
+  'promo@'
+]
+
+// Valid airport codes (major airports)
+const VALID_AIRPORTS = new Set([
+  // North America
+  'JFK', 'LAX', 'ORD', 'ATL', 'DFW', 'DEN', 'SFO', 'LAS', 'SEA', 'PHX', 'IAH', 'MCO', 'EWR', 'BOS', 'CLT', 'MSP', 'DTW', 'PHL', 'LGA', 'FLL', 'BWI', 'IAD', 'MDW', 'SAN', 'TPA', 'PDX', 'STL', 'HNL', 'AUS', 'BNA', 'OAK', 'SJC', 'RDU', 'SMF', 'SNA', 'MCI', 'SLC', 'SJU', 'CMH', 'CVG',
+  'YYZ', 'YVR', 'YUL', 'YYC', 'YEG', 'YOW', 'YHZ',
+  'MEX', 'GDL', 'MTY', 'CUN',
+  // Europe
+  'LHR', 'LGW', 'STN', 'MAN', 'EDI', 'BHX', 'GLA',
+  'CDG', 'ORY', 'NCE', 'LYS', 'MRS', 'TLS',
+  'FRA', 'MUC', 'TXL', 'DUS', 'HAM', 'CGN', 'STR',
+  'AMS', 'BCN', 'MAD', 'FCO', 'MXP', 'VCE', 'NAP', 'ZRH', 'GVA', 'VIE', 'BRU', 'CPH', 'ARN', 'OSL', 'HEL', 'DUB', 'LIS', 'OPO', 'ATH', 'PRG', 'WAW', 'BUD',
+  // Asia-Pacific
+  'NRT', 'HND', 'KIX', 'NGO', 'FUK', 'CTS',
+  'PEK', 'PVG', 'CAN', 'SZX', 'HKG', 'CTU', 'XIY', 'CKG',
+  'ICN', 'GMP',
+  'SIN',
+  'BKK', 'DMK',
+  'KUL',
+  'SYD', 'MEL', 'BNE', 'PER', 'ADL', 'AKL', 'CHC', 'WLG',
+  'DEL', 'BOM', 'BLR', 'MAA', 'HYD', 'CCU',
+  'DXB', 'AUH', 'DOH', 'BAH', 'KWI',
+  'MNL', 'CGK', 'HAN', 'SGN',
+  // South America
+  'GRU', 'GIG', 'BSB', 'EZE', 'SCL', 'LIM', 'BOG', 'UIO', 'CCS',
+  // Africa
+  'JNB', 'CPT', 'CAI', 'LOS', 'NBO', 'ADD', 'ACC'
+])
+
+// Valid airlines (names and codes)
+const VALID_AIRLINES = new Set([
+  // Full names
+  'united', 'delta', 'american', 'southwest', 'jetblue', 'alaska', 'spirit', 'frontier', 'allegiant', 'hawaiian', 'sun country',
+  'british airways', 'lufthansa', 'air france', 'klm', 'iberia', 'alitalia', 'swiss', 'austrian', 'brussels airlines', 'tap portugal', 'aer lingus', 'scandinavian', 'finnair', 'turkish airlines', 'lot polish',
+  'emirates', 'etihad', 'qatar', 'saudi arabian', 'gulf air', 'kuwait airways', 'oman air',
+  'air canada', 'westjet',
+  'cathay pacific', 'singapore airlines', 'ana', 'jal', 'korean air', 'asiana', 'china airlines', 'china eastern', 'china southern', 'air china', 'hainan airlines',
+  'qantas', 'virgin australia', 'air new zealand',
+  'thai airways', 'malaysia airlines', 'garuda indonesia', 'philippine airlines', 'vietnam airlines',
+  'latam', 'aeromexico', 'avianca', 'copa airlines', 'gol', 'azul',
+  'air india', 'indigo', 'spicejet', 'vistara',
+  // Codes
+  'aa', 'ua', 'dl', 'wn', 'b6', 'as', 'nk', 'f9', 'g4', 'ha', 'sy',
+  'ba', 'lh', 'af', 'kl', 'ib', 'az', 'lx', 'os', 'sn', 'tp', 'ei', 'sk', 'ay', 'tk', 'lo',
+  'ek', 'ey', 'qr', 'sv', 'gf', 'ku', 'wy',
+  'ac', 'ws',
+  'cx', 'sq', 'nh', 'jl', 'ke', 'oz', 'ci', 'mu', 'cz', 'ca', 'hu',
+  'qf', 'va', 'nz',
+  'tg', 'mh', 'ga', 'pr', 'vn',
+  'la', 'am', 'av', 'cm', 'g3', 'ad',
+  'ai', '6e', 'sg', 'uk'
+])
+
+// Common English words that might be mistaken for codes
+const COMMON_WORDS = new Set([
+  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use', 'may', 'any', 'add', 'age', 'ago', 'air', 'big', 'box', 'car', 'cut', 'dog', 'eat', 'end', 'far', 'few', 'got', 'gun', 'hat', 'hot', 'job', 'key', 'law', 'lay', 'leg', 'lie', 'lot', 'low', 'map', 'men', 'Mrs', 'nor', 'off', 'oil', 'own', 'pay', 'per', 'ran', 'red', 'run', 'sat', 'sea', 'set', 'sit', 'son', 'sun', 'ten', 'top', 'try', 'war', 'win', 'yes', 'yet',
+  'boo', 'you', 'che', 'arr', 'incredible', 'book', 'your', 'check', 'arrival', 'departure', 'from', 'into', 'than', 'that', 'this', 'with'
+])
+
+// Validate airport code
+function isValidAirport(code: string | undefined): boolean {
+  if (!code || typeof code !== 'string') return false
+  const upper = code.toUpperCase().trim()
+  // Must be exactly 3 letters and in valid set
+  if (upper.length !== 3 || !/^[A-Z]{3}$/.test(upper)) return false
+  if (COMMON_WORDS.has(upper.toLowerCase())) return false
+  return VALID_AIRPORTS.has(upper)
+}
+
+// Validate airline
+function isValidAirline(airline: string | undefined): boolean {
+  if (!airline || typeof airline !== 'string') return false
+  const lower = airline.toLowerCase().trim()
+  return VALID_AIRLINES.has(lower)
+}
+
+// Validate confirmation number (6+ alphanumeric, not a common word)
+function isValidConfirmation(confirmation: string | undefined): boolean {
+  if (!confirmation || typeof confirmation !== 'string') return false
+  const trimmed = confirmation.trim()
+  // Must be 6+ characters, alphanumeric only
+  if (trimmed.length < 6 || !/^[A-Z0-9]+$/i.test(trimmed)) return false
+  // Must not be a common word
+  if (COMMON_WORDS.has(trimmed.toLowerCase())) return false
+  // Should have at least one number (to avoid pure words)
+  if (!/\d/.test(trimmed)) return false
+  return true
+}
+
+// Validate flight number (airline code + 1-4 digits)
+function isValidFlightNumber(flightNumber: string | undefined, airline?: string): boolean {
+  if (!flightNumber || typeof flightNumber !== 'string') return false
+  const trimmed = flightNumber.trim()
+  // Must match airline code + digits pattern
+  const match = trimmed.match(/^([A-Z]{2})\s*(\d{1,4})$/i)
+  if (!match) return false
+  const [, airlineCode, digits] = match
+  // Check if airline code is valid (if we have airline context, verify match)
+  if (airline && !airline.toLowerCase().includes(airlineCode.toLowerCase())) return false
+  return VALID_AIRLINES.has(airlineCode.toLowerCase())
+}
+
+// Check if email has booking indicators
+function hasBookingKeywords(text: string): boolean {
+  const lower = text.toLowerCase()
+  let count = 0
+
+  if (/(confirmation|booking reference|pnr|record locator)/i.test(text)) count++
+  if (/(itinerary|e-ticket|boarding pass|ticket number)/i.test(text)) count++
+  if (/(flight details|travel details|trip details)/i.test(text)) count++
+  if (/(departure|depart|departs|departing)/i.test(text) && /(arrival|arrive|arrives|arriving)/i.test(text)) count++
+
+  // Need at least 2 indicators
+  return count >= 2
+}
+
+// Check if email is from excluded domain
+function isExcludedDomain(sender: string): boolean {
+  if (!sender) return false
+  const lower = sender.toLowerCase()
+  return EXCLUDED_DOMAINS.some(domain => lower.includes(domain))
+}
+
+// Calculate confidence score based on extracted data
+function calculateConfidence(data: any, emailContent: string, sender: string): number {
+  let score = 0
+
+  // Check for excluded domains (instant disqualification)
+  if (isExcludedDomain(sender)) return 0
+
+  // Valid departure airport (+25%)
+  if (isValidAirport(data.departure)) score += 0.25
+  else if (data.departure) score -= 0.1 // Penalty for invalid airport
+
+  // Valid arrival airport (+25%)
+  if (isValidAirport(data.arrival)) score += 0.25
+  else if (data.arrival) score -= 0.1 // Penalty for invalid airport
+
+  // Valid airline (+20%)
+  if (isValidAirline(data.airline)) score += 0.2
+
+  // Valid confirmation number (+20%)
+  if (isValidConfirmation(data.confirmation)) score += 0.2
+
+  // Valid flight number (+10%)
+  if (isValidFlightNumber(data.flightNumber, data.airline)) score += 0.1
+
+  // Booking keywords present (+10%)
+  if (hasBookingKeywords(emailContent)) score += 0.1
+
+  // Ensure score is between 0 and 1
+  return Math.max(0, Math.min(score, 1.0))
+}
+
+// Enhanced flight extraction with validation
+async function extractFlightInfo(emailContent: string, subject: string, sender: string = '') {
   console.log('[extractFlightInfo] Starting flight info extraction...')
   console.log('[extractFlightInfo] Email content length:', emailContent?.length || 0)
   console.log('[extractFlightInfo] Subject:', subject)
+  console.log('[extractFlightInfo] Sender:', sender)
+
+  // Check if from excluded domain
+  if (isExcludedDomain(sender)) {
+    console.log('[extractFlightInfo] Excluded domain detected, skipping:', sender)
+    return { confidence: 0 }
+  }
 
   try {
-    // Simple pattern matching for demo - in production use proper AI/NLP
     const combinedText = `${subject} ${emailContent}`
     console.log('[extractFlightInfo] Combined text length:', combinedText.length)
 
+    // Improved patterns with word boundaries
     const flightPatterns = {
       airline: /(?:airline|carrier)[:\s]+([a-z\s]+)|^([a-z\s]{2,20})\s+flight|(\b(?:american|delta|united|southwest|jetblue|alaska|spirit|frontier)\b)/i,
-      flightNumber: /flight[:\s#]*([a-z]{2}\d{3,4})|(\b[a-z]{2}\s*\d{3,4}\b)/i,
-      confirmation: /confirmation[:\s#]*([a-z0-9]{6,})|booking[:\s#]*([a-z0-9]{6,})/i,
-      departure: /(?:depart|from)[:\s]*([a-z]{3})|(\b[A-Z]{3}\b)\s*(?:to|→)|departing\s*([a-z]{3})/i,
-      arrival: /(?:arrive|to|arriving)[:\s]*([a-z]{3})|(?:to|→)\s*(\b[A-Z]{3}\b)/i,
-      // Improved date pattern - capture full month names and various formats
-      date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w+\s+\d{1,2},?\s+\d{4})|(\d{1,2}\s+\w+\s+\d{4})|(\d{4}-\d{2}-\d{2})/i
+      flightNumber: /flight[:\s#]*([A-Z]{2}\s*\d{1,4})\b/i,
+      confirmation: /(?:confirmation|booking|pnr|record locator)[:\s#]*([A-Z0-9]{6,})\b/i,
+      departure: /(?:depart(?:ing|ure)?|from)[:\s]*\b([A-Z]{3})\b/i,
+      arrival: /(?:arriv(?:al|ing)?|to|destination)[:\s]*\b([A-Z]{3})\b/i,
+      date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|([A-Z][a-z]{2,8}\s+\d{1,2},?\s+\d{4})|(\d{1,2}\s+[A-Z][a-z]{2,8}\s+\d{4})|(\d{4}-\d{2}-\d{2})/i
     }
 
     const extracted: any = {}
@@ -266,17 +441,13 @@ async function extractFlightInfo(emailContent: string, subject: string) {
 
       if (match) {
         console.log('[extractFlightInfo] Match array for', key, ':', match)
-        console.log('[extractFlightInfo] Match array type:', typeof match)
-        console.log('[extractFlightInfo] Match isArray:', Array.isArray(match))
 
         if (!Array.isArray(match)) {
           console.error('[extractFlightInfo] CRITICAL: match is not an array for key:', key)
-          console.error('[extractFlightInfo] Match value:', match)
           return
         }
 
         // Get first non-undefined capture group
-        console.log('[extractFlightInfo] About to call match.find() for key:', key)
         const rawValue = match.find((m, i) => i > 0 && m !== undefined)?.trim()
         console.log('[extractFlightInfo] Raw value for', key, ':', rawValue)
 
@@ -296,12 +467,18 @@ async function extractFlightInfo(emailContent: string, subject: string) {
       }
     })
 
+    // Calculate confidence score
+    const confidence = calculateConfidence(extracted, combinedText, sender)
+    extracted.confidence = confidence
+
     console.log('[extractFlightInfo] Extraction complete, extracted data:', extracted)
+    console.log('[extractFlightInfo] Confidence score:', confidence)
+
     return extracted
   } catch (error) {
     console.error('[extractFlightInfo] Error during extraction:', error)
     console.error('[extractFlightInfo] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-    return {}
+    return { confidence: 0 }
   }
 }
 
@@ -322,6 +499,13 @@ const AIRPORT_COUNTRIES: Record<string, string> = {
 // Create travel entries from extracted flight data (Prisma format)
 async function createTravelEntries(userId: string, flightEmailId: string, flightData: any, emailDate: string) {
   const entries: any[] = []
+
+  // Only create travel entries if confidence > 0.6
+  const confidence = flightData.confidence || 0
+  if (confidence <= 0.6) {
+    console.log(`[createTravelEntries] Skipping travel entry creation due to low confidence: ${confidence}`)
+    return entries
+  }
 
   if (flightData.departure && flightData.arrival && flightData.date) {
     // Validate and normalize the date - flightData.date should already be in ISO-8601 format
@@ -378,7 +562,7 @@ async function createTravelEntries(userId: string, flightEmailId: string, flight
         flightNumber: flightData.flightNumber || null,
         confirmationNumber: flightData.confirmation || null,
         status: 'pending',
-        confidenceScore: 0.7,
+        confidenceScore: confidence,
         isVerified: false,
         manualOverride: false,
         notes: `Extracted from email - departure from ${flightData.departure}`,
@@ -407,7 +591,7 @@ async function createTravelEntries(userId: string, flightEmailId: string, flight
         flightNumber: flightData.flightNumber || null,
         confirmationNumber: flightData.confirmation || null,
         status: 'pending',
-        confidenceScore: 0.7,
+        confidenceScore: confidence,
         isVerified: false,
         manualOverride: false,
         notes: `Extracted from email - arrival in ${flightData.arrival}`,
@@ -636,25 +820,33 @@ export async function POST(request: NextRequest) {
               console.log('[SYNC] Email content extracted, length:', emailContent.length)
 
               console.log('[SYNC] Extracting flight info...')
-              const extractedFlights = await extractFlightInfo(emailContent, subject)
+              const extractedFlights = await extractFlightInfo(emailContent, subject, from)
               console.log('[SYNC] Flight info extracted:', extractedFlights)
 
-              flightEmails.push({
-                userId: userId,
-                emailAccountId: account.id,
-                messageId: m.id,
-                subject,
-                sender: from,
-                recipient: account.email || '',
-                bodyText: emailContent,
-                flightData: extractedFlights,
-                parsedData: extractedFlights,
-                confidenceScore: 0.8,
-                processingStatus: 'completed',
-                isProcessed: true,
-                dateReceived: date ? new Date(date) : new Date(),
-              })
-              console.log('[SYNC] Flight email added to array, total count:', flightEmails.length)
+              // Calculate confidence score from extracted data
+              const confidence = extractedFlights.confidence || 0
+
+              // Only save emails with confidence > 0.5
+              if (confidence > 0.5) {
+                flightEmails.push({
+                  userId: userId,
+                  emailAccountId: account.id,
+                  messageId: m.id,
+                  subject,
+                  sender: from,
+                  recipient: account.email || '',
+                  bodyText: emailContent,
+                  flightData: extractedFlights,
+                  parsedData: extractedFlights,
+                  confidenceScore: confidence,
+                  processingStatus: 'completed',
+                  isProcessed: true,
+                  dateReceived: date ? new Date(date) : new Date(),
+                })
+                console.log('[SYNC] Flight email added to array (confidence:', confidence, '), total count:', flightEmails.length)
+              } else {
+                console.log('[SYNC] Flight email skipped due to low confidence:', confidence)
+              }
             } catch (messageError) {
               console.error('[SYNC] Error processing message ID:', m.id)
               console.error('[SYNC] Message error details:', messageError)

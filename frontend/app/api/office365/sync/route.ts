@@ -45,17 +45,193 @@ function decrypt(obj: any) {
   return dec.toString('utf8')
 }
 
-// Enhanced flight extraction
-async function extractFlightInfo(emailContent: string, subject: string) {
+// Newsletter/marketing domain exclusion list
+const EXCLUDED_DOMAINS = [
+  'thepointsguy.com',
+  't.delta.com',
+  'marketing.united.com',
+  'newsletter',
+  'mailchimp',
+  'constantcontact',
+  'sendgrid.net',
+  'e.delta.com',
+  'e.united.com',
+  'info@',
+  'news@',
+  'promo@'
+]
+
+// Valid airport codes (major airports)
+const VALID_AIRPORTS = new Set([
+  // North America
+  'JFK', 'LAX', 'ORD', 'ATL', 'DFW', 'DEN', 'SFO', 'LAS', 'SEA', 'PHX', 'IAH', 'MCO', 'EWR', 'BOS', 'CLT', 'MSP', 'DTW', 'PHL', 'LGA', 'FLL', 'BWI', 'IAD', 'MDW', 'SAN', 'TPA', 'PDX', 'STL', 'HNL', 'AUS', 'BNA', 'OAK', 'SJC', 'RDU', 'SMF', 'SNA', 'MCI', 'SLC', 'SJU', 'CMH', 'CVG',
+  'YYZ', 'YVR', 'YUL', 'YYC', 'YEG', 'YOW', 'YHZ',
+  'MEX', 'GDL', 'MTY', 'CUN',
+  // Europe
+  'LHR', 'LGW', 'STN', 'MAN', 'EDI', 'BHX', 'GLA',
+  'CDG', 'ORY', 'NCE', 'LYS', 'MRS', 'TLS',
+  'FRA', 'MUC', 'TXL', 'DUS', 'HAM', 'CGN', 'STR',
+  'AMS', 'BCN', 'MAD', 'FCO', 'MXP', 'VCE', 'NAP', 'ZRH', 'GVA', 'VIE', 'BRU', 'CPH', 'ARN', 'OSL', 'HEL', 'DUB', 'LIS', 'OPO', 'ATH', 'PRG', 'WAW', 'BUD',
+  // Asia-Pacific
+  'NRT', 'HND', 'KIX', 'NGO', 'FUK', 'CTS',
+  'PEK', 'PVG', 'CAN', 'SZX', 'HKG', 'CTU', 'XIY', 'CKG',
+  'ICN', 'GMP',
+  'SIN',
+  'BKK', 'DMK',
+  'KUL',
+  'SYD', 'MEL', 'BNE', 'PER', 'ADL', 'AKL', 'CHC', 'WLG',
+  'DEL', 'BOM', 'BLR', 'MAA', 'HYD', 'CCU',
+  'DXB', 'AUH', 'DOH', 'BAH', 'KWI',
+  'MNL', 'CGK', 'HAN', 'SGN',
+  // South America
+  'GRU', 'GIG', 'BSB', 'EZE', 'SCL', 'LIM', 'BOG', 'UIO', 'CCS',
+  // Africa
+  'JNB', 'CPT', 'CAI', 'LOS', 'NBO', 'ADD', 'ACC'
+])
+
+// Valid airlines (names and codes)
+const VALID_AIRLINES = new Set([
+  // Full names
+  'united', 'delta', 'american', 'southwest', 'jetblue', 'alaska', 'spirit', 'frontier', 'allegiant', 'hawaiian', 'sun country',
+  'british airways', 'lufthansa', 'air france', 'klm', 'iberia', 'alitalia', 'swiss', 'austrian', 'brussels airlines', 'tap portugal', 'aer lingus', 'scandinavian', 'finnair', 'turkish airlines', 'lot polish',
+  'emirates', 'etihad', 'qatar', 'saudi arabian', 'gulf air', 'kuwait airways', 'oman air',
+  'air canada', 'westjet',
+  'cathay pacific', 'singapore airlines', 'ana', 'jal', 'korean air', 'asiana', 'china airlines', 'china eastern', 'china southern', 'air china', 'hainan airlines',
+  'qantas', 'virgin australia', 'air new zealand',
+  'thai airways', 'malaysia airlines', 'garuda indonesia', 'philippine airlines', 'vietnam airlines',
+  'latam', 'aeromexico', 'avianca', 'copa airlines', 'gol', 'azul',
+  'air india', 'indigo', 'spicejet', 'vistara',
+  // Codes
+  'aa', 'ua', 'dl', 'wn', 'b6', 'as', 'nk', 'f9', 'g4', 'ha', 'sy',
+  'ba', 'lh', 'af', 'kl', 'ib', 'az', 'lx', 'os', 'sn', 'tp', 'ei', 'sk', 'ay', 'tk', 'lo',
+  'ek', 'ey', 'qr', 'sv', 'gf', 'ku', 'wy',
+  'ac', 'ws',
+  'cx', 'sq', 'nh', 'jl', 'ke', 'oz', 'ci', 'mu', 'cz', 'ca', 'hu',
+  'qf', 'va', 'nz',
+  'tg', 'mh', 'ga', 'pr', 'vn',
+  'la', 'am', 'av', 'cm', 'g3', 'ad',
+  'ai', '6e', 'sg', 'uk'
+])
+
+// Common English words that might be mistaken for codes
+const COMMON_WORDS = new Set([
+  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use', 'may', 'any', 'add', 'age', 'ago', 'air', 'big', 'box', 'car', 'cut', 'dog', 'eat', 'end', 'far', 'few', 'got', 'gun', 'hat', 'hot', 'job', 'key', 'law', 'lay', 'leg', 'lie', 'lot', 'low', 'map', 'men', 'Mrs', 'nor', 'off', 'oil', 'own', 'pay', 'per', 'ran', 'red', 'run', 'sat', 'sea', 'set', 'sit', 'son', 'sun', 'ten', 'top', 'try', 'war', 'win', 'yes', 'yet',
+  'boo', 'you', 'che', 'arr', 'incredible', 'book', 'your', 'check', 'arrival', 'departure', 'from', 'into', 'than', 'that', 'this', 'with'
+])
+
+// Validate airport code
+function isValidAirport(code: string | undefined): boolean {
+  if (!code || typeof code !== 'string') return false
+  const upper = code.toUpperCase().trim()
+  // Must be exactly 3 letters and in valid set
+  if (upper.length !== 3 || !/^[A-Z]{3}$/.test(upper)) return false
+  if (COMMON_WORDS.has(upper.toLowerCase())) return false
+  return VALID_AIRPORTS.has(upper)
+}
+
+// Validate airline
+function isValidAirline(airline: string | undefined): boolean {
+  if (!airline || typeof airline !== 'string') return false
+  const lower = airline.toLowerCase().trim()
+  return VALID_AIRLINES.has(lower)
+}
+
+// Validate confirmation number (6+ alphanumeric, not a common word)
+function isValidConfirmation(confirmation: string | undefined): boolean {
+  if (!confirmation || typeof confirmation !== 'string') return false
+  const trimmed = confirmation.trim()
+  // Must be 6+ characters, alphanumeric only
+  if (trimmed.length < 6 || !/^[A-Z0-9]+$/i.test(trimmed)) return false
+  // Must not be a common word
+  if (COMMON_WORDS.has(trimmed.toLowerCase())) return false
+  // Should have at least one number (to avoid pure words)
+  if (!/\d/.test(trimmed)) return false
+  return true
+}
+
+// Validate flight number (airline code + 1-4 digits)
+function isValidFlightNumber(flightNumber: string | undefined, airline?: string): boolean {
+  if (!flightNumber || typeof flightNumber !== 'string') return false
+  const trimmed = flightNumber.trim()
+  // Must match airline code + digits pattern
+  const match = trimmed.match(/^([A-Z]{2})\s*(\d{1,4})$/i)
+  if (!match) return false
+  const [, airlineCode, digits] = match
+  // Check if airline code is valid (if we have airline context, verify match)
+  if (airline && !airline.toLowerCase().includes(airlineCode.toLowerCase())) return false
+  return VALID_AIRLINES.has(airlineCode.toLowerCase())
+}
+
+// Check if email has booking indicators
+function hasBookingKeywords(text: string): boolean {
+  const lower = text.toLowerCase()
+  let count = 0
+
+  if (/(confirmation|booking reference|pnr|record locator)/i.test(text)) count++
+  if (/(itinerary|e-ticket|boarding pass|ticket number)/i.test(text)) count++
+  if (/(flight details|travel details|trip details)/i.test(text)) count++
+  if (/(departure|depart|departs|departing)/i.test(text) && /(arrival|arrive|arrives|arriving)/i.test(text)) count++
+
+  // Need at least 2 indicators
+  return count >= 2
+}
+
+// Check if email is from excluded domain
+function isExcludedDomain(sender: string): boolean {
+  if (!sender) return false
+  const lower = sender.toLowerCase()
+  return EXCLUDED_DOMAINS.some(domain => lower.includes(domain))
+}
+
+// Calculate confidence score based on extracted data
+function calculateConfidence(data: any, emailContent: string, sender: string): number {
+  let score = 0
+
+  // Check for excluded domains (instant disqualification)
+  if (isExcludedDomain(sender)) return 0
+
+  // Valid departure airport (+25%)
+  if (isValidAirport(data.departure)) score += 0.25
+  else if (data.departure) score -= 0.1 // Penalty for invalid airport
+
+  // Valid arrival airport (+25%)
+  if (isValidAirport(data.arrival)) score += 0.25
+  else if (data.arrival) score -= 0.1 // Penalty for invalid airport
+
+  // Valid airline (+20%)
+  if (isValidAirline(data.airline)) score += 0.2
+
+  // Valid confirmation number (+20%)
+  if (isValidConfirmation(data.confirmation)) score += 0.2
+
+  // Valid flight number (+10%)
+  if (isValidFlightNumber(data.flightNumber, data.airline)) score += 0.1
+
+  // Booking keywords present (+10%)
+  if (hasBookingKeywords(emailContent)) score += 0.1
+
+  // Ensure score is between 0 and 1
+  return Math.max(0, Math.min(score, 1.0))
+}
+
+// Enhanced flight extraction with validation
+async function extractFlightInfo(emailContent: string, subject: string, sender: string = '') {
+  // Check if from excluded domain
+  if (isExcludedDomain(sender)) {
+    console.log('[Office365 extractFlightInfo] Excluded domain detected, skipping:', sender)
+    return { confidence: 0 }
+  }
+
   const combinedText = `${subject} ${emailContent}`
-  
+
+  // Improved patterns with word boundaries
   const flightPatterns = {
     airline: /(?:airline|carrier)[:\s]+([a-z\s]+)|^([a-z\s]{2,20})\s+flight|(\b(?:american|delta|united|southwest|jetblue|alaska|spirit|frontier)\b)/i,
-    flightNumber: /flight[:\s#]*([a-z]{2}\d{3,4})|(\b[a-z]{2}\s*\d{3,4}\b)/i,
-    confirmation: /confirmation[:\s#]*([a-z0-9]{6,})|booking[:\s#]*([a-z0-9]{6,})/i,
-    departure: /(?:depart|from)[:\s]*([a-z]{3})|(\b[A-Z]{3}\b)\s*(?:to|→)|departing\s*([a-z]{3})/i,
-    arrival: /(?:arrive|to|arriving)[:\s]*([a-z]{3})|(?:to|→)\s*(\b[A-Z]{3}\b)/i,
-    date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w{3}\s+\d{1,2},?\s+\d{4})/
+    flightNumber: /flight[:\s#]*([A-Z]{2}\s*\d{1,4})\b/i,
+    confirmation: /(?:confirmation|booking|pnr|record locator)[:\s#]*([A-Z0-9]{6,})\b/i,
+    departure: /(?:depart(?:ing|ure)?|from)[:\s]*\b([A-Z]{3})\b/i,
+    arrival: /(?:arriv(?:al|ing)?|to|destination)[:\s]*\b([A-Z]{3})\b/i,
+    date: /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|([A-Z][a-z]{2,8}\s+\d{1,2},?\s+\d{4})|(\d{1,2}\s+[A-Z][a-z]{2,8}\s+\d{4})|(\d{4}-\d{2}-\d{2})/i
   }
 
   const extracted: any = {}
@@ -66,6 +242,10 @@ async function extractFlightInfo(emailContent: string, subject: string) {
       extracted[key] = match.find((m, i) => i > 0 && m !== undefined)?.trim()
     }
   })
+
+  // Calculate confidence score
+  const confidence = calculateConfidence(extracted, combinedText, sender)
+  extracted.confidence = confidence
 
   return extracted
 }
@@ -84,31 +264,135 @@ const AIRPORT_COUNTRIES: Record<string, string> = {
   'DXB': 'AE', 'DOH': 'QA', 'SIN': 'SG', 'ICN': 'KR', 'BOM': 'IN', 'DEL': 'IN'
 }
 
+// Robust date normalization function
+function normalizeDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr || typeof dateStr !== 'string') return null
+
+  // Normalize whitespace
+  dateStr = dateStr.trim().replace(/\s+/g, ' ')
+
+  // Fix common OCR/parsing errors
+  const ocrCorrections: Record<string, string> = {
+    'ET02': '02',
+    'ET': 'Oct',
+    '0CT': 'Oct',
+    'OCT': 'Oct',
+    'uly': 'July',  // Fix for "uly 2, 2025" error
+    'anuary': 'January',
+    'ebruary': 'February',
+    'arch': 'March',
+    'pril': 'April',
+    'ay': 'May',
+    'une': 'June',
+    'ugust': 'August',
+    'eptember': 'September',
+    'ctober': 'October',
+    'ovember': 'November',
+    'ecember': 'December'
+  }
+
+  // Apply corrections
+  for (const [error, correction] of Object.entries(ocrCorrections)) {
+    const regex = new RegExp(`\\b${error}\\b`, 'gi')
+    dateStr = dateStr.replace(regex, correction)
+  }
+
+  // Try various date formats
+  let parsedDate: Date | null = null
+
+  // Pattern 1: MM/DD/YY or MM-DD-YY (handle two-digit year)
+  const twoDigitYearPattern = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/
+  const twoDigitMatch = dateStr.match(twoDigitYearPattern)
+  if (twoDigitMatch) {
+    const [_, month, day, year] = twoDigitMatch
+    const fullYear = parseInt(year) > 50 ? `19${year}` : `20${year}`
+    parsedDate = new Date(`${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+  }
+
+  // Pattern 2: MM/DD/YYYY or MM-DD-YYYY
+  const fullYearPattern = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
+  const fullYearMatch = dateStr.match(fullYearPattern)
+  if (!parsedDate && fullYearMatch) {
+    const [_, month, day, year] = fullYearMatch
+    parsedDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+  }
+
+  // Pattern 3: Month DD, YYYY or Month DD YYYY
+  const monthNamePattern = /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/
+  const monthNameMatch = dateStr.match(monthNamePattern)
+  if (!parsedDate && monthNameMatch) {
+    parsedDate = new Date(dateStr)
+  }
+
+  // Pattern 4: DD Month YYYY
+  const dayMonthPattern = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/
+  const dayMonthMatch = dateStr.match(dayMonthPattern)
+  if (!parsedDate && dayMonthMatch) {
+    const [_, day, month, year] = dayMonthMatch
+    parsedDate = new Date(`${month} ${day}, ${year}`)
+  }
+
+  // Pattern 5: YYYY-MM-DD (ISO format)
+  const isoPattern = /^(\d{4})-(\d{2})-(\d{2})$/
+  if (!parsedDate && isoPattern.test(dateStr)) {
+    parsedDate = new Date(dateStr)
+  }
+
+  // Last resort: try native Date parsing
+  if (!parsedDate) {
+    parsedDate = new Date(dateStr)
+  }
+
+  // Validate the date
+  if (!parsedDate || isNaN(parsedDate.getTime())) {
+    console.log(`[normalizeDate] Failed to parse date: "${dateStr}"`)
+    return null
+  }
+
+  // Ensure reasonable date range (1950-2050)
+  const year = parsedDate.getFullYear()
+  if (year < 1950 || year > 2050) {
+    console.log(`[normalizeDate] Date out of reasonable range: ${year}`)
+    return null
+  }
+
+  // Return ISO date string (YYYY-MM-DD)
+  return parsedDate.toISOString().split('T')[0]
+}
+
 // Create travel entries from extracted flight data (Prisma format)
 async function createTravelEntries(userId: string, flightEmailId: string, flightData: any, emailDate: string) {
-  const entries = []
+  const entries: any[] = []
+
+  // Only create travel entries if confidence > 0.6
+  const confidence = flightData.confidence || 0
+  if (confidence <= 0.6) {
+    console.log(`[Office365 createTravelEntries] Skipping travel entry creation due to low confidence: ${confidence}`)
+    return entries
+  }
 
   if (flightData.departure && flightData.arrival && flightData.date) {
-    // Parse date
-    let entryDate: Date
-    try {
-      if (flightData.date.includes('/') || flightData.date.includes('-')) {
-        entryDate = new Date(flightData.date)
+    // Parse date using normalizeDate function
+    const normalizedDate = normalizeDate(flightData.date)
+    let entryDateStr: string
+
+    if (normalizedDate) {
+      entryDateStr = normalizedDate
+    } else {
+      // Fallback to email date if normalization fails
+      console.log(`[Office365 createTravelEntries] Failed to normalize date "${flightData.date}", using email date`)
+      const emailDateObj = new Date(emailDate)
+      if (!isNaN(emailDateObj.getTime())) {
+        entryDateStr = emailDateObj.toISOString().split('T')[0]
       } else {
-        entryDate = new Date(flightData.date)
+        console.log(`[Office365 createTravelEntries] Invalid email date, skipping travel entry`)
+        return entries
       }
-      if (isNaN(entryDate.getTime())) {
-        entryDate = new Date(emailDate)
-      }
-    } catch {
-      entryDate = new Date(emailDate)
     }
 
     // Extract country codes from airport codes
     const departureCountry = AIRPORT_COUNTRIES[flightData.departure.toUpperCase()] || 'UNKNOWN'
     const arrivalCountry = AIRPORT_COUNTRIES[flightData.arrival.toUpperCase()] || 'UNKNOWN'
-
-    const entryDateStr = entryDate.toISOString().split('T')[0]
 
     // Create departure entry (exit from departure country)
     if (departureCountry !== 'UNKNOWN') {
@@ -127,7 +411,7 @@ async function createTravelEntries(userId: string, flightEmailId: string, flight
         flightNumber: flightData.flightNumber || null,
         confirmationNumber: flightData.confirmation || null,
         status: 'pending',
-        confidenceScore: 0.7,
+        confidenceScore: confidence,
         isVerified: false,
         manualOverride: false,
         notes: `Extracted from email - departure from ${flightData.departure}`,
@@ -156,7 +440,7 @@ async function createTravelEntries(userId: string, flightEmailId: string, flight
         flightNumber: flightData.flightNumber || null,
         confirmationNumber: flightData.confirmation || null,
         status: 'pending',
-        confidenceScore: 0.7,
+        confidenceScore: confidence,
         isVerified: false,
         manualOverride: false,
         notes: `Extracted from email - arrival in ${flightData.arrival}`,
@@ -394,26 +678,35 @@ export async function POST(request: NextRequest) {
         const date = item.receivedDateTime || item.sentDateTime || ''
         const content = item.body?.content || ''
 
-        const extractedFlights = await extractFlightInfo(content, subject)
+        const extractedFlights = await extractFlightInfo(content, subject, from)
 
-        const flightData = {
-          userId: userId,
-          emailAccountId: account.id,
-          messageId: item.id,
-          subject,
-          sender: from,
-          recipient: account.email || '',
-          bodyText: content,
-          bodyHtml: content,
-          flightData: extractedFlights,
-          parsedData: extractedFlights,
-          confidenceScore: 0.8,
-          processingStatus: 'completed',
-          isProcessed: true,
-          dateReceived: date ? new Date(date) : new Date(),
+        // Calculate confidence score from extracted data
+        const confidence = extractedFlights.confidence || 0
+
+        // Only save emails with confidence > 0.5
+        if (confidence > 0.5) {
+          const flightData = {
+            userId: userId,
+            emailAccountId: account.id,
+            messageId: item.id,
+            subject,
+            sender: from,
+            recipient: account.email || '',
+            bodyText: content,
+            bodyHtml: content,
+            flightData: extractedFlights,
+            parsedData: extractedFlights,
+            confidenceScore: confidence,
+            processingStatus: 'completed',
+            isProcessed: true,
+            dateReceived: date ? new Date(date) : new Date(),
+          }
+
+          flightEmails.push(flightData)
+          console.log('[Office365 Sync] Flight email added (confidence:', confidence, ')')
+        } else {
+          console.log('[Office365 Sync] Flight email skipped due to low confidence:', confidence)
         }
-
-        flightEmails.push(flightData)
       } catch (itemError) {
         console.error('[Office365 Sync] Error processing message:', item.id, itemError)
         failedCount++
