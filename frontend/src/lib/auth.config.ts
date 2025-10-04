@@ -16,7 +16,24 @@ const prisma = new PrismaClient()
  * JWT strategy for stateless authentication with encrypted tokens.
  */
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: {
+    ...PrismaAdapter(prisma),
+    createUser: async (data: any) => {
+      return prisma.user.create({
+        data: {
+          id: crypto.randomUUID(),
+          email: data.email,
+          name: data.name,
+          image: data.image,
+          emailVerified: data.emailVerified,
+          displayName: data.name,
+          photoUrl: data.image,
+          provider: 'oauth',
+          role: 'user',
+        },
+      })
+    },
+  } as any,
 
   providers: [
     GoogleProvider({
