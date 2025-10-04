@@ -16,7 +16,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!isDevelopment && !isLoading && !user) {
       // Preserve intent to return if needed later via search param
       const redirectTo = encodeURIComponent(pathname || '/')
-      router.replace(`/auth/login?next=${redirectTo}`)
+      router.replace(`/auth/signin?callbackUrl=${redirectTo}`)
     }
   }, [isLoading, user, router, pathname, isDevelopment])
 
