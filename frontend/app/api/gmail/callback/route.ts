@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
 
     if (!code || state !== userId) {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
       return NextResponse.redirect(
-        new URL('/integrations?error=Invalid authorization', request.url)
+        new URL('/integrations?error=Invalid authorization', baseUrl)
       )
     }
 
@@ -94,19 +95,22 @@ export async function GET(request: NextRequest) {
 
     if (!account) {
       console.error('Error storing Gmail tokens')
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
       return NextResponse.redirect(
-        new URL('/integrations?error=Failed to store account', request.url)
+        new URL('/integrations?error=Failed to store account', baseUrl)
       )
     }
 
     // Redirect back to integrations page with success message
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
     return NextResponse.redirect(
-      new URL('/integrations?success=Gmail connected', request.url)
+      new URL('/integrations?success=Gmail connected', baseUrl)
     )
   } catch (error) {
     console.error('Error handling Gmail callback:', error)
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
     return NextResponse.redirect(
-      new URL('/integrations?error=Failed to connect Gmail', request.url)
+      new URL('/integrations?error=Failed to connect Gmail', baseUrl)
     )
   }
 }

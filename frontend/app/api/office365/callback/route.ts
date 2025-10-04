@@ -38,8 +38,9 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
 
     if (!code || state !== userId) {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
       return NextResponse.redirect(
-        new URL('/integrations?error=Invalid authorization', request.url)
+        new URL('/integrations?error=Invalid authorization', baseUrl)
       )
     }
 
@@ -65,8 +66,9 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error('Token exchange failed:', errorText)
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
       return NextResponse.redirect(
-        new URL('/integrations?error=Failed to exchange authorization code', request.url)
+        new URL('/integrations?error=Failed to exchange authorization code', baseUrl)
       )
     }
 
@@ -81,8 +83,9 @@ export async function GET(request: NextRequest) {
     })
 
     if (!profileResponse.ok) {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
       return NextResponse.redirect(
-        new URL('/integrations?error=Failed to get user profile', request.url)
+        new URL('/integrations?error=Failed to get user profile', baseUrl)
       )
     }
 
@@ -128,19 +131,22 @@ export async function GET(request: NextRequest) {
 
     if (!account) {
       console.error('Error storing Office365 tokens')
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
       return NextResponse.redirect(
-        new URL('/integrations?error=Failed to store account', request.url)
+        new URL('/integrations?error=Failed to store account', baseUrl)
       )
     }
 
     // Redirect back to integrations page with success message
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
     return NextResponse.redirect(
-      new URL('/integrations?success=Office365 connected', request.url)
+      new URL('/integrations?success=Office365 connected', baseUrl)
     )
   } catch (error) {
     console.error('Error handling Office365 callback:', error)
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
     return NextResponse.redirect(
-      new URL('/integrations?error=Failed to connect Office365', request.url)
+      new URL('/integrations?error=Failed to connect Office365', baseUrl)
     )
   }
 }
