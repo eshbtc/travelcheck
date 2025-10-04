@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
     // Build Microsoft OAuth URL using environment variables directly
     const clientId = process.env.OFFICE365_CLIENT_ID
     const redirectUri = process.env.OFFICE365_REDIRECT_URI // Use environment variable directly
-    const scopes = 'offline_access Mail.Read'
+    // Note: User.Read is required to fetch user profile, Mail.Read for email access
+    const scopes = 'offline_access User.Read Mail.Read'
     const responseType = 'code'
     const state = userId // Use user ID as state for CSRF protection
 
