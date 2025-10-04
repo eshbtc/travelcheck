@@ -5,7 +5,6 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: false, // Disable SWC to use webpack for path resolution
   trailingSlash: true,
-  output: 'standalone',
   productionBrowserSourceMaps: true, // Enable source maps for Sentry
 
   // Explicitly set experimental features
