@@ -197,9 +197,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch messages from Microsoft Graph API with server-side filtering
+    // Note: $search and $orderBy cannot be used together in Graph API
+    // Using $search for better results, sacrificing order (we'll sort client-side)
     const searchQuery = encodeURIComponent('(subject:flight OR subject:booking OR subject:confirmation OR subject:ticket) AND (body:airline OR body:travel)')
-    const filterQuery = `$search="${searchQuery}"&$top=50&$orderby=receivedDateTime desc`
-    
+    const filterQuery = `$search="${searchQuery}"&$top=100&$select=id,subject,bodyPreview,receivedDateTime,from`
+
     const response = await fetch(`https://graph.microsoft.com/v1.0/me/messages?${filterQuery}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -217,7 +219,14 @@ export async function POST(request: NextRequest) {
     }
 
     const json = await response.json()
-    const items = json.value || []
+    let items = json.value || []
+
+    // Sort emails by receivedDateTime (newest first) since we can't use $orderBy with $search
+    items.sort((a: any, b: any) => {
+      const dateA = new Date(a.receivedDateTime || 0).getTime()
+      const dateB = new Date(b.receivedDateTime || 0).getTime()
+      return dateB - dateA // Descending order (newest first)
+    })
 
     const flightEmails = []
     for (const item of items) {
