@@ -134,18 +134,31 @@ export const revokeOffice365Access = async (): Promise<void> => {
   })
 }
 
+// Type for EmailAccount from API (matches Prisma model)
+interface EmailAccountFromAPI {
+  provider: string
+  email: string
+  isActive: boolean
+  lastSync: string | null
+  syncStatus: string | null
+  errorMessage: string | null
+  createdAt: string
+  tokenExpiresAt?: string | null
+  scope?: string | null
+}
+
 // Integration Status
 export const getIntegrationStatus = async (): Promise<IntegrationStatus[]> => {
-  const result = await apiCall<{ success: boolean; integrations: any }>('/api/integration/status')
-  
+  const result = await apiCall<{ success: boolean; integrations: { emailAccounts: EmailAccountFromAPI[] } }>('/api/integration/status')
+
   // Transform the response to match our expected format
   const emailAccounts = result.integrations.emailAccounts || []
-  return emailAccounts.map((account: any) => ({
+  return emailAccounts.map((account) => ({
     provider: account.provider as 'gmail' | 'office365',
-    isConnected: account.is_active,
-    lastConnected: account.created_at,
-    scopes: [], // Not provided by current API
-    expiresAt: undefined, // Not provided by current API
+    isConnected: account.isActive, // Fixed: was account.is_active
+    lastConnected: account.lastSync || account.createdAt, // Use lastSync if available, fallback to createdAt
+    scopes: account.scope ? account.scope.split(' ') : [], // Parse scope string to array
+    expiresAt: account.tokenExpiresAt || undefined, // Include token expiry if available
   }))
 }
 
