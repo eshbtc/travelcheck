@@ -21,13 +21,19 @@ async function isAdmin(user: any): Promise<boolean> {
 }
 
 async function handleOptimization(userId: string, body: any) {
+  console.log('[handleOptimization] Starting with userId:', userId)
+  console.log('[handleOptimization] Body params:', body)
+
   try {
-    const { 
-      operation = 'analyze', 
+    const {
+      operation = 'analyze',
       batchSize = 50,
       priorityUser = null,
       optimizationType = 'performance'
     } = body
+
+    console.log('[handleOptimization] Operation:', operation)
+    console.log('[handleOptimization] Parameters:', { batchSize, priorityUser, optimizationType })
 
     const now = new Date()
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
@@ -40,24 +46,47 @@ async function handleOptimization(userId: string, body: any) {
       performance: {}
     }
 
+    console.log('[handleOptimization] Checking database connection...')
+    try {
+      await prisma.$queryRaw`SELECT 1`
+      console.log('[handleOptimization] Database connection OK')
+    } catch (dbError) {
+      console.error('[handleOptimization] Database connection failed:', dbError)
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Database unavailable',
+          details: dbError instanceof Error ? dbError.message : 'Unknown database error'
+        },
+        { status: 503 }
+      )
+    }
+
+    console.log('[handleOptimization] Executing operation:', operation)
     switch (operation) {
       case 'analyze':
         // Analyze current batch processing performance
+        console.log('[handleOptimization] Querying recent jobs...')
         const recentJobs = await prisma.batchJob.findMany({
           where: {
             createdAt: { gte: oneHourAgo }
           },
           orderBy: { createdAt: 'desc' }
         })
+        console.log('[handleOptimization] Found recent jobs:', recentJobs.length)
 
+        console.log('[handleOptimization] Querying queued jobs...')
         const queuedJobs = await prisma.batchJob.findMany({
           where: { status: 'pending' },
           orderBy: { createdAt: 'asc' }
         })
+        console.log('[handleOptimization] Found queued jobs:', queuedJobs.length)
 
+        console.log('[handleOptimization] Querying processing jobs...')
         const processingJobs = await prisma.batchJob.findMany({
           where: { status: 'processing' }
         })
+        console.log('[handleOptimization] Found processing jobs:', processingJobs.length)
 
         results.performance = {
           recent_jobs: recentJobs?.length || 0,
@@ -270,21 +299,49 @@ async function handleOptimization(userId: string, body: any) {
     })
 
   } catch (error) {
-    console.error('Error in batch processing optimization:', error)
+    console.error('[handleOptimization] Error in batch processing optimization:', error)
+    console.error('[handleOptimization] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    console.error('[handleOptimization] Error details:', {
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      message: error instanceof Error ? error.message : String(error)
+    })
     return NextResponse.json(
-      { success: false, error: 'Batch processing optimization failed' },
+      {
+        success: false,
+        error: 'Batch processing optimization failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        type: error instanceof Error ? error.constructor.name : typeof error
+      },
       { status: 500 }
     )
   }
 }
 
 export async function GET(request: NextRequest) {
+  console.log('[Optimize GET] ===== REQUEST START =====')
+  console.log('[Optimize GET] Request URL:', request.url)
+  console.log('[Optimize GET] Request method:', request.method)
+  console.log('[Optimize GET] Request headers:', {
+    'content-type': request.headers.get('content-type'),
+    'authorization': request.headers.get('authorization') ? 'present' : 'missing',
+    'cookie': request.headers.get('cookie') ? 'present' : 'missing'
+  })
+
   const session = await requireAuth(request)
-  if (session instanceof NextResponse) return session
+  if (session instanceof NextResponse) {
+    console.log('[Optimize GET] Auth failed - returning response')
+    return session
+  }
+
+  console.log('[Optimize GET] Auth successful:', {
+    hasUser: !!session.user,
+    userId: session.user?.id,
+    userEmail: session.user?.email
+  })
 
   // Validate session has user with ID
   if (!session.user || !session.user.id) {
-    console.error('[Optimize Processing GET] Session missing user or user.id:', { hasUser: !!session.user, userId: session.user?.id })
+    console.error('[Optimize GET] Session missing user or user.id:', { hasUser: !!session.user, userId: session.user?.id })
     return NextResponse.json(
       { success: false, error: 'User not authenticated' },
       { status: 401 }
@@ -294,7 +351,11 @@ export async function GET(request: NextRequest) {
   const userId = session.user.id
 
   // Admin only operation
-  if (!(await isAdmin(session.user))) {
+  const isAdminUser = await isAdmin(session.user)
+  console.log('[Optimize GET] Admin check result:', { isAdmin: isAdminUser })
+
+  if (!isAdminUser) {
+    console.log('[Optimize GET] Access denied - not admin')
     return NextResponse.json(
       { success: false, error: 'Admin access required' },
       { status: 403 }
@@ -308,6 +369,14 @@ export async function GET(request: NextRequest) {
   const priorityUser = searchParams.get('priorityUser') || null
   const optimizationType = searchParams.get('optimizationType') || 'performance'
 
+  console.log('[Optimize GET] Query parameters:', {
+    operation,
+    batchSize,
+    priorityUser,
+    optimizationType
+  })
+
+  console.log('[Optimize GET] Calling handleOptimization...')
   return handleOptimization(userId, {
     operation,
     batchSize,
@@ -317,12 +386,30 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[Optimize POST] ===== REQUEST START =====')
+  console.log('[Optimize POST] Request URL:', request.url)
+  console.log('[Optimize POST] Request method:', request.method)
+  console.log('[Optimize POST] Request headers:', {
+    'content-type': request.headers.get('content-type'),
+    'authorization': request.headers.get('authorization') ? 'present' : 'missing',
+    'cookie': request.headers.get('cookie') ? 'present' : 'missing'
+  })
+
   const session = await requireAuth(request)
-  if (session instanceof NextResponse) return session
+  if (session instanceof NextResponse) {
+    console.log('[Optimize POST] Auth failed - returning response')
+    return session
+  }
+
+  console.log('[Optimize POST] Auth successful:', {
+    hasUser: !!session.user,
+    userId: session.user?.id,
+    userEmail: session.user?.email
+  })
 
   // Validate session has user with ID
   if (!session.user || !session.user.id) {
-    console.error('[Optimize Processing POST] Session missing user or user.id:', { hasUser: !!session.user, userId: session.user?.id })
+    console.error('[Optimize POST] Session missing user or user.id:', { hasUser: !!session.user, userId: session.user?.id })
     return NextResponse.json(
       { success: false, error: 'User not authenticated' },
       { status: 401 }
@@ -332,7 +419,11 @@ export async function POST(request: NextRequest) {
   const userId = session.user.id
 
   // Admin only operation
-  if (!(await isAdmin(session.user))) {
+  const isAdminUser = await isAdmin(session.user)
+  console.log('[Optimize POST] Admin check result:', { isAdmin: isAdminUser })
+
+  if (!isAdminUser) {
+    console.log('[Optimize POST] Access denied - not admin')
     return NextResponse.json(
       { success: false, error: 'Admin access required' },
       { status: 403 }
@@ -340,5 +431,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
+  console.log('[Optimize POST] Request body:', body)
+  console.log('[Optimize POST] Calling handleOptimization...')
   return handleOptimization(userId, body)
 }

@@ -3,8 +3,25 @@ import { requireAuth } from '../../../../src/lib/api-auth'
 import { prisma } from '../../../../src/lib/prisma'
 
 export async function POST(request: NextRequest) {
+  console.log('[Batch Process] ===== REQUEST START =====')
+  console.log('[Batch Process] Request URL:', request.url)
+  console.log('[Batch Process] Request method:', request.method)
+  console.log('[Batch Process] Request headers:', {
+    'content-type': request.headers.get('content-type'),
+    'authorization': request.headers.get('authorization') ? 'present' : 'missing',
+    'cookie': request.headers.get('cookie') ? 'present' : 'missing'
+  })
+
   const session = await requireAuth(request)
-  if (session instanceof NextResponse) return session
+  if (session instanceof NextResponse) {
+    console.log('[Batch Process] Auth failed - returning response')
+    return session
+  }
+
+  console.log('[Batch Process] Auth successful:', {
+    userId: session.user.id,
+    userEmail: session.user.email
+  })
 
   const userId = session.user.id
 
