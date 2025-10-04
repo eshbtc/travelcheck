@@ -54,20 +54,70 @@ function extractEmailContent(payload: any): string {
 function normalizeDate(dateStr: string): string | null {
   if (!dateStr || typeof dateStr !== 'string') return null
 
-  // Remove extra whitespace
-  dateStr = dateStr.trim()
+  // Normalize whitespace (replace multiple spaces with single space)
+  dateStr = dateStr.replace(/\s+/g, ' ').trim()
+
+  // OCR error recovery: try to clean up corrupted text
+  // "11  ET02 2025" → extract numbers and try patterns
+  // "ET02" might be OCR error for month numbers or names
+  let ocrCorrectionApplied = false
+  const ocrErrorPatterns: Array<{ pattern: RegExp; replacement: string | ((match: string, ...args: string[]) => string) }> = [
+    { pattern: /ET0?(\d{1,2})/i, replacement: (match: string, num: string) => num }, // ET02 → 02
+    { pattern: /0CT/i, replacement: 'Oct' }, // 0CT → Oct
+    { pattern: /\bET\b/i, replacement: 'Oct' }, // ET alone → Oct (common OCR error)
+  ]
+
+  for (const { pattern, replacement } of ocrErrorPatterns) {
+    if (pattern.test(dateStr)) {
+      dateStr = typeof replacement === 'function'
+        ? dateStr.replace(pattern, replacement)
+        : dateStr.replace(pattern, replacement)
+      ocrCorrectionApplied = true
+    }
+  }
 
   try {
-    // Try parsing as-is first
-    const parsed = new Date(dateStr)
-    if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString().split('T')[0]
+    // Try parsing as-is first (skip if OCR correction was applied, as native Date parser may misinterpret)
+    if (!ocrCorrectionApplied) {
+      const parsed = new Date(dateStr)
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0]
+      }
     }
 
     // Handle various formats:
-    // 1. MM/DD/YYYY or MM-DD-YYYY or MM/DD/YY or MM-DD-YY
+    // 1. YY/MM/DD format (year first, 2-digit): "25/09/10" → 2025-09-10
+    // Detect by checking if first number could be a 2-digit year (20-29 for 2020s)
+    const yymmdd = /^(\d{2})[\/\-](\d{1,2})[\/\-](\d{1,2})$/
+    let match = dateStr.match(yymmdd)
+    if (match) {
+      const [, first, second, third] = match
+      const firstNum = parseInt(first, 10)
+
+      // If first number is 20-29, likely YY/MM/DD format
+      // Also check if second and third are valid month/day ranges
+      if (firstNum >= 20 && firstNum <= 29 && parseInt(second, 10) <= 12 && parseInt(third, 10) <= 31) {
+        const year = `20${first}`
+        const month = second.padStart(2, '0')
+        const day = third.padStart(2, '0')
+        const date = new Date(`${year}-${month}-${day}`)
+        if (!isNaN(date.getTime())) {
+          return date.toISOString().split('T')[0]
+        }
+      }
+
+      // Otherwise try MM/DD/YY interpretation
+      const yearNum = parseInt(third, 10)
+      const year = yearNum < 50 ? `20${third}` : `19${third}`
+      const date = new Date(`${year}-${first.padStart(2, '0')}-${second.padStart(2, '0')}`)
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]
+      }
+    }
+
+    // 2. MM/DD/YYYY or MM-DD-YYYY or MM/DD/YY or MM-DD-YY
     const slashOrDash = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/
-    let match = dateStr.match(slashOrDash)
+    match = dateStr.match(slashOrDash)
     if (match) {
       let [, month, day, year] = match
       // Convert 2-digit year to 4-digit
@@ -81,8 +131,9 @@ function normalizeDate(dateStr: string): string | null {
       }
     }
 
-    // 2. Month name formats: "January 20, 2025" or "Jan 20, 2025" or "20 January 2025"
-    const monthNames = /^(\w+)\s+(\d{1,2}),?\s+(\d{4})$/
+    // 3. Month name formats with flexible spacing: "January 20, 2025" or "Jan 20, 2025"
+    // Only match letters for month names (not digits like "11")
+    const monthNames = /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/
     match = dateStr.match(monthNames)
     if (match) {
       const [, month, day, year] = match
@@ -92,8 +143,9 @@ function normalizeDate(dateStr: string): string | null {
       }
     }
 
-    // 3. Reverse format: "20 January 2025"
-    const reverseMonth = /^(\d{1,2})\s+(\w+)\s+(\d{4})$/
+    // 4. Reverse format with flexible spacing: "20 January 2025"
+    // Only match letters for month names (not digits like "11")
+    const reverseMonth = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/
     match = dateStr.match(reverseMonth)
     if (match) {
       const [, day, month, year] = match
@@ -103,7 +155,7 @@ function normalizeDate(dateStr: string): string | null {
       }
     }
 
-    // 4. ISO-8601 format: "2025-08-30" or "20250830"
+    // 5. ISO-8601 format: "2025-08-30" or "20250830"
     const iso = /^(\d{4})-?(\d{2})-?(\d{2})$/
     match = dateStr.match(iso)
     if (match) {
@@ -111,6 +163,39 @@ function normalizeDate(dateStr: string): string | null {
       const date = new Date(`${year}-${month}-${day}`)
       if (!isNaN(date.getTime())) {
         return date.toISOString().split('T')[0]
+      }
+    }
+
+    // 6. Fallback: extract just numbers from corrupted string
+    // "11  ET02 2025" → try "11 02 2025" as "day month year"
+    const numbersOnly = dateStr.match(/\d+/g)
+    if (numbersOnly && numbersOnly.length >= 3) {
+      const [a, b, c] = numbersOnly
+
+      // Try various interpretations, prioritizing more likely formats
+      const interpretations = [
+        // Day Month Year (most common for OCR errors)
+        { day: a, month: b, year: c.length === 2 ? `20${c}` : c, priority: 1 },
+        // Year Month Day (if first number is 4 digits)
+        ...(a.length === 4 ? [{ year: a, month: b, day: c, priority: 2 }] : []),
+        // Month Day Year (fallback)
+        { month: a, day: b, year: c.length === 2 ? `20${c}` : c, priority: 3 },
+      ]
+
+      // Sort by priority and try each interpretation
+      interpretations.sort((x, y) => x.priority - y.priority)
+
+      for (const { day, month, year } of interpretations) {
+        const monthNum = parseInt(month, 10)
+        const dayNum = parseInt(day, 10)
+
+        // Validate ranges
+        if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+          const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0]
+          }
+        }
       }
     }
 
