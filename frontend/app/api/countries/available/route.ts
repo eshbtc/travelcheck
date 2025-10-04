@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Cache this static data for 1 hour
-export const revalidate = 3600
+// Mark this route as dynamic since it uses query parameters
+export const dynamic = 'force-dynamic'
 
 const COUNTRIES = [
   { code: 'US', name: 'United States', continent: 'North America' },
