@@ -1,8 +1,10 @@
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import AzureADProvider from 'next-auth/providers/azure-ad'
+import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { PrismaClient } from '@prisma/client'
+import * as bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -49,6 +51,53 @@ export const authOptions: NextAuthOptions = {
             'https://graph.microsoft.com/Mail.Read',
           ].join(' '),
         },
+      },
+    }),
+
+    CredentialsProvider({
+      id: 'credentials',
+      name: 'Email and Password',
+      credentials: {
+        email: { label: 'Email', type: 'email', placeholder: 'user@example.com' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Email and password are required')
+        }
+
+        // Find user by email
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        })
+
+        if (!user || !user.passwordHash) {
+          throw new Error('Invalid email or password')
+        }
+
+        // Verify password
+        const isValidPassword = await bcrypt.compare(
+          credentials.password,
+          user.passwordHash
+        )
+
+        if (!isValidPassword) {
+          throw new Error('Invalid email or password')
+        }
+
+        // Update last login
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLogin: new Date() },
+        })
+
+        // Return user object for session
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.displayName,
+          image: user.photoUrl,
+        }
       },
     }),
   ],

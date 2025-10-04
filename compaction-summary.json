@@ -1,0 +1,114 @@
+{
+  "timestamp": "2025-10-03 19:44:40 CDT",
+  "agents_seen": [
+    "Main Agent (Direct Work)"
+  ],
+  "decisions": [
+    "Configuration and hook updates"
+  ],
+  "open_questions": [],
+  "owned_artifacts": [
+    "gitignore",
+    "frontend/package-lock.json",
+    "frontend/package.json",
+    "frontend/prisma/schema.prisma",
+    "frontend/src/lib/auth.config.ts",
+    "frontend/app/api/auth/register/",
+    "frontend/lib/",
+    "frontend/prisma/migrations/",
+    "~/claude-hooks/log_analyzer.py",
+    "~/claude-hooks/RELEASE_NOTES_v1.2.5.md",
+    "~/claude-hooks/test_hooks.py",
+    "~/claude-hooks/package.sh",
+    "~/claude-hooks/pretooluse_validate.py",
+    "~/claude-hooks/logs/turn_count.txt",
+    "~/claude-hooks/logs/md_request_state.json",
+    "~/claude-hooks/logs/file_hashes.json"
+  ],
+  "contracts_touched": [],
+  "files_touched": [
+    {
+      "path": "gitignore",
+      "reason": "modified",
+      "anchors": []
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "reason": "modified",
+      "anchors": []
+    },
+    {
+      "path": "frontend/package.json",
+      "reason": "modified",
+      "anchors": []
+    },
+    {
+      "path": "frontend/prisma/schema.prisma",
+      "reason": "modified",
+      "anchors": []
+    },
+    {
+      "path": "frontend/src/lib/auth.config.ts",
+      "reason": "modified",
+      "anchors": []
+    },
+    {
+      "path": "frontend/app/api/auth/register/",
+      "reason": "created",
+      "anchors": []
+    },
+    {
+      "path": "frontend/lib/",
+      "reason": "created",
+      "anchors": []
+    },
+    {
+      "path": "frontend/prisma/migrations/",
+      "reason": "created",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/log_analyzer.py",
+      "reason": "updated hook",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/RELEASE_NOTES_v1.2.5.md",
+      "reason": "updated hook",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/test_hooks.py",
+      "reason": "updated hook",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/package.sh",
+      "reason": "updated hook",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/pretooluse_validate.py",
+      "reason": "updated hook",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/logs/turn_count.txt",
+      "reason": "updated hook",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/logs/md_request_state.json",
+      "reason": "updated hook",
+      "anchors": []
+    },
+    {
+      "path": "~/claude-hooks/logs/file_hashes.json",
+      "reason": "updated hook",
+      "anchors": []
+    }
+  ],
+  "risks": [],
+  "next_steps": [],
+  "wsi_snapshot": []
+}

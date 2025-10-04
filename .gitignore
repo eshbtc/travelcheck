@@ -28,7 +28,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ - DISABLED: conflicts with src/lib
 lib64/
 parts/
 sdist/

@@ -15,16 +15,17 @@ datasource db {
 // ============================================================================
 
 model User {
-  id          String    @id @db.Uuid
-  email       String    @unique
-  role        String?   @default("user")
-  displayName String?   @map("display_name")
-  photoUrl    String?   @map("photo_url")
-  provider    String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  lastLogin   DateTime? @map("last_login")
-  settings    Json      @default("{}")
+  id           String    @id @db.Uuid
+  email        String    @unique
+  role         String?   @default("user")
+  displayName  String?   @map("display_name")
+  photoUrl     String?   @map("photo_url")
+  provider     String?
+  passwordHash String?   @map("password_hash") // Optional: only for credentials auth
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  lastLogin    DateTime? @map("last_login")
+  settings     Json      @default("{}")
 
   // Relations
   preferences               UserPreference?
