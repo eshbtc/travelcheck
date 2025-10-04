@@ -112,24 +112,31 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       // Sync custom fields on sign-in to ensure consistency between NextAuth and custom fields
-      if (user.id && account) {
-        const existingUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { role: true },
-        })
+      if (user.email && account) {
+        try {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email },
+            select: { id: true, role: true },
+          })
 
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            // Sync NextAuth standard fields to custom fields for backward compatibility
-            displayName: user.name || (profile as any)?.name,
-            photoUrl: user.image || (profile as any)?.picture || (profile as any)?.avatar_url,
-            provider: account.provider,
-            lastLogin: new Date(),
-            // Set default role only if not already set
-            ...(existingUser && !existingUser.role && { role: 'user' }),
-          },
-        })
+          if (existingUser) {
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: {
+                // Sync NextAuth standard fields to custom fields for backward compatibility
+                displayName: user.name || (profile as any)?.name,
+                photoUrl: user.image || (profile as any)?.picture || (profile as any)?.avatar_url,
+                provider: account.provider,
+                lastLogin: new Date(),
+                // Set default role only if not already set
+                ...(existingUser && !existingUser.role && { role: 'user' }),
+              },
+            })
+          }
+        } catch (error) {
+          console.error('Error syncing user fields on sign-in:', error)
+          // Don't block sign-in if sync fails
+        }
       }
       return true
     },
