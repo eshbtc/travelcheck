@@ -1,28 +1,23 @@
-# Compaction Summary — 2025-10-03 19:44:40 CDT
+# Compaction Summary — 2025-10-03 21:38:47 CDT
 
 ## Executive Summary
 - Agents active: Main Agent (Direct Work)
-- Files modified: 16
+- Files modified: 3
 - Contracts affected: 0
 - Open questions: 0
 
 ## Key Decisions (retain for context)
-- Configuration and hook updates
+- chore: Trigger Railway redeploy to load Google OAuth credentials
+- fix: Add linkAccount adapter override to generate Account UUIDs
+- fix: Re-add custom createUser adapter to generate UUID
 
 ## Next Steps (actionable)
 - n/a
 
 ## Critical Paths (for JIT retrieval)
-- `gitignore`
-- `frontend/package-lock.json`
-- `frontend/package.json`
-- `frontend/prisma/schema.prisma`
 - `frontend/src/lib/auth.config.ts`
-- `frontend/app/api/auth/register/`
-- `frontend/lib/`
-- `frontend/prisma/migrations/`
-- `~/claude-hooks/log_analyzer.py`
-- `~/claude-hooks/RELEASE_NOTES_v1.2.5.md`
+- `~/claude-hooks/logs/turn_count.txt`
+- `~/claude-hooks/logs/file_hashes.json`
 
 ## Contracts Touched (verify stability)
 - n/a

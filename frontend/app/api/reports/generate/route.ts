@@ -143,11 +143,23 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    if (!parameters.reportType || !parameters.title || !parameters.startDate || !parameters.endDate) {
+    if (!parameters.reportType || !parameters.startDate || !parameters.endDate) {
       return NextResponse.json(
-        { success: false, error: 'Missing required parameters: reportType, title, startDate, endDate' },
+        { success: false, error: 'Missing required parameters: reportType, startDate, endDate' },
         { status: 400 }
       )
+    }
+
+    // Auto-generate title if not provided
+    if (!parameters.title) {
+      if (typeof parameters.reportType === 'object' && 'category' in parameters.reportType) {
+        // If reportType is an object with category and purpose
+        const reportObj = parameters.reportType as { category: string; purpose?: string }
+        parameters.title = reportObj.purpose || `${reportObj.category} Report`
+      } else {
+        // If reportType is a string
+        parameters.title = `${String(parameters.reportType).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Report`
+      }
     }
 
     // Get travel entries for the date range

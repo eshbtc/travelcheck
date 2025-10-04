@@ -53,7 +53,19 @@ export function AlertList({ className = '' }: AlertListProps) {
   const { data: suggestions, isLoading: suggestionsLoading } = useQuery({
     queryKey: ['suggestions'],
     queryFn: async () => {
-      const res = await fetch('/api/ai/generate-suggestions')
+      const res = await fetch('/api/ai/generate-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userData: {
+            userId: user?.id,
+            email: user?.email,
+            name: user?.name
+          }
+        })
+      })
       return res.json()
     },
     enabled: !!user

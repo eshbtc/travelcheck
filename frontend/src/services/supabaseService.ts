@@ -53,8 +53,11 @@ class SupabaseServiceStub {
     })
   }
 
-  async generateSmartSuggestions() {
-    return this.apiCall('/api/ai/generate-suggestions')
+  async generateSmartSuggestions(userData: any) {
+    return this.apiCall('/api/ai/generate-suggestions', {
+      method: 'POST',
+      body: JSON.stringify({ userData })
+    })
   }
 
   async analyzeTravelPatterns() {

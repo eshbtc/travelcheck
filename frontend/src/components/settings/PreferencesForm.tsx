@@ -69,20 +69,15 @@ export function PreferencesForm({ className = '' }: PreferencesFormProps) {
   const loadPreferences = async () => {
     try {
       setIsLoading(true)
-      // TODO: Replace with actual API call
-      // const response = await getUserPreferences()
-      // setPreferences(response.data)
-      
-      // Mock data for now
-      const mockPreferences: UserPreferences = {
-        timezone: 'America/New_York',
-        dateFormat: 'MM/DD/YYYY',
-        numberFormat: 'en-US',
-        language: 'en',
-        defaultAttributionPolicy: 'midnight'
+      const response = await fetch('/api/settings/preferences')
+
+      if (!response.ok) {
+        throw new Error('Failed to load preferences')
       }
-      setPreferences(mockPreferences)
-      reset(mockPreferences)
+
+      const preferencesData = await response.json()
+      setPreferences(preferencesData)
+      reset(preferencesData)
     } catch (error) {
       console.error('Error loading preferences:', error)
       toast.error('Failed to load preferences')
@@ -94,14 +89,21 @@ export function PreferencesForm({ className = '' }: PreferencesFormProps) {
   const onSubmit = async (data: PreferencesFormData) => {
     try {
       setIsSaving(true)
-      
-      // TODO: Replace with actual API call
-      // await updateUserPreferences(data)
-      
-      // Mock save for now
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      setPreferences(data)
+
+      const response = await fetch('/api/settings/preferences', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save preferences')
+      }
+
+      const updatedPreferences = await response.json()
+      setPreferences(updatedPreferences)
       toast.success('Preferences saved successfully')
     } catch (error) {
       console.error('Error saving preferences:', error)

@@ -66,24 +66,18 @@ export function ProfileForm({ className = '' }: ProfileFormProps) {
   const loadProfile = async () => {
     try {
       setIsLoading(true)
-      // TODO: Replace with actual API call
-      // const response = await getUserProfile()
-      // setProfile(response.data)
-      
-      // Mock data for now
-      const mockProfile: UserProfile = {
-        displayName: 'John Doe',
-        email: 'john.doe@example.com',
-        emailVerified: false,
-        timezone: 'America/New_York',
-        createdAt: '2024-01-15T10:30:00Z',
-        lastLoginAt: '2024-01-20T14:22:00Z'
+      const response = await fetch('/api/settings/profile')
+
+      if (!response.ok) {
+        throw new Error('Failed to load profile')
       }
-      setProfile(mockProfile)
+
+      const profileData = await response.json()
+      setProfile(profileData)
       reset({
-        displayName: mockProfile.displayName,
-        email: mockProfile.email,
-        timezone: mockProfile.timezone
+        displayName: profileData.displayName,
+        email: profileData.email,
+        timezone: profileData.timezone
       })
     } catch (error) {
       console.error('Error loading profile:', error)
@@ -96,18 +90,26 @@ export function ProfileForm({ className = '' }: ProfileFormProps) {
   const onSubmit = async (data: ProfileFormData) => {
     try {
       setIsSaving(true)
-      
-      // TODO: Replace with actual API call
-      // await updateUserProfile(data)
-      
-      // Mock save for now
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      setProfile(prev => prev ? { ...prev, ...data } : null)
+
+      const response = await fetch('/api/settings/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update profile')
+      }
+
+      const updatedProfile = await response.json()
+      setProfile(updatedProfile)
       toast.success('Profile updated successfully')
     } catch (error) {
       console.error('Error saving profile:', error)
-      toast.error('Failed to save profile')
+      toast.error(error instanceof Error ? error.message : 'Failed to save profile')
     } finally {
       setIsSaving(false)
     }

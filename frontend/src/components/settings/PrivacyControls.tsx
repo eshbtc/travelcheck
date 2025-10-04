@@ -39,18 +39,14 @@ export function PrivacyControls({ className = '' }: PrivacyControlsProps) {
   const loadPrivacySettings = async () => {
     try {
       setIsLoading(true)
-      // TODO: Replace with actual API call
-      // const response = await getPrivacySettings()
-      // setSettings(response.data)
-      
-      // Mock data for now
-      const mockSettings: PrivacySettings = {
-        dataRetentionDays: 365,
-        shareAnalytics: false,
-        allowResearch: false,
-        exportFormats: ['json', 'csv']
+      const response = await fetch('/api/settings/privacy')
+
+      if (!response.ok) {
+        throw new Error('Failed to load privacy settings')
       }
-      setSettings(mockSettings)
+
+      const settingsData = await response.json()
+      setSettings(settingsData)
     } catch (error) {
       console.error('Error loading privacy settings:', error)
       toast.error('Failed to load privacy settings')
@@ -62,13 +58,21 @@ export function PrivacyControls({ className = '' }: PrivacyControlsProps) {
   const handleRetentionChange = async (days: number) => {
     try {
       setIsSaving(true)
-      // TODO: Replace with actual API call
-      // await updateDataRetention(days)
-      
-      // Mock save for now
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      setSettings(prev => prev ? { ...prev, dataRetentionDays: days } : null)
+
+      const response = await fetch('/api/settings/privacy', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ dataRetentionDays: days }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update data retention')
+      }
+
+      const updatedSettings = await response.json()
+      setSettings(updatedSettings)
       toast.success('Data retention period updated')
     } catch (error) {
       console.error('Error updating retention:', error)
@@ -81,13 +85,21 @@ export function PrivacyControls({ className = '' }: PrivacyControlsProps) {
   const handleAnalyticsToggle = async (enabled: boolean) => {
     try {
       setIsSaving(true)
-      // TODO: Replace with actual API call
-      // await updateAnalyticsSharing(enabled)
-      
-      // Mock save for now
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      setSettings(prev => prev ? { ...prev, shareAnalytics: enabled } : null)
+
+      const response = await fetch('/api/settings/privacy', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shareAnalytics: enabled }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update analytics settings')
+      }
+
+      const updatedSettings = await response.json()
+      setSettings(updatedSettings)
       toast.success(`Analytics sharing ${enabled ? 'enabled' : 'disabled'}`)
     } catch (error) {
       console.error('Error updating analytics:', error)
@@ -100,13 +112,21 @@ export function PrivacyControls({ className = '' }: PrivacyControlsProps) {
   const handleResearchToggle = async (enabled: boolean) => {
     try {
       setIsSaving(true)
-      // TODO: Replace with actual API call
-      // await updateResearchParticipation(enabled)
-      
-      // Mock save for now
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      setSettings(prev => prev ? { ...prev, allowResearch: enabled } : null)
+
+      const response = await fetch('/api/settings/privacy', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ allowResearch: enabled }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update research settings')
+      }
+
+      const updatedSettings = await response.json()
+      setSettings(updatedSettings)
       toast.success(`Research participation ${enabled ? 'enabled' : 'disabled'}`)
     } catch (error) {
       console.error('Error updating research settings:', error)

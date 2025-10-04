@@ -30,7 +30,23 @@ export const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
   const loadSmartSuggestions = async () => {
     try {
       setLoading(true);
-      const result = await supabaseService.generateSmartSuggestions();
+
+      // Fetch travel entries to provide context for AI suggestions
+      let travelEntries = [];
+      try {
+        const entriesResponse = await fetch('/api/travel/entries');
+        if (entriesResponse.ok) {
+          const entriesData = await entriesResponse.json();
+          travelEntries = entriesData.data || entriesData.entries || [];
+        }
+      } catch (error) {
+        console.error('Error fetching travel entries:', error);
+      }
+
+      const result = await supabaseService.generateSmartSuggestions({
+        travelEntries
+      });
+
       if (result.success) {
         setSuggestions({
           success: result.success,

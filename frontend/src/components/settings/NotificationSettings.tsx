@@ -42,25 +42,14 @@ export function NotificationSettings({ className = '' }: NotificationSettingsPro
   const loadNotificationSettings = async () => {
     try {
       setIsLoading(true)
-      // TODO: Replace with actual API call
-      // const response = await getNotificationSettings()
-      // setSettings(response.data)
-      
-      // Mock data for now
-      const mockSettings: NotificationSettings = {
-        email: true,
-        push: false,
-        reportReady: true,
-        dataConflicts: true,
-        ruleUpdates: false,
-        thresholds: {
-          schengen90: 75,
-          schengen180: 90,
-          uk180: 150,
-          uk12m: 10
-        }
+      const response = await fetch('/api/settings/notifications')
+
+      if (!response.ok) {
+        throw new Error('Failed to load notification settings')
       }
-      setSettings(mockSettings)
+
+      const settingsData = await response.json()
+      setSettings(settingsData)
     } catch (error) {
       console.error('Error loading notification settings:', error)
       toast.error('Failed to load notification settings')
@@ -72,13 +61,21 @@ export function NotificationSettings({ className = '' }: NotificationSettingsPro
   const handleToggle = async (key: keyof NotificationSettings, value: boolean) => {
     try {
       setIsSaving(true)
-      // TODO: Replace with actual API call
-      // await updateNotificationSetting(key, value)
-      
-      // Mock save for now
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      setSettings(prev => prev ? { ...prev, [key]: value } : null)
+
+      const response = await fetch('/api/settings/notifications', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [key]: value }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update notification settings')
+      }
+
+      const updatedSettings = await response.json()
+      setSettings(updatedSettings)
       toast.success('Notification settings updated')
     } catch (error) {
       console.error('Error updating notification settings:', error)
@@ -91,16 +88,26 @@ export function NotificationSettings({ className = '' }: NotificationSettingsPro
   const handleThresholdChange = async (rule: keyof NotificationSettings['thresholds'], value: number) => {
     try {
       setIsSaving(true)
-      // TODO: Replace with actual API call
-      // await updateNotificationThreshold(rule, value)
-      
-      // Mock save for now
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      setSettings(prev => prev ? {
-        ...prev,
-        thresholds: { ...prev.thresholds, [rule]: value }
-      } : null)
+
+      const response = await fetch('/api/settings/notifications', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          thresholds: {
+            ...settings?.thresholds,
+            [rule]: value,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update threshold')
+      }
+
+      const updatedSettings = await response.json()
+      setSettings(updatedSettings)
       toast.success('Threshold updated')
     } catch (error) {
       console.error('Error updating threshold:', error)
