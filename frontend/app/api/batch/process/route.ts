@@ -23,94 +23,132 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Validate request has body
-  let body: any
-
   try {
     // Check Content-Type header
     const contentType = request.headers.get('content-type')
     console.log('[Batch Process] Content-Type:', contentType)
 
-    if (!contentType || !contentType.includes('application/json')) {
-      console.warn('[Batch Process] Invalid Content-Type:', contentType)
+    // Accept both multipart/form-data (for file uploads) and application/json (for testing)
+    if (!contentType) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid Content-Type. Expected application/json',
-          details: `Received: ${contentType || 'none'}`
+          error: 'Missing Content-Type header',
+          details: 'Expected multipart/form-data or application/json'
         },
         { status: 400 }
       )
     }
 
-    // Clone request to read body as text first for debugging
-    const requestClone = request.clone()
-    const bodyText = await requestClone.text()
+    let imageFiles: any[] = []
+    let batchId: string
 
-    console.log('[Batch Process] Raw body length:', bodyText?.length || 0)
-    console.log('[Batch Process] Raw body preview:', bodyText?.substring(0, 100) || 'empty')
+    // Handle multipart/form-data (file uploads with passport images)
+    if (contentType.includes('multipart/form-data')) {
+      console.log('[Batch Process] Processing multipart/form-data for file uploads')
 
-    // Validate body is not empty
-    if (!bodyText || bodyText.trim().length === 0) {
-      console.error('[Batch Process] Empty request body')
-      return NextResponse.json(
-        { success: false, error: 'Request body is empty' },
-        { status: 400 }
+      const formData = await request.formData()
+
+      // Extract batchId from form data
+      const batchIdField = formData.get('batchId')
+      if (!batchIdField || typeof batchIdField !== 'string') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Missing or invalid batchId in form data',
+            details: `Expected string field 'batchId', received: ${typeof batchIdField}`
+          },
+          { status: 400 }
+        )
+      }
+      batchId = batchIdField
+
+      // Extract uploaded files
+      const uploadedFiles: File[] = []
+      formData.forEach((value, key) => {
+        if (value instanceof File) {
+          uploadedFiles.push(value)
+        }
+      })
+
+      if (uploadedFiles.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'No files uploaded',
+            details: 'Expected at least one file in multipart/form-data'
+          },
+          { status: 400 }
+        )
+      }
+
+      // Convert File objects to the format expected by processing logic
+      imageFiles = await Promise.all(
+        uploadedFiles.map(async (file, index) => {
+          // Read file as buffer for processing
+          const arrayBuffer = await file.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+
+          return {
+            filename: file.name,
+            contentType: file.type,
+            size: file.size,
+            data: buffer.toString('base64'), // Store as base64 for processing
+            index
+          }
+        })
       )
-    }
 
-    // Validate body doesn't start with invalid characters
-    const trimmedBody = bodyText.trim()
-    if (trimmedBody[0] !== '{' && trimmedBody[0] !== '[') {
-      console.error('[Batch Process] Invalid JSON start character:', trimmedBody[0], 'at position 0')
+      console.log('[Batch Process] Parsed multipart form data:', {
+        batchId,
+        fileCount: imageFiles.length,
+        files: imageFiles.map(f => ({ name: f.filename, size: f.size, type: f.contentType }))
+      })
+    }
+    // Handle application/json (for testing or pre-encoded data)
+    else if (contentType.includes('application/json')) {
+      console.log('[Batch Process] Processing application/json for testing')
+
+      const bodyText = await request.text()
+
+      if (!bodyText || bodyText.trim().length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Request body is empty' },
+          { status: 400 }
+        )
+      }
+
+      const body = JSON.parse(bodyText)
+      imageFiles = body.imageFiles
+      batchId = body.batchId
+
+      if (!imageFiles || !Array.isArray(imageFiles)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Missing or invalid image files',
+            details: `Expected array, received: ${typeof imageFiles}`
+          },
+          { status: 400 }
+        )
+      }
+
+      if (!batchId || typeof batchId !== 'string') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Missing or invalid batchId',
+            details: `Expected string, received: ${typeof batchId}`
+          },
+          { status: 400 }
+        )
+      }
+    } else {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid JSON format',
-          details: `Body starts with '${trimmedBody[0]}' instead of '{' or '['`
-        },
-        { status: 400 }
-      )
-    }
-
-    // Parse JSON with error handling
-    try {
-      body = JSON.parse(bodyText)
-    } catch (parseError) {
-      console.error('[Batch Process] JSON parse error:', parseError)
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid JSON in request body',
-          details: parseError instanceof Error ? parseError.message : 'JSON parsing failed',
-          bodyPreview: bodyText.substring(0, 100)
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate required fields
-    const { imageFiles, batchId } = body
-
-    if (!imageFiles || !Array.isArray(imageFiles)) {
-      console.error('[Batch Process] Invalid imageFiles:', typeof imageFiles, Array.isArray(imageFiles))
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing or invalid image files',
-          details: `Expected array, received: ${typeof imageFiles}`
-        },
-        { status: 400 }
-      )
-    }
-
-    if (!batchId || typeof batchId !== 'string') {
-      console.error('[Batch Process] Invalid batchId:', typeof batchId)
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing or invalid batchId',
-          details: `Expected string, received: ${typeof batchId}`
+          error: 'Unsupported Content-Type',
+          details: `Expected multipart/form-data or application/json, received: ${contentType}`
         },
         { status: 400 }
       )

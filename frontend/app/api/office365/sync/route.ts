@@ -180,7 +180,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}))
-    const { accountId } = body
+    const {
+      accountId,
+      skipToken,
+      syncFromDate,
+      maxResults = 200 // Default to 200, max cap at 500 for safety
+    } = body
+
+    // Validate and cap maxResults
+    const cappedMaxResults = Math.min(Math.max(1, maxResults), 500)
 
     // Get user's Office365 account(s)
     const emailAccounts = await prisma.emailAccount.findMany({
@@ -266,21 +274,54 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch messages from Microsoft Graph API with server-side filtering
-    // Note: $search and $orderBy cannot be used together in Graph API
-    // Using $search for better results, sacrificing order (we'll sort client-side)
-    const searchQuery = encodeURIComponent('(subject:flight OR subject:booking OR subject:confirmation OR subject:ticket) AND (body:airline OR body:travel)')
-    const filterQuery = `$search="${searchQuery}"&$top=100&$select=id,subject,bodyPreview,receivedDateTime,from`
+    // Build query parameters based on whether we're using date filtering or search
+    let apiUrl = 'https://graph.microsoft.com/v1.0/me/messages'
+    const queryParams: string[] = []
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'outlook.body-content-type="text"',
+    }
 
-    const response = await fetch(`https://graph.microsoft.com/v1.0/me/messages?${filterQuery}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        // Required for $search in Microsoft Graph
-        'ConsistencyLevel': 'eventual',
-        // Prefer text body content for easier parsing
-        'Prefer': 'outlook.body-content-type="text"',
-      },
-    })
+    // If syncFromDate is provided, use $filter instead of $search (they're mutually exclusive)
+    if (syncFromDate) {
+      try {
+        const fromDate = new Date(syncFromDate)
+        if (!isNaN(fromDate.getTime())) {
+          // Microsoft Graph API date format: ISO-8601
+          const isoDate = fromDate.toISOString()
+          // Use $filter with date and subject/body keywords
+          const filterExpr = encodeURIComponent(
+            `receivedDateTime ge ${isoDate} and (contains(subject,'flight') or contains(subject,'booking') or contains(subject,'confirmation') or contains(subject,'ticket'))`
+          )
+          queryParams.push(`$filter=${filterExpr}`)
+          queryParams.push(`$orderby=receivedDateTime desc`)
+        }
+      } catch (error) {
+        console.warn('[Office365 Sync] Invalid syncFromDate, falling back to search:', syncFromDate)
+      }
+    }
+
+    // If no date filter or it failed, use $search instead
+    if (queryParams.length === 0) {
+      const searchQuery = encodeURIComponent('(subject:flight OR subject:booking OR subject:confirmation OR subject:ticket) AND (body:airline OR body:travel)')
+      queryParams.push(`$search="${searchQuery}"`)
+      // Required for $search in Microsoft Graph
+      headers['ConsistencyLevel'] = 'eventual'
+    }
+
+    queryParams.push(`$top=${cappedMaxResults}`)
+    queryParams.push('$select=id,subject,bodyPreview,receivedDateTime,from,body')
+
+    // Add skip token for pagination if provided
+    if (skipToken) {
+      queryParams.push(`$skiptoken=${encodeURIComponent(skipToken)}`)
+    }
+
+    const fullUrl = `${apiUrl}?${queryParams.join('&')}`
+    console.log('[Office365 Sync] Fetching from:', fullUrl)
+
+    const response = await fetch(fullUrl, { headers })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -289,41 +330,83 @@ export async function POST(request: NextRequest) {
 
     const json = await response.json()
     let items = json.value || []
+    const nextSkipToken = json['@odata.nextLink']
+      ? new URL(json['@odata.nextLink']).searchParams.get('$skiptoken')
+      : null
 
-    // Sort emails by receivedDateTime (newest first) since we can't use $orderBy with $search
-    items.sort((a: any, b: any) => {
-      const dateA = new Date(a.receivedDateTime || 0).getTime()
-      const dateB = new Date(b.receivedDateTime || 0).getTime()
-      return dateB - dateA // Descending order (newest first)
+    // Sort emails by receivedDateTime (newest first) if using $search (can't use $orderBy with $search)
+    if (!syncFromDate) {
+      items.sort((a: any, b: any) => {
+        const dateA = new Date(a.receivedDateTime || 0).getTime()
+        const dateB = new Date(b.receivedDateTime || 0).getTime()
+        return dateB - dateA // Descending order (newest first)
+      })
+    }
+
+    console.log('[Office365 Sync] Fetched', items.length, 'messages, has more:', !!nextSkipToken)
+
+    // Check which message IDs already exist in the database for progress tracking
+    const messageIds = items.map((item: any) => item.id).filter(Boolean)
+    const existingEmails = await prisma.flightEmail.findMany({
+      where: {
+        userId: userId,
+        emailAccountId: account.id,
+        messageId: {
+          in: messageIds
+        }
+      },
+      select: {
+        messageId: true
+      }
     })
+
+    const existingMessageIds = new Set(existingEmails.map(e => e.messageId))
+    console.log('[Office365 Sync] Already processed:', existingMessageIds.size, 'out of', messageIds.length)
+
+    let fetchedCount = items.length
+    let alreadyProcessedCount = 0
+    let newlyAddedCount = 0
+    let failedCount = 0
 
     const flightEmails = []
     for (const item of items) {
-      const subject = item.subject || ''
-      const from = item.from?.emailAddress?.address || ''
-      const date = item.receivedDateTime || item.sentDateTime || ''
-      const content = item.body?.content || ''
-
-      const extractedFlights = await extractFlightInfo(content, subject)
-
-      const flightData = {
-        userId: userId,
-        emailAccountId: account.id,
-        messageId: item.id,
-        subject,
-        sender: from,
-        recipient: account.email || '',
-        bodyText: content,
-        bodyHtml: content,
-        flightData: extractedFlights,
-        parsedData: extractedFlights,
-        confidenceScore: 0.8,
-        processingStatus: 'completed',
-        isProcessed: true,
-        dateReceived: date ? new Date(date) : new Date(),
+      // Skip if already processed
+      if (existingMessageIds.has(item.id)) {
+        console.log('[Office365 Sync] Message already processed, skipping:', item.id)
+        alreadyProcessedCount++
+        continue
       }
 
-      flightEmails.push(flightData)
+      try {
+        const subject = item.subject || ''
+        const from = item.from?.emailAddress?.address || ''
+        const date = item.receivedDateTime || item.sentDateTime || ''
+        const content = item.body?.content || ''
+
+        const extractedFlights = await extractFlightInfo(content, subject)
+
+        const flightData = {
+          userId: userId,
+          emailAccountId: account.id,
+          messageId: item.id,
+          subject,
+          sender: from,
+          recipient: account.email || '',
+          bodyText: content,
+          bodyHtml: content,
+          flightData: extractedFlights,
+          parsedData: extractedFlights,
+          confidenceScore: 0.8,
+          processingStatus: 'completed',
+          isProcessed: true,
+          dateReceived: date ? new Date(date) : new Date(),
+        }
+
+        flightEmails.push(flightData)
+      } catch (itemError) {
+        console.error('[Office365 Sync] Error processing message:', item.id, itemError)
+        failedCount++
+      }
     }
 
     // Save to database using Prisma createMany with skipDuplicates
@@ -332,6 +415,8 @@ export async function POST(request: NextRequest) {
         data: flightEmails,
         skipDuplicates: true,
       })
+      newlyAddedCount = insertResult.count
+      console.log('[Office365 Sync] Inserted', newlyAddedCount, 'new emails')
 
       // Fetch the inserted emails to create travel entries
       if (insertResult.count > 0) {
@@ -388,8 +473,26 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      count: flightEmails.length,
-      emails: flightEmails,
+      totalCount: newlyAddedCount,
+      stats: {
+        fetched: fetchedCount,
+        alreadyProcessed: alreadyProcessedCount,
+        newlyAdded: newlyAddedCount,
+        failed: failedCount
+      },
+      results: [{
+        accountId: account.id,
+        email: account.email || '',
+        count: flightEmails.length,
+        stats: {
+          fetched: fetchedCount,
+          alreadyProcessed: alreadyProcessedCount,
+          newlyAdded: newlyAddedCount,
+          failed: failedCount
+        }
+      }],
+      nextPageToken: nextSkipToken || undefined,
+      hasMore: !!nextSkipToken
     })
   } catch (error) {
     console.error('Error syncing Office365:', error)

@@ -3,6 +3,12 @@ import { requireAuth } from '../../../../src/lib/api-auth'
 import { prisma } from '../../../../src/lib/prisma'
 
 async function isAdmin(user: any): Promise<boolean> {
+  // Validate user object has required fields
+  if (!user || !user.id || !user.email) {
+    console.error('[Optimize Processing] Invalid user object:', { hasUser: !!user, hasId: !!user?.id, hasEmail: !!user?.email })
+    return false
+  }
+
   const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase())
   if (adminEmails.includes(user.email?.toLowerCase())) return true
 
@@ -276,10 +282,19 @@ export async function GET(request: NextRequest) {
   const session = await requireAuth(request)
   if (session instanceof NextResponse) return session
 
+  // Validate session has user with ID
+  if (!session.user || !session.user.id) {
+    console.error('[Optimize Processing GET] Session missing user or user.id:', { hasUser: !!session.user, userId: session.user?.id })
+    return NextResponse.json(
+      { success: false, error: 'User not authenticated' },
+      { status: 401 }
+    )
+  }
+
   const userId = session.user.id
 
   // Admin only operation
-  if (!(await isAdmin(userId))) {
+  if (!(await isAdmin(session.user))) {
     return NextResponse.json(
       { success: false, error: 'Admin access required' },
       { status: 403 }
@@ -305,10 +320,19 @@ export async function POST(request: NextRequest) {
   const session = await requireAuth(request)
   if (session instanceof NextResponse) return session
 
+  // Validate session has user with ID
+  if (!session.user || !session.user.id) {
+    console.error('[Optimize Processing POST] Session missing user or user.id:', { hasUser: !!session.user, userId: session.user?.id })
+    return NextResponse.json(
+      { success: false, error: 'User not authenticated' },
+      { status: 401 }
+    )
+  }
+
   const userId = session.user.id
 
   // Admin only operation
-  if (!(await isAdmin(userId))) {
+  if (!(await isAdmin(session.user))) {
     return NextResponse.json(
       { success: false, error: 'Admin access required' },
       { status: 403 }

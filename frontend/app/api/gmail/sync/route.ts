@@ -433,8 +433,13 @@ export async function POST(request: NextRequest) {
     console.log('[SYNC] Starting Gmail sync for user:', userId)
 
     const body = await request.json().catch(() => ({}))
-    const { accountId } = body
-    console.log('[SYNC] Request body:', { accountId })
+    const {
+      accountId,
+      pageToken,
+      syncFromDate,
+      maxResults = 200 // Default to 200, max cap at 500 for safety
+    } = body
+    console.log('[SYNC] Request body:', { accountId, pageToken, syncFromDate, maxResults })
 
     // Get user's Gmail accounts (optionally a specific account)
     console.log('[SYNC] Fetching email accounts...')
@@ -456,8 +461,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const aggregateResults: Array<{ accountId: string, email: string, count: number }> = []
+    const aggregateResults: Array<{
+      accountId: string
+      email: string
+      count: number
+      stats?: {
+        fetched: number
+        alreadyProcessed: number
+        newlyAdded: number
+        failed: number
+      }
+    }> = []
     let totalCount = 0
+    let nextPageToken: string | null | undefined = null
+
+    // Validate and cap maxResults
+    const cappedMaxResults = Math.min(Math.max(1, maxResults), 500)
 
     for (const account of emailAccounts) {
       console.log('[SYNC] Processing account:', account.id, account.email)
@@ -491,9 +510,36 @@ export async function POST(request: NextRequest) {
         // Use Gmail API to fetch messages
         console.log('[SYNC] Initializing Gmail API...')
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
-        const searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)'
+
+        // Build search query with optional date filter
+        let searchQuery = 'subject:(confirmation OR booking OR ticket OR flight) (airline OR travel)'
+        if (syncFromDate) {
+          try {
+            const fromDate = new Date(syncFromDate)
+            if (!isNaN(fromDate.getTime())) {
+              // Gmail date format: yyyy/mm/dd
+              const year = fromDate.getFullYear()
+              const month = String(fromDate.getMonth() + 1).padStart(2, '0')
+              const day = String(fromDate.getDate()).padStart(2, '0')
+              searchQuery += ` after:${year}/${month}/${day}`
+            }
+          } catch (error) {
+            console.warn('[SYNC] Invalid syncFromDate, ignoring:', syncFromDate)
+          }
+        }
+
         console.log('[SYNC] Fetching messages with query:', searchQuery)
-        const { data: list } = await gmail.users.messages.list({ userId: 'me', q: searchQuery, maxResults: 50 })
+        console.log('[SYNC] Max results:', cappedMaxResults, 'Page token:', pageToken || 'none')
+
+        const { data: list } = await gmail.users.messages.list({
+          userId: 'me',
+          q: searchQuery,
+          maxResults: cappedMaxResults,
+          ...(pageToken && { pageToken })
+        })
+
+        // Store next page token for pagination
+        nextPageToken = list.nextPageToken
 
         console.log('[SYNC] Gmail API response - list:', list ? 'exists' : 'null')
         console.log('[SYNC] Gmail API response - list.messages:', list?.messages ? `array with ${list.messages.length} items` : 'null/undefined')
@@ -501,12 +547,44 @@ export async function POST(request: NextRequest) {
         console.log('[SYNC] Gmail API response - list.messages isArray:', Array.isArray(list?.messages))
 
         const flightEmails: any[] = []
+        let fetchedCount = 0
+        let alreadyProcessedCount = 0
+        let newlyAddedCount = 0
+        let failedCount = 0
+
         if (list && list.messages && Array.isArray(list.messages) && list.messages.length > 0) {
           console.log('[SYNC] Processing', list.messages.length, 'messages...')
+          fetchedCount = list.messages.length
+
+          // Check which message IDs already exist in the database for progress tracking
+          const messageIds = list.messages.map(m => m.id).filter(Boolean) as string[]
+          const existingEmails = await prisma.flightEmail.findMany({
+            where: {
+              userId: userId,
+              emailAccountId: account.id,
+              messageId: {
+                in: messageIds
+              }
+            },
+            select: {
+              messageId: true
+            }
+          })
+
+          const existingMessageIds = new Set(existingEmails.map(e => e.messageId))
+          console.log('[SYNC] Already processed:', existingMessageIds.size, 'out of', messageIds.length)
 
           for (const m of list.messages) {
             if (!m.id) {
               console.log('[SYNC] Skipping message with no ID')
+              failedCount++
+              continue
+            }
+
+            // Skip if already processed (for progress tracking)
+            if (existingMessageIds.has(m.id)) {
+              console.log('[SYNC] Message already processed, skipping:', m.id)
+              alreadyProcessedCount++
               continue
             }
 
@@ -570,6 +648,7 @@ export async function POST(request: NextRequest) {
               console.error('[SYNC] Error processing message ID:', m.id)
               console.error('[SYNC] Message error details:', messageError)
               console.error('[SYNC] Message error stack:', messageError instanceof Error ? messageError.stack : 'No stack trace')
+              failedCount++
               // Continue processing other messages
             }
           }
@@ -584,6 +663,7 @@ export async function POST(request: NextRequest) {
               skipDuplicates: true,
             })
             console.log('[SYNC] Insert result count:', insertResult.count)
+            newlyAddedCount = insertResult.count
 
             // Fetch the inserted emails to create travel entries
             if (insertResult.count > 0 && flightEmails && Array.isArray(flightEmails) && flightEmails.length > 0) {
@@ -655,8 +735,18 @@ export async function POST(request: NextRequest) {
 
         const emailCount = Array.isArray(flightEmails) ? flightEmails.length : 0
         console.log('[SYNC] Email count for account:', emailCount)
-        totalCount += emailCount
-        aggregateResults.push({ accountId: account.id, email: account.email || '', count: emailCount })
+        totalCount += newlyAddedCount
+        aggregateResults.push({
+          accountId: account.id,
+          email: account.email || '',
+          count: emailCount,
+          stats: {
+            fetched: fetchedCount,
+            alreadyProcessed: alreadyProcessedCount,
+            newlyAdded: newlyAddedCount,
+            failed: failedCount
+          }
+        })
 
         console.log('[SYNC] Updating account sync status to completed...')
         await prisma.emailAccount.update({
@@ -689,7 +779,26 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[SYNC] Gmail sync completed successfully, total count:', totalCount)
-    return NextResponse.json({ success: true, totalCount, results: aggregateResults })
+
+    // Calculate aggregate stats across all accounts
+    const aggregateStats = aggregateResults.reduce(
+      (acc, result) => ({
+        fetched: acc.fetched + (result.stats?.fetched || 0),
+        alreadyProcessed: acc.alreadyProcessed + (result.stats?.alreadyProcessed || 0),
+        newlyAdded: acc.newlyAdded + (result.stats?.newlyAdded || 0),
+        failed: acc.failed + (result.stats?.failed || 0)
+      }),
+      { fetched: 0, alreadyProcessed: 0, newlyAdded: 0, failed: 0 }
+    )
+
+    return NextResponse.json({
+      success: true,
+      totalCount,
+      stats: aggregateStats,
+      results: aggregateResults,
+      nextPageToken: nextPageToken || undefined,
+      hasMore: !!nextPageToken
+    })
   } catch (error) {
     console.error('[SYNC] Top-level error syncing Gmail:', error)
     console.error('[SYNC] Error type:', typeof error)
