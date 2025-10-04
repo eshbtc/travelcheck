@@ -1,23 +1,27 @@
 {
-  "timestamp": "2025-10-03 21:38:47 CDT",
+  "timestamp": "2025-10-04 02:16:07 CDT",
   "agents_seen": [
     "Main Agent (Direct Work)"
   ],
   "decisions": [
-    "chore: Trigger Railway redeploy to load Google OAuth credentials",
-    "fix: Add linkAccount adapter override to generate Account UUIDs",
-    "fix: Re-add custom createUser adapter to generate UUID"
+    "Configuration and hook updates"
   ],
   "open_questions": [],
   "owned_artifacts": [
-    "frontend/src/lib/auth.config.ts",
+    "rontend/app/api/gmail/sync/route.ts",
+    "frontend/app/api/office365/sync/route.ts",
     "~/claude-hooks/logs/turn_count.txt",
     "~/claude-hooks/logs/file_hashes.json"
   ],
   "contracts_touched": [],
   "files_touched": [
     {
-      "path": "frontend/src/lib/auth.config.ts",
+      "path": "rontend/app/api/gmail/sync/route.ts",
+      "reason": "modified",
+      "anchors": []
+    },
+    {
+      "path": "frontend/app/api/office365/sync/route.ts",
       "reason": "modified",
       "anchors": []
     },

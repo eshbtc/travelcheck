@@ -3,6 +3,7 @@ import { requireAuth } from '../../../../src/lib/api-auth'
 import { prisma } from '../../../../src/lib/prisma'
 import { google } from 'googleapis'
 import crypto from 'crypto'
+import { shouldProcessEmail, extractAndValidateFlightData } from '../../../../src/lib/email-validator'
 
 // Decryption function
 function getKey() {
@@ -819,15 +820,24 @@ export async function POST(request: NextRequest) {
               const emailContent = extractEmailContent(email.payload)
               console.log('[SYNC] Email content extracted, length:', emailContent.length)
 
-              console.log('[SYNC] Extracting flight info...')
-              const extractedFlights = await extractFlightInfo(emailContent, subject, from)
-              console.log('[SYNC] Flight info extracted:', extractedFlights)
+              console.log('[SYNC] Pre-filtering email...')
+              // Pre-filter: Quick rejection for marketing emails
+              if (!shouldProcessEmail(subject, from)) {
+                console.log('[SYNC] Email rejected by pre-filter (marketing/non-booking)')
+                failedCount++
+                continue
+              }
 
-              // Calculate confidence score from extracted data
-              const confidence = extractedFlights.confidence || 0
+              console.log('[SYNC] Extracting and validating flight info...')
+              const validationResult = extractAndValidateFlightData(subject, emailContent, from)
+              console.log('[SYNC] Validation result:', {
+                isValid: validationResult.isValid,
+                confidence: validationResult.confidence,
+                reasons: validationResult.reasons,
+              })
 
-              // Only save emails with confidence > 0.5
-              if (confidence > 0.5) {
+              // Only save emails that pass validation (confidence >= 0.75)
+              if (validationResult.isValid && validationResult.confidence >= 0.75) {
                 flightEmails.push({
                   userId: userId,
                   emailAccountId: account.id,
@@ -836,16 +846,16 @@ export async function POST(request: NextRequest) {
                   sender: from,
                   recipient: account.email || '',
                   bodyText: emailContent,
-                  flightData: extractedFlights,
-                  parsedData: extractedFlights,
-                  confidenceScore: confidence,
+                  flightData: validationResult.extractedData,
+                  parsedData: validationResult.extractedData,
+                  confidenceScore: validationResult.confidence,
                   processingStatus: 'completed',
                   isProcessed: true,
                   dateReceived: date ? new Date(date) : new Date(),
                 })
-                console.log('[SYNC] Flight email added to array (confidence:', confidence, '), total count:', flightEmails.length)
+                console.log('[SYNC] Flight email added to array (confidence:', validationResult.confidence, '), total count:', flightEmails.length)
               } else {
-                console.log('[SYNC] Flight email skipped due to low confidence:', confidence)
+                console.log('[SYNC] Flight email rejected:', validationResult.reasons.join('; '))
               }
             } catch (messageError) {
               console.error('[SYNC] Error processing message ID:', m.id)

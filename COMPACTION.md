@@ -1,21 +1,20 @@
-# Compaction Summary — 2025-10-03 21:38:47 CDT
+# Compaction Summary — 2025-10-04 02:16:07 CDT
 
 ## Executive Summary
 - Agents active: Main Agent (Direct Work)
-- Files modified: 3
+- Files modified: 4
 - Contracts affected: 0
 - Open questions: 0
 
 ## Key Decisions (retain for context)
-- chore: Trigger Railway redeploy to load Google OAuth credentials
-- fix: Add linkAccount adapter override to generate Account UUIDs
-- fix: Re-add custom createUser adapter to generate UUID
+- Configuration and hook updates
 
 ## Next Steps (actionable)
 - n/a
 
 ## Critical Paths (for JIT retrieval)
-- `frontend/src/lib/auth.config.ts`
+- `rontend/app/api/gmail/sync/route.ts`
+- `frontend/app/api/office365/sync/route.ts`
 - `~/claude-hooks/logs/turn_count.txt`
 - `~/claude-hooks/logs/file_hashes.json`
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '../../../../src/lib/api-auth'
 import { prisma } from '../../../../src/lib/prisma'
 import crypto from 'crypto'
+import { shouldProcessEmail, extractAndValidateFlightData } from '../../../../src/lib/email-validator'
 
 // Decryption function
 function getKey() {
@@ -678,13 +679,24 @@ export async function POST(request: NextRequest) {
         const date = item.receivedDateTime || item.sentDateTime || ''
         const content = item.body?.content || ''
 
-        const extractedFlights = await extractFlightInfo(content, subject, from)
+        console.log('[Office365 Sync] Pre-filtering email...')
+        // Pre-filter: Quick rejection for marketing emails
+        if (!shouldProcessEmail(subject, from)) {
+          console.log('[Office365 Sync] Email rejected by pre-filter (marketing/non-booking)')
+          alreadyProcessedCount++ // Count as skipped
+          continue
+        }
 
-        // Calculate confidence score from extracted data
-        const confidence = extractedFlights.confidence || 0
+        console.log('[Office365 Sync] Extracting and validating flight info...')
+        const validationResult = extractAndValidateFlightData(subject, content, from)
+        console.log('[Office365 Sync] Validation result:', {
+          isValid: validationResult.isValid,
+          confidence: validationResult.confidence,
+          reasons: validationResult.reasons,
+        })
 
-        // Only save emails with confidence > 0.5
-        if (confidence > 0.5) {
+        // Only save emails that pass validation (confidence >= 0.75)
+        if (validationResult.isValid && validationResult.confidence >= 0.75) {
           const flightData = {
             userId: userId,
             emailAccountId: account.id,
@@ -694,18 +706,18 @@ export async function POST(request: NextRequest) {
             recipient: account.email || '',
             bodyText: content,
             bodyHtml: content,
-            flightData: extractedFlights,
-            parsedData: extractedFlights,
-            confidenceScore: confidence,
+            flightData: validationResult.extractedData,
+            parsedData: validationResult.extractedData,
+            confidenceScore: validationResult.confidence,
             processingStatus: 'completed',
             isProcessed: true,
             dateReceived: date ? new Date(date) : new Date(),
           }
 
           flightEmails.push(flightData)
-          console.log('[Office365 Sync] Flight email added (confidence:', confidence, ')')
+          console.log('[Office365 Sync] Flight email added (confidence:', validationResult.confidence, ')')
         } else {
-          console.log('[Office365 Sync] Flight email skipped due to low confidence:', confidence)
+          console.log('[Office365 Sync] Flight email rejected:', validationResult.reasons.join('; '))
         }
       } catch (itemError) {
         console.error('[Office365 Sync] Error processing message:', item.id, itemError)

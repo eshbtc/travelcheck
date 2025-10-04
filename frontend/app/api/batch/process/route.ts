@@ -285,10 +285,34 @@ export async function POST(request: NextRequest) {
       // Continue anyway - the actual processing succeeded
     }
 
+    // Transform results to match UI expectations
+    const scans = results.map((result: any) => ({
+      fileName: result.fileName,
+      data: {
+        ...result.data,
+        confidence: result.data?.confidence ? Math.round(result.data.confidence * 100) : 0
+      },
+      status: result.success ? 'completed' : 'failed',
+      message: result.error || null
+    }))
+
     return NextResponse.json({
       success: true,
       batchId,
-      results,
+      data: {
+        total: batchStatus.total,
+        processed: batchStatus.total,
+        successful: batchStatus.successful,
+        failed: batchStatus.failed,
+        cached: 0, // Not tracking cached in this implementation
+        duplicateCount: 0, // Not tracking duplicates yet
+        errorCount: batchStatus.failed,
+        scans,
+        errors: results.filter((r: any) => !r.success).map((r: any) => ({
+          fileName: r.fileName,
+          message: r.error || 'Processing failed'
+        }))
+      },
       summary: {
         total: batchStatus.total,
         successful: batchStatus.successful,

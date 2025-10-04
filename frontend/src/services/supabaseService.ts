@@ -180,7 +180,9 @@ class SupabaseServiceStub {
       console.log('[SupabaseService] Batch process success:', {
         success: data.success,
         batchId: data.batchId,
-        resultCount: data.results?.length
+        hasData: !!data.data,
+        scansCount: data.data?.scans?.length || 0,
+        totalProcessed: data.data?.processed || 0
       })
       return data
     } catch (error) {
