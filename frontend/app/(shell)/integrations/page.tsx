@@ -2,8 +2,11 @@
 export const dynamic = 'force-dynamic'
 
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'react-hot-toast'
 import {
   IntegrationCard,
   ProviderFilters,
@@ -24,6 +27,8 @@ import type { IngestParams } from '@/services/integrationService'
 export default function IntegrationsPage() {
   const { data: session } = useSession()
   const user = session?.user
+  const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const [selectedProviders, setSelectedProviders] = useState<string[]>([
     'booking.com',
     'hotels.com',
@@ -59,6 +64,24 @@ export default function IntegrationsPage() {
 
   const { isGmailConnected, isOffice365Connected, gmailStatus, office365Status } = useConnectionStatus()
   const { canIngestGmail, canIngestOffice365, canIngestAny, needsConnection, needsProviders } = useIngestionReadiness(selectedProviders)
+
+  // Handle OAuth callback redirect
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+
+    if (success) {
+      toast.success(success)
+      // Refetch integration status
+      queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] })
+      // Clean up URL
+      window.history.replaceState({}, '', '/integrations')
+    } else if (error) {
+      toast.error(error)
+      // Clean up URL
+      window.history.replaceState({}, '', '/integrations')
+    }
+  }, [searchParams, queryClient])
 
   const handleProviderToggle = (provider: string) => {
     setSelectedProviders(prev => 
